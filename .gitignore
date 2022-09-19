@@ -50,3 +50,15 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# User files
+*.vcxproj.user
+
+quick.h
+stb_image.h
+
+samples/version.h
+bin/*
+build/*
+msvc2022/.vs/*
+

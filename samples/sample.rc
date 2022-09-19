@@ -1,0 +1,79 @@
+﻿#ifdef RC_INVOKED
+#ifndef _INC_WINDOWS
+#define _INC_WINDOWS
+#include "winres.h"
+#endif
+#endif
+
+#include "i18n.h"
+
+101 ICON "sample.ico"
+sample_png RCDATA "sample.png" // https://en.wikipedia.org/wiki/File:Philips_PM5544.svg
+
+#define company_name "Insert Name Here"
+#define copyright "Copyright (C) YYYY Insert Name Here. All rights reserved."
+#define file_description "UI sample app"
+#define original_file_name "sample.exe"
+#define product_name "sample"
+
+#include "..\samples\version.rc"
+
+LANGUAGE LANG_CHINESE, SUBLANG_NEUTRAL
+
+// to localize Chinese variants:
+// use LANG_CHINESE, SUBLANG_CHINESE_TRADITIONAL, SUBLANG_CHINESE_HONGKONG
+//                   SUBLANG_CHINESE_SINGAPORE, SUBLANG_CHINESE_MACAU ...
+
+STRINGTABLE {
+    str_slider_accel      , L"加速 Ctrl x10 Shift x100 而 Ctrl+Shift x1000"
+    str_file_open         , L"已连接"
+    str_about             , L"盖"
+    str_button_messagebox , L"消息框"
+    str_scroll            , L"滚动方向："
+    str_natural           , L"自然"
+    str_reverse           , L"反向"
+    str_full_screen       , L"全屏"
+    str_yes               , L"是的"
+    str_no                , L"不"
+    str_mbx               , L"""Pneumonoultramicroscopicsilicovolcanoconiosis""\n它是最长的英语单词还是不是？"
+    str_window            , L"窗口"
+    str_monitor           , L"显示器"
+    str_client_area       , L"客户区"
+    str_mouse             , L"鼠标坐标"
+    str_header            , L"标题"
+    str_left_top          , L"左上"
+    str_zoom              , L"飞涨: 1 / (2^%d)"
+}
+
+// Order of languages is important. (ENGLISH, NEUTRAL) must be last.
+// It is assumed that application messaging is expressed in Neutral
+// English and strings used in the body of code match character by
+// character with the strings in the NEUTRAL ENGLISH STRINGTABLE.
+// It is also assumed that same str_ids are used for all string tables
+// are the same for each unique string in the code.
+
+LANGUAGE LANG_ENGLISH, SUBLANG_NEUTRAL
+
+// to localize English variants:
+// use LANG_ENGLISH, SUBLANG_ENGLISH_US, SUBLANG_ENGLISH_UK ...
+
+STRINGTABLE {
+    str_slider_accel      , L"Accelerate by Ctrl x10 Shift x100 and Ctrl+Shift x1000"
+    str_file_open         , L"&Open"
+    str_about             , L"&About"
+    str_button_messagebox , L"&Message Box"
+    str_scroll            , L"Scroll &Direction:"
+    str_natural           , L"Natural"
+    str_reverse           , L"Reverse"
+    str_full_screen       , L"&Full Screen"
+    str_yes               , L"&Yes"
+    str_no                , L"&No"
+    str_mbx               , L"""Pneumonoultramicroscopicsilicovolcanoconiosis""\nis it the longest English language word or not?"
+    str_window            , L"Window"
+    str_monitor           , L"Monitor"
+    str_client_area       , L"Client area"
+    str_mouse             , L"Mouse"
+    str_header            , L"Header"
+    str_left_top          , L"Left Top"
+    str_zoom              , L"Zoom: 1 / (2^%d)"
+}

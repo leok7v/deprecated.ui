@@ -1,0 +1,33 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClInclude Include="..\samples\i18n.h">
+      <Filter>res</Filter>
+    </ClInclude>
+    <ClInclude Include="..\samples\version.h">
+      <Filter>res</Filter>
+    </ClInclude>
+    <ClInclude Include="..\quick.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="res">
+      <UniqueIdentifier>{c60b96ea-15fe-4796-86c9-3b9428dc82c7}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\samples\sample.ico">
+      <Filter>res</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\samples\sample.rc">
+      <Filter>res</Filter>
+    </ResourceCompile>
+    <ResourceCompile Include="..\samples\version.rc">
+      <Filter>res</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\samples\sample2.c" />
+  </ItemGroup>
+</Project>
