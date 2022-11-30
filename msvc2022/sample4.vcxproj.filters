@@ -9,6 +9,7 @@
     </ClInclude>
     <ClInclude Include="..\quick.h" />
     <ClInclude Include="..\stb_image.h" />
+    <ClInclude Include="..\crt.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="res">
@@ -33,5 +34,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\samples\sample4.c" />
+    <ClCompile Include="..\samples\crt.c" />
+    <ClCompile Include="..\samples\quick.c" />
   </ItemGroup>
 </Project>

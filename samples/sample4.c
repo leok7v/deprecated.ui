@@ -1,7 +1,5 @@
 /* Copyright (c) Dmitry "Leo" Kuznetsov 2021 see LICENSE for details */
 #include "quick.h"
-#define quick_implementation // alt: quick_implementation_console
-#include "quick.h"
 
 begin_c
 
@@ -114,3 +112,4 @@ static void* load_image(const byte* data, int64_t bytes, int32_t* w, int32_t* h,
     return pixels;
 }
  end_c
+

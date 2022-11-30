@@ -1,7 +1,7 @@
 /* Copyright (c) Dmitry "Leo" Kuznetsov 2021 see LICENSE for details */
 #include "quick.h"
-#define quick_implementation
-#include "quick.h"
+#include <Windows.h>
+#include <WindowsX.h>
 
 begin_c
 
@@ -229,8 +229,6 @@ static void center_paint(uic_t* ui) {
     int x = (ui->w - image.w) / 2;
     int y = (ui->h - image.h) / 2;
 //  gdi.alpha_blend(ui->x + x, ui->y + y, image.w, image.h, &image, 0.8);
-
-
     HDC canvas = GetDC((HWND)app.window);
     fatal_if_null(canvas);
     HDC src = CreateCompatibleDC(canvas); fatal_if_null(src);
@@ -248,7 +246,6 @@ static void center_paint(uic_t* ui) {
     fatal_if_false(StretchBlt((HDC)app.canvas, ui->x + x, ui->y + y,
         image.w, image.h, dst, 0, 0,
         image.w, image.h, SRCCOPY));
-
     fatal_if_null(SelectBitmap(dst, d));
     fatal_if_null(SelectBitmap(src, s));
     fatal_if_false(DeleteBitmap(bitmap));

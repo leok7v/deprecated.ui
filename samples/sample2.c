@@ -1,7 +1,6 @@
 /* Copyright (c) Dmitry "Leo" Kuznetsov 2021 see LICENSE for details */
 #include "quick.h"
-#define quick_implementation
-#include "quick.h"
+#include <math.h>
 
 begin_c
 

@@ -1,13 +1,11 @@
 /* Copyright (c) Dmitry "Leo" Kuznetsov 2021 see LICENSE for details */
 #include "quick.h"
-#define quick_implementation
-#include "quick.h"
 
 begin_c
 
 const char* title = "Sample3";
 
-static volatile int ix; // ix of image to paint, !ix to render
+static volatile int index; // index of image to paint, !ix to render
 static image_t image[2];
 static byte pixels[2][4 * 4096 * 4096];
 
@@ -25,7 +23,7 @@ uic_button(full_screen, "\xE2\xA7\x89", 1.0, {
 });
 
 static void paint(uic_t* ui) {
-    int k = ix;
+    int k = index;
     gdi.draw_image(0, 0, ui->w, ui->h, &image[k]);
     gdi.x = ui->em.x;
     gdi.y = ui->em.y / 4;
@@ -55,14 +53,14 @@ static void measure(uic_t* ui) {
     ui->h = app.crc.h;
     const int w = ui->w;
     const int h = ui->h;
-    image_t* im = &image[ix];
+    image_t* im = &image[index];
     if (w != im->w || h != im->h) {
         stop_rendering();
-        im = &image[!ix];
+        im = &image[!index];
         gdi.image_dispose(im);
-        fatal_if(w * h * 4 > countof(pixels[!ix]),
+        fatal_if(w * h * 4 > countof(pixels[!index]),
             "increase size of pixels[][%d * %d * 4]", w, h);
-        gdi.image_init(im, w, h, 4, pixels[!ix]);
+        gdi.image_init(im, w, h, 4, pixels[!index]);
         request_rendering();
     }
 }
@@ -181,11 +179,11 @@ static void renderer(void* unused) {
     for (;;) {
         int e = events.wait_any(countof(es), es);
         if (e != 0) { break; }
-        int k = !ix;
+        int k = !index;
         app.set_cursor(app.cursor_wait);
         mandelbrot(&image[k]);
         app.set_cursor(app.cursor_arrow);
-        if (!stop) { ix = !ix; app.redraw(); }
+        if (!stop) { index = !index; app.redraw(); }
         stop = false;
         rendering = false;
     }
