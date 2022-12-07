@@ -11,10 +11,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{4A21BE1F-678C-4733-A9F0-A7BFFFCF3CC2}</ProjectGuid>
+    <ProjectGuid>{4A21BE1F-678C-4733-A9F1-A8BFFFCF3CC2}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>sample</RootNamespace>
-    <ProjectName>sample1</ProjectName>
+    <ProjectName>sample5</ProjectName>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -166,7 +166,7 @@
   <ItemGroup>
     <ClCompile Include="..\samples\crt.c" />
     <ClCompile Include="..\samples\quick.c" />
-    <ClCompile Include="..\samples\sample1.c" />
+    <ClCompile Include="..\samples\sample5.c" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="prebuild.vcxproj">

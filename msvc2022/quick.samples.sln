@@ -6,6 +6,7 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{FA83895A-1CED-4FC5-9F11-6AFA109CFC7D}"
 	ProjectSection(SolutionItems) = preProject
 		..\scripts\download.bat = ..\scripts\download.bat
+		manifest.xml = manifest.xml
 		..\README.md = ..\README.md
 		..\scripts\version.bat = ..\scripts\version.bat
 	EndProjectSection
@@ -21,6 +22,8 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "sample9", "sample9.vcxproj", "{1B99C2EE-3A7E-46B0-3B3D-5DB99BF75A34}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "prebuild", "prebuild.vcxproj", "{9F53C795-2A93-4154-8B04-BB1829D67602}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "sample5", "sample5.vcxproj", "{4A21BE1F-678C-4733-A9F1-A8BFFFCF3CC2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -78,6 +81,14 @@ Global
 		{9F53C795-2A93-4154-8B04-BB1829D67602}.Release|x64.Build.0 = Release|x64
 		{9F53C795-2A93-4154-8B04-BB1829D67602}.Release|x86.ActiveCfg = Release|Win32
 		{9F53C795-2A93-4154-8B04-BB1829D67602}.Release|x86.Build.0 = Release|Win32
+		{4A21BE1F-678C-4733-A9F1-A8BFFFCF3CC2}.Debug|x64.ActiveCfg = Debug|x64
+		{4A21BE1F-678C-4733-A9F1-A8BFFFCF3CC2}.Debug|x64.Build.0 = Debug|x64
+		{4A21BE1F-678C-4733-A9F1-A8BFFFCF3CC2}.Debug|x86.ActiveCfg = Debug|x64
+		{4A21BE1F-678C-4733-A9F1-A8BFFFCF3CC2}.Debug|x86.Build.0 = Debug|x64
+		{4A21BE1F-678C-4733-A9F1-A8BFFFCF3CC2}.Release|x64.ActiveCfg = Release|x64
+		{4A21BE1F-678C-4733-A9F1-A8BFFFCF3CC2}.Release|x64.Build.0 = Release|x64
+		{4A21BE1F-678C-4733-A9F1-A8BFFFCF3CC2}.Release|x86.ActiveCfg = Release|x64
+		{4A21BE1F-678C-4733-A9F1-A8BFFFCF3CC2}.Release|x86.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

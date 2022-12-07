@@ -7,6 +7,7 @@
 
 #include "i18n.h"
 
+1 RT_MANIFEST "manifest.xml"
 101 ICON "sample.ico"
 sample_png RCDATA "sample.png" // https://en.wikipedia.org/wiki/File:Philips_PM5544.svg
 
