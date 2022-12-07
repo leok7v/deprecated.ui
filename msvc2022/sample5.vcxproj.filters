@@ -9,6 +9,7 @@
     </ClInclude>
     <ClInclude Include="..\quick.h" />
     <ClInclude Include="..\crt.h" />
+    <ClInclude Include="..\samples\edit.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="res">
@@ -32,5 +33,6 @@
     <ClCompile Include="..\samples\sample5.c" />
     <ClCompile Include="..\samples\crt.c" />
     <ClCompile Include="..\samples\quick.c" />
+    <ClCompile Include="..\samples\edit.c" />
   </ItemGroup>
 </Project>
