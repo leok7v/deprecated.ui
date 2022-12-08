@@ -20,9 +20,6 @@ typedef struct edit_selection_s {
 
 typedef struct uic_edit_s {
     uic_t ui;
-    bool monospced;
-    bool multiline;
-    bool wordbreak;
     uic_edit_selection_t selection;
     uic_edit_position_t top; // position in the text of left top corner
     void (*copy)();  // selection to clipboard
@@ -30,6 +27,10 @@ typedef struct uic_edit_s {
     void (*paste)(); // replace selection with content of clipboard
     void (*erase)(); // delete selection
     int32_t lines; // number of lines in the text
+    bool focused;
+    bool monospced;
+    bool multiline;
+    bool wordbreak;
     char* text[1024 * 128]; // 128K lines supported
 } uic_edit_t;
 

@@ -1,7 +1,6 @@
 /* Copyright (c) Dmitry "Leo" Kuznetsov 2021 see LICENSE for details */
 #include "quick.h"
 #include "edit.h"
-#include <Windows.h>
 
 begin_c
 
@@ -40,15 +39,6 @@ static void init() {
 static void openned() {
     mono_H3 = gdi.font(app.fonts.mono, gdi.get_em(app.fonts.H3).y);
     edit.ui.font = &mono_H3;
-    fatal_if_false(CreateCaret((HWND)app.window, null, 2, gdi.get_em(app.fonts.H3).y));
-    SetCaretBlinkTime(400);
-    // Expected manifest.xml containing UTF-8 code page
-    // for Translate message and WM_CHAR to deliver UTF-8 characters
-    // see: https://learn.microsoft.com/en-us/windows/apps/design/globalizing/use-utf8-code-page
-    assert(GetACP() == 65001, "GetACP()=%d", GetACP());
-    // at the moment of writing there is no API call to inform Windows about process
-    // prefered codepage except manifest.xml file in resource #1.
-    // Absence of manifest.xml will result to ancient and useless ANSI 1252 codepage
 }
 
 app_t app = {

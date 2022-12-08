@@ -5,33 +5,17 @@
 
 begin_c
 
-static void uic_edit_paint(uic_t* ui);
-static void uic_edit_measure(uic_t* ui);
-static void uic_edit_mouse(uic_t* ui, int message, int flags);
-static void uic_edit_key_down(uic_t* ui, int32_t key);
-static void uic_edit_keyboard(uic_t* ui, int32_t character);
-
-void uic_edit_init(uic_edit_t* e) {
-    uic_init(&e->ui);
-    e->ui.tag = uic_tag_edit;
-    e->text[0] = strdup("Hello World!");
-    e->text[1] = strdup("Good bye Universe...");
-    for (int i = 0; i < 20; i += 2) {
-        e->text[2 + i] = strdup("0         10        20        30        40        50        60        70        80        90");
-        e->text[3 + i] = strdup("0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789");
-    }
-    e->lines = 22;
-    e->ui.color = rgb(168, 168, 150); // colors.text;
-    e->ui.font = &app.fonts.mono;
-    e->ui.paint = uic_edit_paint;
-    e->ui.measure = uic_edit_measure;
-    e->ui.mouse = uic_edit_mouse;
-    e->ui.key_down = uic_edit_key_down;
-    e->ui.keyboard = uic_edit_keyboard;
-}
+// static void uic_edit_paint(uic_t* ui);
+// static void uic_edit_measure(uic_t* ui);
+// static void uic_edit_mouse(uic_t* ui, int message, int flags);
+// static void uic_edit_key_down(uic_t* ui, int32_t key);
+// static void uic_edit_keyboard(uic_t* ui, int32_t character);
 
 static void uic_edit_measure(uic_t* ui) {
     ui->em = gdi.get_em(*ui->font);
+    assert(ui->tag == uic_tag_edit);
+    uic_edit_t* e = (uic_edit_t*)ui;
+    traceln("e->focused=%d", e->focused);
 }
 
 static uint64_t uic_edit_pos(int line, int column) {
@@ -89,7 +73,6 @@ static void uic_edit_paint(uic_t* ui) {
     gdi.set_brush_color(rgb(20, 20, 14));
     gdi.fill(0, 0, ui->w, ui->h);
     uic_edit_paint_selection(e);
-#if 1
     const int32_t x = ui->x + ui->em.x / 3;
     gdi.push(x, ui->y + ui->em.x / 16);
     font_t f = ui->font != null ? *ui->font : app.fonts.regular;
@@ -103,13 +86,31 @@ static void uic_edit_paint(uic_t* ui) {
         if (gdi.y > ui->y + ui->h) { break; }
     }
     gdi.pop();
-#endif
+}
+
+static void uic_edit_focus(uic_edit_t* e) {
+    HWND wnd = (HWND)app.window;
+    if (app.focus == &e->ui) {
+        if (!e->focused) {
+            fatal_if_false(CreateCaret(wnd, null, 2, e->ui.em.y));
+            fatal_if_false(SetCaretBlinkTime(400));
+            fatal_if_false(ShowCaret(wnd));
+            e->focused = true;
+        }
+    } else {
+        if (e->focused) {
+            fatal_if_false(HideCaret(wnd));
+            fatal_if_false(DestroyCaret());
+            e->focused = false;
+        }
+    }
 }
 
 static void uic_set_position(uic_edit_t* e,
         int32_t line, int32_t column) {
-    SetCaretPos(e->ui.x + column * e->ui.em.x + e->ui.em.x / 3,
-                e->ui.y + line * e->ui.em.y + e->ui.em.y / 4);
+    int32_t x = e->ui.x + column * e->ui.em.x + e->ui.em.x / 3;
+    int32_t y = e->ui.y + line * e->ui.em.y + e->ui.em.y / 4;
+    fatal_if_false(SetCaretPos(x, y));
     e->selection.end.line = line;
     e->selection.end.column = column;
     if (!app.shift) {
@@ -121,14 +122,17 @@ static void uic_set_position(uic_edit_t* e,
     }
 }
 
-static void uic_edit_mouse(uic_t* ui, int message, int unused(flags)) {
+static void uic_edit_mouse(uic_t* ui, int m, int unused(flags)) {
     assert(ui->tag == uic_tag_edit);
     assert(!ui->hidden);
     uic_edit_t* e = (uic_edit_t*)ui;
-    if (message == messages.left_button_down ||
-        message == messages.right_button_down) {
-        int32_t x = app.mouse.x - e->ui.x;
-        int32_t y = app.mouse.y - e->ui.y;
+    const int32_t x = app.mouse.x - e->ui.x;
+    const int32_t y = app.mouse.y - e->ui.y;
+    bool inside = 0 <= x && x < ui->w && 0 <= y && y < ui->h;
+    if (inside && m == messages.left_button_down ||
+                  m == messages.right_button_down) {
+        app.focus = ui;
+        uic_edit_focus(e);
         int32_t line   = y / ui->em.y;
         int32_t column = x / ui->em.x;
         if (line > e->lines) { line = max(0, e->lines); }
@@ -136,15 +140,6 @@ static void uic_edit_mouse(uic_t* ui, int message, int unused(flags)) {
         if (column > chars) { column = max(0, chars); }
 //      traceln("%d %d [%d:%d]", x, y, line, column);
         uic_set_position(e, line, column);
-    } else {
-        bool inside =
-            ui->x <= app.mouse.x && app.mouse.x < ui->x + ui->w &&
-            ui->y <= app.mouse.y && app.mouse.y < ui->y + ui->h;
-        if (inside) {
-            ShowCaret((HWND)app.window);
-        } else {
-            HideCaret((HWND)app.window);
-        }
     }
     ui->invalidate(ui);
 }
@@ -153,40 +148,76 @@ static void uic_edit_key_down(uic_t* ui, int32_t key) {
     assert(ui->tag == uic_tag_edit);
     assert(!ui->hidden);
     uic_edit_t* e = (uic_edit_t*)ui;
-    int32_t line = e->selection.end.line;
-    int32_t column = e->selection.end.column;
-    if (key == virtual_keys.down) {
-        if (line < e->lines) { line++; }
-        if (line == e->lines) { column = 0; }
-    } else if (key == virtual_keys.up) {
-        if (line > 0) {
-            line--;
-            column = min(column, uic_line_chars(e, line));
-        }
-    } else if (key == virtual_keys.left) {
-        if (column == 0) {
+    if (e->focused) {
+        int32_t line = e->selection.end.line;
+        int32_t column = e->selection.end.column;
+        if (key == virtual_keys.down) {
+            if (line < e->lines) { line++; }
+            if (line == e->lines) { column = 0; }
+        } else if (key == virtual_keys.up) {
             if (line > 0) {
                 line--;
-                column = uic_line_chars(e, line);
+                column = min(column, uic_line_chars(e, line));
             }
-        } else {
-            column--;
+        } else if (key == virtual_keys.left) {
+            if (column == 0) {
+                if (line > 0) {
+                    line--;
+                    column = uic_line_chars(e, line);
+                }
+            } else {
+                column--;
+            }
+        } else if (key == virtual_keys.right) {
+            if (column >= uic_line_chars(e, line)) {
+                if (line < e->lines) { line++; column = 0; }
+            } else {
+                column++;
+            }
         }
-    } else if (key == virtual_keys.right) {
-        if (column >= uic_line_chars(e, line)) {
-            if (line < e->lines) { line++; column = 0; }
-        } else {
-            column++;
-        }
+        uic_set_position(e, line, column);
+        if (key == VK_ESCAPE) { app.close(); }
+        ui->invalidate(ui);
     }
-    uic_set_position(e, line, column);
-    if (key == VK_ESCAPE) { app.close(); }
-    ui->invalidate(ui);
 }
 
 static void uic_edit_keyboard(uic_t* unused(ui), int32_t ch) {
     ui->invalidate(ui);
 }
 
+static bool uic_edit_message(uic_t* ui, int32_t unused(message),
+        int64_t unused(wp), int64_t unused(lp), int64_t* unused(rt)){
+    assert(ui->tag == uic_tag_edit);
+    uic_edit_focus((uic_edit_t*)ui);
+    return false;
+}
+
+void uic_edit_init(uic_edit_t* e) {
+    uic_init(&e->ui);
+    e->ui.tag = uic_tag_edit;
+    e->ui.font = &app.fonts.mono;
+    e->text[0] = strdup("Hello World!");
+    e->text[1] = strdup("Good bye Universe...");
+    for (int i = 0; i < 20; i += 2) {
+        e->text[2 + i] = strdup("0         10        20        30        40        50        60        70        80        90");
+        e->text[3 + i] = strdup("0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789");
+    }
+    e->lines = 22;
+    e->ui.color = rgb(168, 168, 150); // colors.text;
+    e->ui.font = &app.fonts.mono;
+    e->ui.paint = uic_edit_paint;
+    e->ui.measure = uic_edit_measure;
+    e->ui.mouse = uic_edit_mouse;
+    e->ui.key_down = uic_edit_key_down;
+    e->ui.keyboard = uic_edit_keyboard;
+    e->ui.message = uic_edit_message;
+    // Expected manifest.xml containing UTF-8 code page
+    // for Translate message and WM_CHAR to deliver UTF-8 characters
+    // see: https://learn.microsoft.com/en-us/windows/apps/design/globalizing/use-utf8-code-page
+    assert(GetACP() == 65001, "GetACP()=%d", GetACP());
+    // at the moment of writing there is no API call to inform Windows about process
+    // prefered codepage except manifest.xml file in resource #1.
+    // Absence of manifest.xml will result to ancient and useless ANSI 1252 codepage
+}
 
 end_c
