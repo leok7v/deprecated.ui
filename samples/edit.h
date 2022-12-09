@@ -8,12 +8,21 @@ enum {
     uic_tag_edit       = 'edt'
 };
 
+// uic_edit_line_t.text can point to readonly initial
+// memory area when .allocateed is 0.
+
+typedef struct uic_edit_line_s {
+    char* text;    // utf-8
+    int32_t bytes; // number of bytes in utf-8
+    int32_t allocated; // heap allocated bytes
+} uic_edit_line_t;
+
 typedef struct uic_edit_position_s {
     int32_t line;
     int32_t column;
 } uic_edit_position_t;
 
-typedef struct edit_selection_s {
+typedef struct uic_edit_selection_s {
     uic_edit_position_t start; // can be inverted
     uic_edit_position_t end;   // end always last selected position
 } uic_edit_selection_t;
@@ -26,12 +35,12 @@ typedef struct uic_edit_s {
     void (*cut)();   // selection to clipboard
     void (*paste)(); // replace selection with content of clipboard
     void (*erase)(); // delete selection
-    int32_t lines; // number of lines in the text
     bool focused;
     bool monospced;
     bool multiline;
     bool wordbreak;
-    char* text[1024 * 128]; // 128K lines supported
+    int32_t lines; // number of lines in the text
+    uic_edit_line_t line[1024 * 64]; // 64K lines (can be extended)
 } uic_edit_t;
 
 

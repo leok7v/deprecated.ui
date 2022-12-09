@@ -37,8 +37,8 @@ static void init() {
 }
 
 static void openned() {
-    mono_H3 = gdi.font(app.fonts.mono, gdi.get_em(app.fonts.H3).y);
-    edit.ui.font = &mono_H3;
+//  mono_H3 = gdi.font(app.fonts.mono, gdi.get_em(app.fonts.H3).y);
+//  edit.ui.font = &mono_H3;
 }
 
 app_t app = {
