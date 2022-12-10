@@ -150,7 +150,10 @@ static ui_point_t uic_edit_lc_to_xy(uic_edit_t* e, int32_t ln, int32_t cl) {
         int column = 0;
         for (int j = 0; j < r.count; j++) {
             int32_t cpc = uic_edit_utf8_length(s, r.length[j]);
-            if (i == ln && column <= cl && cl < column + cpc) {
+            // can position cursor after last glyph of last run
+            // but not on after word break end of line:
+            int32_t high = j == r.count - 1 ? column + cpc : column + cpc - 1;
+            if (i == ln && column <= cl && cl <= high) {
                 int32_t offset = uic_edit_column_to_offset(s, cl - column);
                 pt.x = gdi.measure_text(*e->ui.font, "%.*s", offset, s).x;
                 break;
@@ -176,6 +179,7 @@ static uic_edit_position_t uic_edit_xy_to_lc(uic_edit_t* e, int32_t x, int32_t y
     font_t f = *e->ui.font;
     uic_edit_position_t p = {-1, -1};
     int line_y = 0;
+    traceln("x: %d y: %d", x, y);
     for (int i = e->top.line; i < e->lines && p.line < 0; i++) {
         uic_edit_runs_t r;
         uic_edit_runs(e, &e->line[i], e->ui.w, &r);
@@ -193,7 +197,7 @@ static uic_edit_position_t uic_edit_xy_to_lc(uic_edit_t* e, int32_t x, int32_t y
                 if (x >= w - cw / 2) {
                     p.column++; // column past last character
                 }
-//              traceln("x: %d w: %d cw: %d %d:%d", x, w, cw, p.line, p.column);
+                traceln("x: %d w: %d cw: %d %d:%d", x, w, cw, p.line, p.column);
                 break;
             }
             column += cpc;
