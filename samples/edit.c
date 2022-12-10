@@ -7,36 +7,57 @@ begin_c
 
 typedef struct uic_edit_runs_s {
     int32_t count;
-    int32_t length[1024];
+    int32_t length[1024]; // only needed for vertically visible runs
 } uic_edit_runs_t;
 
-static int uic_edit_utf8length(char ch) { // first char of 1,2,3 or 4 bytes seq
+static int uic_edit_utf8_codepoint_bytes(char ch) { // first char of 1,2,3 or 4 bytes seq
+    uint8_t uc = (uint8_t)ch;
     // 0xxxxxxx
-    if ((ch & 0x80) == 0x00) { return 1; }
+    if ((uc & 0x80) == 0x00) { return 1; }
     // 110xxxxx 10xxxxxx 0b1100=0xE 0x1100=0xC
-    if ((ch & 0xE0) == 0xC0) { return 2; }
+    if ((uc & 0xE0) == 0xC0) { return 2; }
     // 1110xxxx 10xxxxxx 10xxxxxx 0b1111=0xF 0x1110=0xE
-    if ((ch & 0xF0) == 0xE0) { return 3; }
+    if ((uc & 0xF0) == 0xE0) { return 3; }
     // 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx 0b1111,1000=0xF8 0x1111,0000=0xF0
-    if ((ch & 0xF8) == 0xF0) { return 4; }
-    fatal_if(true, "incorrect UTF first byte 0%02X", ch);
+    if ((uc & 0xF8) == 0xF0) { return 4; }
+    fatal_if(true, "incorrect UTF first byte 0%02X", uc);
+    return -1;
 }
 
 static int32_t uic_edit_codepoints(const char* utf8, int32_t bytes, int32_t cp[]) {
     int i = 0;
     int k = 0;
     while (i < bytes) {
-        cp[k] = i;
+        if (cp != null) { cp[k] = i; }
         k++;
-        i += uic_edit_utf8length(utf8[i]);
+        i += uic_edit_utf8_codepoint_bytes(utf8[i]);
     }
     return k;
 }
 
-static int32_t uic_edit_break(font_t f, char* text, int32_t bytes, int32_t x) {
-    // about 50 microseconds for 100 bytes
-    int32_t* codepoints = (int32_t*)stackalloc(bytes * sizeof(int32_t));
-    int cpc = uic_edit_codepoints(text, bytes, codepoints); // codepoints count
+static int32_t uic_edit_utf8_length(const char* utf8, int32_t bytes) {
+    return uic_edit_codepoints(utf8, bytes, null);
+}
+
+static int32_t uic_edit_column_to_offset(const char* utf8, int32_t column) {
+    int32_t c = 0;
+    int32_t i = 0;
+    while (c < column) {
+        c++;
+        i += uic_edit_utf8_codepoint_bytes(utf8[i]);
+    }
+    return i;
+}
+
+static int32_t uic_edit_line_cpc(uic_edit_t* e, int32_t ln) { // code point count
+    uic_edit_line_t* line = &e->line[ln];
+    return uic_edit_utf8_length(line->text, line->bytes);
+}
+
+static int32_t uic_edit_break(font_t f, char* text, int32_t x,
+        int32_t* codepoints, int32_t cpc) { // ~50 microseconds for 100 bytes
+    // returns offset from text of the last utf8 character sequence that is
+    // completely to the left of `x`
     int i = 0;
     int j = cpc;
     int32_t k = (i + j + 1) / 2;
@@ -47,12 +68,24 @@ static int32_t uic_edit_break(font_t f, char* text, int32_t bytes, int32_t x) {
         if (w < x) { i = k; } else { j = k; }
         k = (i + j + 1) / 2;
     }
-    int32_t wi = gdi.measure_text(f, "%.*s", i, text).x;
-    int32_t wj = gdi.measure_text(f, "%.*s", j, text).x;
-    int32_t wk = gdi.measure_text(f, "%.*s", k, text).x;
+//  int32_t wi = gdi.measure_text(f, "%.*s", i, text).x;
+//  int32_t wj = gdi.measure_text(f, "%.*s", j, text).x;
+//  int32_t wk = gdi.measure_text(f, "%.*s", k, text).x;
 //  traceln("i %d j %d k %d %d %d %d", i, j, k, wi, wj, wk);
     assert(k > 0);
-    return codepoints[k - 1];
+    return k - 1;
+}
+
+static int32_t uic_edit_break_cp(font_t f, char* text, int32_t bytes, int32_t x) {
+    int32_t* codepoints = (int32_t*)stackalloc(bytes * sizeof(int32_t));
+    int cpc = uic_edit_codepoints(text, bytes, codepoints); // codepoints count
+    return codepoints[uic_edit_break(f, text, x, codepoints, cpc)];
+}
+
+static int32_t uic_edit_break_cl(font_t f, char* text, int32_t bytes, int32_t x) {
+    int32_t* codepoints = (int32_t*)stackalloc(bytes * sizeof(int32_t));
+    int cpc = uic_edit_codepoints(text, bytes, codepoints); // codepoints count
+    return uic_edit_break(f, text, x, codepoints, cpc);
 }
 
 static void uic_edit_runs(uic_edit_t* e, uic_edit_line_t* line, int32_t width,
@@ -66,89 +99,172 @@ static void uic_edit_runs(uic_edit_t* e, uic_edit_line_t* line, int32_t width,
         char* text = line->text;
         int32_t bytes = line->bytes;
         while (r->count < countof(r->length) && bytes > 0) {
-            int32_t k = uic_edit_break(f, text, bytes, width);
+            int32_t k = uic_edit_break_cp(f, text, bytes, width);
             int32_t i = k; // position of space left of k
             while (i > 0 && text[i] != 0x20) { i--; }
             if (i > 0) { k = i; }
             r->length[c] = k;
-//          traceln("pos[%d]=%d", c, r->length[c]);
+//          traceln("length[%d]=%d", c, r->length[c]);
             c++;
             if (gdi.measure_text(f, "%.*s", bytes - k, text + k).x < width) {
+                if (bytes > k) {
+                    r->length[c] = bytes - k;
+//                  traceln("length[%d]=%d", c, r->length[c]);
+                    c++;
+                }
                 break;
             }
             text += k;
             bytes -= k;
         }
         r->count = c;
-        traceln("runs=%d", c);
+//      traceln("runs=%d", c);
     }
 }
 
 static void uic_edit_measure(uic_t* ui) {
     ui->em = gdi.get_em(*ui->font);
-//  assert(ui->tag == uic_tag_edit);
-//  uic_edit_t* e = (uic_edit_t*)ui;
-//  traceln("e->focused=%d", e->focused);
+    assert(ui->tag == uic_tag_edit);
+    uic_edit_t* e = (uic_edit_t*)ui;
+    if (e->focused) {
+        // recreate caret because em.y may have changed
+        HWND wnd = (HWND)app.window;
+        fatal_if_false(DestroyCaret());
+        fatal_if_false(CreateCaret(wnd, null, 2, e->ui.em.y));
+    }
 }
 
 static uint64_t uic_edit_pos(int line, int column) {
     assert(line >= 0 && column >= 0);
-    return ((uint64_t)line << 32) + (uint32_t)column;
+    return ((uint64_t)line << 32) | (uint64_t)column;
 }
 
-static int32_t uic_line_chars(uic_edit_t* e, int line) {
-    return e->lines == 0 || line >= e->lines ?
-        0 : (int32_t)strlen(e->line[line].text);
+static ui_point_t uic_edit_lc_to_xy(uic_edit_t* e, int32_t ln, int32_t cl) {
+    ui_point_t pt = {-1, 0};
+    pt.y = 0; // xxx ??? for now (needs scroll x)
+    uic_edit_runs_t r;
+    for (int i = e->top.line; i < e->lines && pt.x < 0; i++) {
+        uic_edit_runs(e, &e->line[i], e->ui.w, &r);
+        char* s = e->line[i].text;
+        int32_t bytes = e->line[i].bytes;
+        int column = 0;
+        for (int j = 0; j < r.count; j++) {
+            int32_t cpc = uic_edit_utf8_length(s, r.length[j]);
+            if (i == ln && column <= cl && cl < column + cpc) {
+                int32_t offset = uic_edit_column_to_offset(s, cl - column);
+                pt.x = gdi.measure_text(*e->ui.font, "%.*s", offset, s).x;
+                break;
+            }
+            column += cpc;
+            s += r.length[j];
+            bytes -= r.length[j];
+            pt.y += e->ui.em.y;
+        }
+    }
+    return pt;
 }
 
-static void uic_edit_paint_selection(uic_edit_t* e) {
-    const int32_t x = e->ui.x;
-    gdi.push(x, e->ui.y);
-    gdi.set_brush(gdi.brush_color);
-    gdi.set_brush_color(rgb(48, 64, 72));
+static int32_t uic_edit_char_width_px(uic_edit_t* e, int32_t ln, int32_t cl) {
+    char* text = e->line[ln].text;
+    int32_t offset = uic_edit_column_to_offset(text, cl);
+    char* s = text + offset;
+    int32_t bytes = uic_edit_utf8_codepoint_bytes(*s);
+    return gdi.measure_text(*e->ui.font, "%.*s", bytes, s).x;
+}
+
+static uic_edit_position_t uic_edit_xy_to_lc(uic_edit_t* e, int32_t x, int32_t y) {
+    font_t f = *e->ui.font;
+    uic_edit_position_t p = {-1, -1};
+    int line_y = 0;
+    for (int i = e->top.line; i < e->lines && p.line < 0; i++) {
+        uic_edit_runs_t r;
+        uic_edit_runs(e, &e->line[i], e->ui.w, &r);
+        char* s = e->line[i].text;
+        int32_t bytes = e->line[i].bytes;
+        int column = 0;
+        for (int j = 0; j < r.count; j++) {
+            int32_t cpc = uic_edit_utf8_length(s, r.length[j]);
+            if (line_y <= y && y <= line_y + e->ui.em.y) {
+                int32_t w = gdi.measure_text(f, "%.*s", r.length[j], s).x;
+                p.line = i;
+                p.column = column + uic_edit_break_cl(f, s, r.length[j], x);
+                // allow mouse click past half last character
+                int32_t cw = uic_edit_char_width_px(e, p.line, p.column);
+                if (x >= w - cw / 2) {
+                    p.column++; // column past last character
+                }
+//              traceln("x: %d w: %d cw: %d %d:%d", x, w, cw, p.line, p.column);
+                break;
+            }
+            column += cpc;
+            s += r.length[j];
+            bytes -= r.length[j];
+            line_y += e->ui.em.y;
+        }
+        if (line_y > e->ui.h) { break; }
+    }
+    return p;
+}
+
+static void uic_edit_paint_selection(uic_edit_t* e, int32_t ln, int32_t c0, int32_t c1) {
     uint64_t s0 = uic_edit_pos(e->selection.start.line,
         e->selection.start.column);
     uint64_t e0 = uic_edit_pos(e->selection.end.line,
         e->selection.end.column);
-    if (e0 < s0) {
+    if (s0 > e0) {
         uint64_t swap = e0;
         e0 = s0;
         s0 = swap;
     }
-    assert(s0 <= e0);
-    for (int i = e->top.line; i < e->lines; i++) {
-        const int32_t y = e->ui.y + i * e->ui.em.y;
-        uint64_t s1 = uic_edit_pos(i, 0);
-        uint64_t e1 = uic_edit_pos(i, uic_line_chars(e, i));
-//      gdi.fill(x, y, 10, e->ui.em.y);
-//      gdi.fill(6, 43, 361, 43);
-        if (s0 <= e1 && s1 <= e0) {
-            uint64_t start = max(s0, s1);
-            uint64_t end = min(e0, e1);
-            int xs = (start & 0xFFFFFFFF) * e->ui.em.x;
-            int xe = (end   & 0xFFFFFFFF) * e->ui.em.x;
-            if (xe - xs > 0) {
-//              traceln("line %d intersect %llX %llX %d %d", i, start, end, xs, xe);
-//              traceln("gdi.fill(%d, %d, %d, %d)", x + xs, y, xe - xs, e->ui.em.y);
-                gdi.fill(x + xs, y, xe - xs, e->ui.em.y);
-            }
+    uint64_t s1 = uic_edit_pos(ln, c0);
+    uint64_t e1 = uic_edit_pos(ln, c1);
+    if (s0 <= e1 && s1 <= e0) {
+        uint64_t start = max(s0, s1);
+        uint64_t end = min(e0, e1);
+        if (start < end) {
+            char* text = e->line[ln].text;
+            int32_t ofs0 = uic_edit_column_to_offset(text, (int32_t)(start & 0xFFFFFFFF));
+            int32_t ofs1 = uic_edit_column_to_offset(text, (int32_t)(end   & 0xFFFFFFFF));
+            int32_t x0 = gdi.measure_text(*e->ui.font, "%.*s", ofs0, text).x;
+            int32_t x1 = gdi.measure_text(*e->ui.font, "%.*s", ofs1, text).x;
+//          traceln("line %d selection: %016llX..%016llX  %d %d  %d %d", ln, s0, e0, ofs0, ofs1, x0, x1);
+            brush_t b = gdi.set_brush(gdi.brush_color);
+            color_t c = gdi.set_brush_color(rgb(48, 64, 72));
+            gdi.fill(gdi.x + x0, gdi.y, x1 - x0, e->ui.em.y);
+            gdi.set_brush_color(c);
+            gdi.set_brush(b);
         }
-        if (y > e->ui.y + e->ui.h) { break; }
     }
-    gdi.pop();
 }
 
-static void uic_edit_paint_line(uic_edit_t* e, uic_edit_line_t* line) {
+static void uic_edit_paint_line(uic_edit_t* e, int32_t ln) {
+    uic_edit_line_t* line = &e->line[ln];
     uic_edit_runs_t r;
     uic_edit_runs(e, line, e->ui.w, &r);
     int32_t bytes = line->bytes;
     char* s = line->text;
+    int32_t column = 0;
+    int32_t aw = 0; // accumulated width
     for (int i = 0; i < r.count; i++) {
-        gdi.textln("%.*s", r.length[i], s);
+        // code points count:
+        int32_t cpc = uic_edit_utf8_length(s, r.length[i]);
+        gdi.x -= aw;
+        uic_edit_paint_selection(e, ln, column, column + cpc);
+        gdi.x += aw;
+        int32_t x = gdi.x;
+        gdi.text("%.*s", r.length[i], s);
+        int32_t w = gdi.x - x;
+        aw += w;
+        gdi.x -= w;
+        gdi.y += e->ui.em.y;
+        column += cpc;
         s += r.length[i];
         bytes -= r.length[i];
     }
+    assert(bytes == 0);
     if (bytes > 0) {
+        int32_t cpc = uic_edit_utf8_length(s, bytes);
+        uic_edit_paint_selection(e, ln + r.count, column, cpc);
         gdi.textln("%.*s", bytes, s);
     }
 }
@@ -160,15 +276,13 @@ static void uic_edit_paint(uic_t* ui) {
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(rgb(20, 20, 14));
     gdi.fill(0, 0, ui->w, ui->h);
-    uic_edit_paint_selection(e);
-
     gdi.push(ui->x, ui->y);
     font_t f = ui->font != null ? *ui->font : app.fonts.regular;
     gdi.set_font(f);
     gdi.set_text_color(ui->color);
     assert(e->top.line <= e->lines);
     for (int i = e->top.line; i < e->lines; i++) {
-        uic_edit_paint_line(e, &e->line[i]);
+        uic_edit_paint_line(e, i);
         if (gdi.y > ui->y + ui->h) { break; }
     }
     gdi.pop();
@@ -200,13 +314,11 @@ static void uic_edit_focus(uic_edit_t* e) {
     }
 }
 
-static void uic_set_position(uic_edit_t* e,
-        int32_t line, int32_t column) {
-    int32_t x = e->ui.x + column * e->ui.em.x;
-    int32_t y = e->ui.y + line * e->ui.em.y;
-    fatal_if_false(SetCaretPos(x, y));
-    e->selection.end.line = line;
-    e->selection.end.column = column;
+static void uic_set_position(uic_edit_t* e, int32_t ln, int32_t cl) {
+    ui_point_t pt = uic_edit_lc_to_xy(e, ln, cl);
+    fatal_if_false(SetCaretPos(pt.x, pt.y));
+    e->selection.end.line = ln;
+    e->selection.end.column = cl;
     if (!app.shift) {
         e->selection.start = e->selection.end;
     } else {
@@ -223,18 +335,22 @@ static void uic_edit_mouse(uic_t* ui, int m, int unused(flags)) {
     const int32_t x = app.mouse.x - e->ui.x;
     const int32_t y = app.mouse.y - e->ui.y;
     bool inside = 0 <= x && x < ui->w && 0 <= y && y < ui->h;
-    if (inside && m == messages.left_button_down ||
-                  m == messages.right_button_down) {
+    bool left = m == messages.left_button_down;
+    bool right = m == messages.right_button_down;
+    if (inside && left || right) {
         app.focus = ui;
         uic_edit_focus(e);
-        int32_t line   = y / ui->em.y;
-        int32_t column = x / ui->em.x;
-        if (line > e->lines) { line = max(0, e->lines); }
-        int32_t chars = uic_line_chars(e, line);
-        if (column > chars) { column = max(0, chars); }
-//      traceln("%d %d [%d:%d]", x, y, line, column);
-        uic_set_position(e, line, column);
-        ui->invalidate(ui);
+        uic_edit_position_t p = uic_edit_xy_to_lc(e, x, y);
+        if (0 <= p.line && 0 <= p.column) {
+            int32_t line   = p.line;
+            int32_t column = p.column;
+            if (line > e->lines) { line = max(0, e->lines); }
+            int32_t chars = uic_edit_line_cpc(e, line);
+            if (column > chars) { column = max(0, chars); }
+            traceln("%d %d [%d:%d]", x, y, line, column);
+            uic_set_position(e, line, column);
+            ui->invalidate(ui);
+        }
     }
 }
 
@@ -245,25 +361,51 @@ static void uic_edit_key_down(uic_t* ui, int32_t key) {
     if (e->focused) {
         int32_t line = e->selection.end.line;
         int32_t column = e->selection.end.column;
-        if (key == virtual_keys.down) {
-            if (line < e->lines) { line++; }
-            if (line == e->lines) { column = 0; }
-        } else if (key == virtual_keys.up) {
-            if (line > 0) {
+        if (key == virtual_keys.down && line < e->lines) {
+            ui_point_t pt = uic_edit_lc_to_xy(e, line, column);
+            int32_t cw = uic_edit_char_width_px(e, line, column);
+            pt.x += cw / 2;
+            pt.y += ui->em.y + ui->em.y / 2;
+            uic_edit_position_t plc = uic_edit_xy_to_lc(e, pt.x, pt.y);
+            if (plc.line >= 0 && plc.column >= 0) {
+                line = plc.line;
+                column = plc.column;
+            } else if (line == e->lines - 1) {
+                line = e->lines; // advance past EOF
+                column = 0;
+            }
+        } else if (key == virtual_keys.up && e->lines > 0) {
+            if (line == e->lines) {
+                assert(column == 0); // positioned past EOF
                 line--;
-                column = min(column, uic_line_chars(e, line));
+                column = uic_edit_utf8_length(e->line[line].text, e->line[line].bytes);
+                ui_point_t pt = uic_edit_lc_to_xy(e, line, column);
+                pt.y -= ui->em.y / 2;
+                uic_edit_position_t plc = uic_edit_xy_to_lc(e, pt.x, pt.y);
+                column = plc.column;
+            } else {
+                ui_point_t pt = uic_edit_lc_to_xy(e, line, column);
+                int32_t cw = uic_edit_char_width_px(e, line, column);
+                pt.x += cw / 2;
+                pt.y -= ui->em.y / 2;
+                uic_edit_position_t plc = uic_edit_xy_to_lc(e, pt.x, pt.y);
+                if (plc.line >= 0 && plc.column >= 0) {
+                    line = plc.line;
+                    column = plc.column;
+                }
             }
         } else if (key == virtual_keys.left) {
             if (column == 0) {
                 if (line > 0) {
                     line--;
-                    column = uic_line_chars(e, line);
+                    column = uic_edit_line_cpc(e, line);
                 }
             } else {
                 column--;
             }
         } else if (key == virtual_keys.right) {
-            if (column >= uic_line_chars(e, line)) {
+//          traceln("column %d uic_edit_line_cpc(text %d, %d) %d", column, e->line[line].bytes, line, uic_edit_line_cpc(e, line));
+            if (column >= uic_edit_line_cpc(e, line)) {
                 if (line < e->lines) { line++; column = 0; }
             } else {
                 column++;
@@ -314,13 +456,13 @@ void uic_edit_init(uic_edit_t* e) {
         e->line[i].bytes = (int32_t)strlen(e->line[i].text);
     }
     e->ui.color = rgb(168, 168, 150); // colors.text;
-    e->ui.font = &app.fonts.H1;
-    e->ui.paint = uic_edit_paint;
-    e->ui.measure = uic_edit_measure;
-    e->ui.mouse = uic_edit_mouse;
+    e->ui.font  = &app.fonts.H1;
+    e->ui.paint    = uic_edit_paint;
+    e->ui.measure  = uic_edit_measure;
+    e->ui.mouse    = uic_edit_mouse;
     e->ui.key_down = uic_edit_key_down;
     e->ui.keyboard = uic_edit_keyboard;
-    e->ui.message = uic_edit_message;
+    e->ui.message  = uic_edit_message;
     // Expected manifest.xml containing UTF-8 code page
     // for Translate message and WM_CHAR to deliver UTF-8 characters
     // see: https://learn.microsoft.com/en-us/windows/apps/design/globalizing/use-utf8-code-page
