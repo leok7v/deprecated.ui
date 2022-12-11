@@ -18,19 +18,21 @@ typedef struct uic_edit_line_s {
 } uic_edit_line_t;
 
 typedef struct uic_edit_position_s {
-    int32_t line;
-    int32_t column;
+    int32_t ln; // line
+    int32_t cl; // column
 } uic_edit_position_t;
 
 typedef struct uic_edit_selection_s {
-    uic_edit_position_t start; // can be inverted
-    uic_edit_position_t end;   // end always last selected position
+    uic_edit_position_t fro; // from start to
+    uic_edit_position_t end; // end always last selected position
 } uic_edit_selection_t;
 
 typedef struct uic_edit_s {
     uic_t ui;
     uic_edit_selection_t selection;
-    uic_edit_position_t top; // position in the text of left top corner
+    uic_edit_position_t scroll; // position in the text of left top corner
+    int32_t top;     // y coordinate of the top of view
+    int32_t bottom;  // '' (ditto) of the bottom
     void (*copy)();  // selection to clipboard
     void (*cut)();   // selection to clipboard
     void (*paste)(); // replace selection with content of clipboard

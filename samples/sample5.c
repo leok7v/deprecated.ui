@@ -38,7 +38,7 @@ static_uic_container(bottom, null, &text.ui);
 
 static void measure(uic_t* ui) {
     bottom.w = ui->w;
-    bottom.h = ui->h / 10;  // 10% bottom
+    bottom.h = max(ui->h / 10, ui->em.y * 2);  // 10% bottom
     bottom.y = ui->h - bottom.h;
     text.ui.w = bottom.w;
     text.ui.h = bottom.h;
@@ -66,9 +66,11 @@ static void paint(uic_t* ui) {
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(colors.black);
     gdi.fill(0, 0, ui->w, ui->h);
-    sprintf(text.ui.text, "%d:%d %d:%d",
-        edit.selection.start.line, edit.selection.start.column,
-        edit.selection.end.line, edit.selection.end.column);
+    sprintf(text.ui.text, "%d:%d %d:%d top: %d bottom: %d %dx%d %dln:%dpx",
+        edit.selection.fro.ln, edit.selection.fro.cl,
+        edit.selection.end.ln, edit.selection.end.cl,
+        edit.top, edit.ui.h - edit.bottom, edit.ui.w, edit.ui.h,
+        edit.ui.h / edit.ui.em.y, edit.ui.em.y);
 }
 
 static void init() {
@@ -81,7 +83,8 @@ static void init() {
     uic_edit_init(&edit);
     // xxx
 //  edit.ui.font = &app.fonts.mono;
-    edit.top.line = 0;
+    edit.scroll.ln = 0;
+    edit.scroll.cl = 0;
 }
 
 static void openned() {
@@ -91,11 +94,11 @@ static void openned() {
 }
 
 app_t app = {
-    .class_name = "sample1",
+    .class_name = "sample5",
     .init = init,
     .openned = openned,
-    .min_width = 400,
-    .min_height = 200
+    .min_width = 440,
+    .min_height = 400
 };
 
 end_c

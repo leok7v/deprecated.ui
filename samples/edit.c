@@ -10,6 +10,8 @@ typedef struct uic_edit_runs_s {
     int32_t length[1024]; // only needed for vertically visible runs
 } uic_edit_runs_t;
 
+static void uic_edit_set_caret(uic_edit_t* e, int32_t ln, int32_t cl);
+
 static int uic_edit_utf8_codepoint_bytes(char ch) { // first char of 1,2,3 or 4 bytes seq
     uint8_t uc = (uint8_t)ch;
     // 0xxxxxxx
@@ -122,28 +124,40 @@ static void uic_edit_runs(uic_edit_t* e, uic_edit_line_t* line, int32_t width,
     }
 }
 
-static void uic_edit_measure(uic_t* ui) {
+static void uic_edit_measure(uic_t* ui) { // bottom up
     ui->em = gdi.get_em(*ui->font);
     assert(ui->tag == uic_tag_edit);
+    // enforce minimum size - this makes it simpler to check corner cases
+    if (ui->w < ui->em.x * 3) { ui->w = ui->em.x * 4; }
+    if (ui->h < ui->em.y) { ui->h = ui->em.y; }
+}
+
+static void uic_edit_layout(uic_t* ui) { // top down
+    assert(ui->tag == uic_tag_edit);
     uic_edit_t* e = (uic_edit_t*)ui;
+    int32_t lines = e->ui.h / e->ui.em.y; // visible lines
+    e->top = (e->ui.h - e->ui.em.y * lines) / 2;
+    e->bottom = e->top + e->ui.em.y * lines;
     if (e->focused) {
         // recreate caret because em.y may have changed
-        HWND wnd = (HWND)app.window;
         fatal_if_false(DestroyCaret());
-        fatal_if_false(CreateCaret(wnd, null, 2, e->ui.em.y));
+        fatal_if_false(CreateCaret((HWND)app.window, null, 2, e->ui.em.y));
+        if (app.focus && e->focused) {
+            uic_edit_set_caret(e, e->selection.end.ln, e->selection.end.cl);
+        }
     }
 }
 
-static uint64_t uic_edit_pos(int line, int column) {
-    assert(line >= 0 && column >= 0);
-    return ((uint64_t)line << 32) | (uint64_t)column;
+static uint64_t uic_edit_pos(int32_t ln, int32_t cl) {
+    assert(ln >= 0 && cl >= 0);
+    return ((uint64_t)ln << 32) | (uint64_t)cl;
 }
 
 static ui_point_t uic_edit_lc_to_xy(uic_edit_t* e, int32_t ln, int32_t cl) {
     ui_point_t pt = {-1, 0};
     pt.y = 0; // xxx ??? for now (needs scroll x)
     uic_edit_runs_t r;
-    for (int i = e->top.line; i < e->lines && pt.x < 0; i++) {
+    for (int i = e->scroll.ln; i < e->lines && pt.x < 0; i++) {
         uic_edit_runs(e, &e->line[i], e->ui.w, &r);
         char* s = e->line[i].text;
         int32_t bytes = e->line[i].bytes;
@@ -179,8 +193,8 @@ static uic_edit_position_t uic_edit_xy_to_lc(uic_edit_t* e, int32_t x, int32_t y
     font_t f = *e->ui.font;
     uic_edit_position_t p = {-1, -1};
     int line_y = 0;
-    traceln("x: %d y: %d", x, y);
-    for (int i = e->top.line; i < e->lines && p.line < 0; i++) {
+//  traceln("x: %d y: %d", x, y);
+    for (int i = e->scroll.ln; i < e->lines && p.ln < 0; i++) {
         uic_edit_runs_t r;
         uic_edit_runs(e, &e->line[i], e->ui.w, &r);
         char* s = e->line[i].text;
@@ -190,14 +204,14 @@ static uic_edit_position_t uic_edit_xy_to_lc(uic_edit_t* e, int32_t x, int32_t y
             int32_t cpc = uic_edit_utf8_length(s, r.length[j]);
             if (line_y <= y && y <= line_y + e->ui.em.y) {
                 int32_t w = gdi.measure_text(f, "%.*s", r.length[j], s).x;
-                p.line = i;
-                p.column = column + uic_edit_break_cl(f, s, r.length[j], x);
+                p.ln = i;
+                p.cl = column + uic_edit_break_cl(f, s, r.length[j], x);
                 // allow mouse click past half last character
-                int32_t cw = uic_edit_char_width_px(e, p.line, p.column);
+                int32_t cw = uic_edit_char_width_px(e, p.ln, p.cl);
                 if (x >= w - cw / 2) {
-                    p.column++; // column past last character
+                    p.cl++; // column past last character
                 }
-                traceln("x: %d w: %d cw: %d %d:%d", x, w, cw, p.line, p.column);
+//              traceln("x: %d w: %d cw: %d %d:%d", x, w, cw, p.ln, p.cl);
                 break;
             }
             column += cpc;
@@ -211,10 +225,10 @@ static uic_edit_position_t uic_edit_xy_to_lc(uic_edit_t* e, int32_t x, int32_t y
 }
 
 static void uic_edit_paint_selection(uic_edit_t* e, int32_t ln, int32_t c0, int32_t c1) {
-    uint64_t s0 = uic_edit_pos(e->selection.start.line,
-        e->selection.start.column);
-    uint64_t e0 = uic_edit_pos(e->selection.end.line,
-        e->selection.end.column);
+    uint64_t s0 = uic_edit_pos(e->selection.fro.ln,
+        e->selection.fro.cl);
+    uint64_t e0 = uic_edit_pos(e->selection.end.ln,
+        e->selection.end.cl);
     if (s0 > e0) {
         uint64_t swap = e0;
         e0 = s0;
@@ -247,13 +261,13 @@ static void uic_edit_paint_line(uic_edit_t* e, int32_t ln) {
     uic_edit_runs(e, line, e->ui.w, &r);
     int32_t bytes = line->bytes;
     char* s = line->text;
-    int32_t column = 0;
+    int32_t cl = 0;
     int32_t aw = 0; // accumulated width
     for (int i = 0; i < r.count; i++) {
         // code points count:
         int32_t cpc = uic_edit_utf8_length(s, r.length[i]);
         gdi.x -= aw;
-        uic_edit_paint_selection(e, ln, column, column + cpc);
+        uic_edit_paint_selection(e, ln, cl, cl + cpc);
         gdi.x += aw;
         int32_t x = gdi.x;
         gdi.text("%.*s", r.length[i], s);
@@ -261,15 +275,10 @@ static void uic_edit_paint_line(uic_edit_t* e, int32_t ln) {
         aw += w;
         gdi.x -= w;
         gdi.y += e->ui.em.y;
-        column += cpc;
+        if (gdi.y >= e->ui.y + e->bottom) { break; }
+        cl += cpc;
         s += r.length[i];
         bytes -= r.length[i];
-    }
-    assert(bytes == 0);
-    if (bytes > 0) {
-        int32_t cpc = uic_edit_utf8_length(s, bytes);
-        uic_edit_paint_selection(e, ln + r.count, column, cpc);
-        gdi.textln("%.*s", bytes, s);
     }
 }
 
@@ -280,19 +289,36 @@ static void uic_edit_paint(uic_t* ui) {
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(rgb(20, 20, 14));
     gdi.fill(0, 0, ui->w, ui->h);
-    gdi.push(ui->x, ui->y);
+    gdi.push(ui->x, ui->y + e->top);
     font_t f = ui->font != null ? *ui->font : app.fonts.regular;
     gdi.set_font(f);
     gdi.set_text_color(ui->color);
-    assert(e->top.line <= e->lines);
-    for (int i = e->top.line; i < e->lines; i++) {
+    assert(e->scroll.ln <= e->lines);
+    for (int i = e->scroll.ln; i < e->lines; i++) {
         uic_edit_paint_line(e, i);
-        if (gdi.y > ui->y + ui->h) { break; }
+        if (gdi.y >= ui->y + e->bottom) { break; }
     }
     gdi.pop();
 }
 
-static void uic_edit_focus(uic_edit_t* e) {
+static void uic_edit_set_caret(uic_edit_t* e, int32_t ln, int32_t cl) {
+    assert(e->focused && app.focused);
+    ui_point_t pt = e->ui.w > 0 ? // ui.w == 0 means  no measure/layout yet
+        uic_edit_lc_to_xy(e, ln, cl) : (ui_point_t){0, 0};
+//  traceln("%d:%d (%d,%d)", ln, cl, pt.x, pt.y);
+    fatal_if_false(SetCaretPos(pt.x, pt.y + e->top));
+    e->selection.end.ln = ln;
+    e->selection.end.cl = cl;
+    if (!app.shift) {
+        e->selection.fro = e->selection.end;
+    } else {
+//      traceln("selection %d:%d %d:%d",
+//          e->selection.fro.ln, e->selection.fro.cl,
+//          e->selection.end.ln, e->selection.end.cl);
+    }
+}
+
+static void uic_edit_check_focus(uic_edit_t* e) {
     HWND wnd = (HWND)app.window;
     // focus is two stage afair: window can be focused or not
     // and single UI control inside window can have focus
@@ -308,6 +334,7 @@ static void uic_edit_focus(uic_edit_t* e) {
             fatal_if_false(SetCaretBlinkTime(400));
             fatal_if_false(ShowCaret(wnd));
             e->focused = true;
+            uic_edit_set_caret(e, e->selection.end.ln, e->selection.end.cl);
         }
     } else {
         if (e->focused) {
@@ -318,41 +345,27 @@ static void uic_edit_focus(uic_edit_t* e) {
     }
 }
 
-static void uic_set_position(uic_edit_t* e, int32_t ln, int32_t cl) {
-    ui_point_t pt = uic_edit_lc_to_xy(e, ln, cl);
-    fatal_if_false(SetCaretPos(pt.x, pt.y));
-    e->selection.end.line = ln;
-    e->selection.end.column = cl;
-    if (!app.shift) {
-        e->selection.start = e->selection.end;
-    } else {
-//      traceln("selection %d:%d %d:%d",
-//          e->selection.start.line, e->selection.start.column,
-//          e->selection.end.line, e->selection.end.column);
-    }
-}
-
 static void uic_edit_mouse(uic_t* ui, int m, int unused(flags)) {
     assert(ui->tag == uic_tag_edit);
     assert(!ui->hidden);
     uic_edit_t* e = (uic_edit_t*)ui;
     const int32_t x = app.mouse.x - e->ui.x;
-    const int32_t y = app.mouse.y - e->ui.y;
+    const int32_t y = app.mouse.y - e->ui.y - e->top;
     bool inside = 0 <= x && x < ui->w && 0 <= y && y < ui->h;
     bool left = m == messages.left_button_down;
     bool right = m == messages.right_button_down;
     if (inside && left || right) {
         app.focus = ui;
-        uic_edit_focus(e);
+        uic_edit_check_focus(e);
         uic_edit_position_t p = uic_edit_xy_to_lc(e, x, y);
-        if (0 <= p.line && 0 <= p.column) {
-            int32_t line   = p.line;
-            int32_t column = p.column;
-            if (line > e->lines) { line = max(0, e->lines); }
-            int32_t chars = uic_edit_line_cpc(e, line);
-            if (column > chars) { column = max(0, chars); }
-            traceln("%d %d [%d:%d]", x, y, line, column);
-            uic_set_position(e, line, column);
+        if (0 <= p.ln && 0 <= p.cl) {
+            int32_t ln   = p.ln;
+            int32_t cl = p.cl;
+            if (ln > e->lines) { ln = max(0, e->lines); }
+            int32_t chars = uic_edit_line_cpc(e, ln);
+            if (cl > chars) { cl = max(0, chars); }
+            traceln("%d %d [%d:%d]", x, y, ln, cl);
+            uic_edit_set_caret(e, ln, cl);
             ui->invalidate(ui);
         }
     }
@@ -363,17 +376,17 @@ static void uic_edit_key_down(uic_t* ui, int32_t key) {
     assert(!ui->hidden);
     uic_edit_t* e = (uic_edit_t*)ui;
     if (e->focused) {
-        int32_t line = e->selection.end.line;
-        int32_t column = e->selection.end.column;
+        int32_t line = e->selection.end.ln;
+        int32_t column = e->selection.end.cl;
         if (key == virtual_keys.down && line < e->lines) {
             ui_point_t pt = uic_edit_lc_to_xy(e, line, column);
             int32_t cw = uic_edit_char_width_px(e, line, column);
             pt.x += cw / 2;
-            pt.y += ui->em.y + ui->em.y / 2;
+            pt.y += ui->em.y + 1;
             uic_edit_position_t plc = uic_edit_xy_to_lc(e, pt.x, pt.y);
-            if (plc.line >= 0 && plc.column >= 0) {
-                line = plc.line;
-                column = plc.column;
+            if (plc.ln >= 0 && plc.cl >= 0) {
+                line = plc.ln;
+                column = plc.cl;
             } else if (line == e->lines - 1) {
                 line = e->lines; // advance past EOF
                 column = 0;
@@ -384,18 +397,18 @@ static void uic_edit_key_down(uic_t* ui, int32_t key) {
                 line--;
                 column = uic_edit_utf8_length(e->line[line].text, e->line[line].bytes);
                 ui_point_t pt = uic_edit_lc_to_xy(e, line, column);
-                pt.y -= ui->em.y / 2;
+                pt.y -= 1;
                 uic_edit_position_t plc = uic_edit_xy_to_lc(e, pt.x, pt.y);
-                column = plc.column;
+                column = plc.cl;
             } else {
                 ui_point_t pt = uic_edit_lc_to_xy(e, line, column);
                 int32_t cw = uic_edit_char_width_px(e, line, column);
                 pt.x += cw / 2;
                 pt.y -= ui->em.y / 2;
                 uic_edit_position_t plc = uic_edit_xy_to_lc(e, pt.x, pt.y);
-                if (plc.line >= 0 && plc.column >= 0) {
-                    line = plc.line;
-                    column = plc.column;
+                if (plc.ln >= 0 && plc.cl >= 0) {
+                    line = plc.ln;
+                    column = plc.cl;
                 }
             }
         } else if (key == virtual_keys.left) {
@@ -415,7 +428,7 @@ static void uic_edit_key_down(uic_t* ui, int32_t key) {
                 column++;
             }
         }
-        uic_set_position(e, line, column);
+        uic_edit_set_caret(e, line, column);
         if (key == VK_ESCAPE) { app.close(); }
         ui->invalidate(ui);
     }
@@ -434,7 +447,7 @@ static void uic_edit_keyboard(uic_t* unused(ui), int32_t ch) {
 static bool uic_edit_message(uic_t* ui, int32_t unused(message),
         int64_t unused(wp), int64_t unused(lp), int64_t* unused(rt)){
     assert(ui->tag == uic_tag_edit);
-    uic_edit_focus((uic_edit_t*)ui);
+    uic_edit_check_focus((uic_edit_t*)ui);
     return false;
 }
 
@@ -463,6 +476,7 @@ void uic_edit_init(uic_edit_t* e) {
     e->ui.font  = &app.fonts.H1;
     e->ui.paint    = uic_edit_paint;
     e->ui.measure  = uic_edit_measure;
+    e->ui.layout   = uic_edit_layout;
     e->ui.mouse    = uic_edit_mouse;
     e->ui.key_down = uic_edit_key_down;
     e->ui.keyboard = uic_edit_keyboard;
