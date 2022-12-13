@@ -28,7 +28,7 @@ uic_button(button4, "Single Line", 7.5, {
     traceln("Single Line");
 });
 
-uic_text(text, "...");
+uic_multiline(text, 0.0, "...");
 
 static_uic_container(buttons, null,
     &button0.ui, &button1.ui, &button2.ui, &button3.ui, &button4.ui);
@@ -66,11 +66,15 @@ static void paint(uic_t* ui) {
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(colors.black);
     gdi.fill(0, 0, ui->w, ui->h);
-    sprintf(text.ui.text, "%d:%d %d:%d top: %d bottom: %d %dx%d %dln:%dpx",
+    sprintf(text.ui.text, "%d:%d %d:%d top: %d bottom: %d %dx%d %dln:%dpx\n"
+            "scroll %d:%d",
         edit.selection.fro.ln, edit.selection.fro.cl,
         edit.selection.end.ln, edit.selection.end.cl,
         edit.top, edit.ui.h - edit.bottom, edit.ui.w, edit.ui.h,
-        edit.ui.h / edit.ui.em.y, edit.ui.em.y);
+        edit.ui.h / edit.ui.em.y, edit.ui.em.y,
+
+        edit.scroll.ln, edit.scroll.cl);
+    text.ui.invalidate(&text.ui);
 }
 
 static void init() {

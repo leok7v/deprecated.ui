@@ -8,29 +8,30 @@ enum {
     uic_tag_edit       = 'edt'
 };
 
-// uic_edit_line_t.text can point to readonly initial
+// uic_edit_para_t.text can point to readonly initial
 // memory area when .allocateed is 0.
 
-typedef struct uic_edit_line_s {
+typedef struct uic_edit_para_s { // "paragraph"
     char* text;    // utf-8
     int32_t bytes; // number of bytes in utf-8
     int32_t allocated; // heap allocated bytes
-} uic_edit_line_t;
+} uic_edit_para_t;
 
-typedef struct uic_edit_position_s {
-    int32_t ln; // line
-    int32_t cl; // column
-} uic_edit_position_t;
+typedef struct uic_edit_lc_s {
+    // humans used to line:column coordinates in text
+    int32_t ln; // line (human notion of paragraph number)
+    int32_t cl; // column (position counted in glyphs not bytes)
+} uic_edit_lc_t;
 
 typedef struct uic_edit_selection_s {
-    uic_edit_position_t fro; // from start to
-    uic_edit_position_t end; // end always last selected position
+    uic_edit_lc_t fro; // from start to
+    uic_edit_lc_t end; // end always last selected position
 } uic_edit_selection_t;
 
 typedef struct uic_edit_s {
     uic_t ui;
     uic_edit_selection_t selection;
-    uic_edit_position_t scroll; // position in the text of left top corner
+    uic_edit_lc_t scroll; // position in the text of left top corner
     int32_t top;     // y coordinate of the top of view
     int32_t bottom;  // '' (ditto) of the bottom
     void (*copy)();  // selection to clipboard
@@ -38,11 +39,11 @@ typedef struct uic_edit_s {
     void (*paste)(); // replace selection with content of clipboard
     void (*erase)(); // delete selection
     bool focused;
-    bool monospced;
+    bool monospaced;
     bool multiline;
     bool wordbreak;
-    int32_t lines; // number of lines in the text
-    uic_edit_line_t line[1024 * 64]; // 64K lines (can be extended)
+    int32_t paragraphs; // number of lines in the text
+    uic_edit_para_t para[1024 * 64]; // 64K lines (can be extended)
 } uic_edit_t;
 
 
