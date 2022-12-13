@@ -23,7 +23,7 @@ typedef struct uic_edit_runs_s {
     uic_edit_run_t run[1024]; // TODO: allocate on heap, reuse and dispose on measure
 } uic_edit_runs_t;
 
-static void uic_edit_set_caret(uic_edit_t* e, int32_t ln, int32_t cl);
+static void uic_edit_move_caret(uic_edit_t* e, int32_t ln, int32_t cl);
 
 static int uic_edit_glyph_bytes(char start_byte_value) { // utf-8
     // return 1-4 bytes glyph starting with `start_byte_value` character
@@ -89,15 +89,10 @@ static int32_t uic_edit_break(font_t f, char* text, int32_t width,
     while (i < j) {
         // important: gp[0] is number of bytes in the first glyph:
         int32_t px = gdi.measure_text(f, "%.*s", gp[k], text).x;
-//      traceln("%d %d %d %d %d %.*s", i, j, k, px, w, gp[k], text);
         if (px == width) { break; }
         if (px < width) { i = k + 1; } else { j = k; }
         k = (i + j) / 2;
     }
-//  int32_t wi = gdi.measure_text(f, "%.*s", i, text).x;
-//  int32_t wj = gdi.measure_text(f, "%.*s", j, text).x;
-//  int32_t wk = gdi.measure_text(f, "%.*s", k, text).x;
-//  traceln("i %d j %d k %d %d %d %d", i, j, k, wi, wj, wk);
     return k;
 }
 
@@ -155,41 +150,25 @@ static void uic_edit_layout_pragraph(uic_edit_t* e, int32_t p, int32_t width,
             r->run[rc].bytes = utf8bytes;
             r->run[rc].glyphs = glyphs;
             r->run[rc].pixels = pixels;
-//          traceln("run[%d].bytes: %d .glyphs: %d .pixels: %d %.*s", rc, r->run[rc].bytes, r->run[rc].glyphs, r->run[rc].pixels, r->run[rc].bytes, text);
             rc++;
             text += utf8bytes;
             assert(0 <= utf8bytes && utf8bytes <= bytes);
             bytes -= utf8bytes;
             cl += glyphs;
-//          if (bytes > 0) {
-//              int32_t pixels = gdi.measure_text(f, "%.*s", bytes, text).x;
-//              if (pixels < width) {
-//                  r->run[c].cl = cl;
-//                  r->run[c].bytes = bytes;
-//                  r->run[c].glyphs = uic_edit_glyphs(text, bytes);
-//                  r->run[c].pixels = pixels;
-//                  traceln("run[%d].bytes: %d glyphs: %d pixels: %d", c, r->run[c].bytes, r->run[c].glyphs, r->run[c].pixels);
-//                  c++;
-//              }
-//              break;
-//          }
         }
         r->count = rc;
     }
     assert(r->count >= 1);
-//  traceln("runs=%d", r->count);
 }
 
 static void uic_edit_create_caret(uic_edit_t* e) {
-//  traceln("");
     fatal_if_false(CreateCaret((HWND)app.window, null, 2, e->ui.em.y));
-    fatal_if_false(ShowCaret((HWND)app.window));
     fatal_if_false(SetCaretBlinkTime(400));
+    fatal_if_false(ShowCaret((HWND)app.window));
     e->focused = true;
 }
 
 static void uic_edit_destroy_caret(uic_edit_t* e) {
-//  traceln("");
     fatal_if_false(HideCaret((HWND)app.window));
     fatal_if_false(DestroyCaret());
     e->focused = false;
@@ -227,7 +206,7 @@ static void uic_edit_layout(uic_t* ui) { // top down
         uic_edit_destroy_caret(e);
         uic_edit_create_caret(e);
         if (app.focus && e->focused) {
-            uic_edit_set_caret(e, e->selection.end.ln, e->selection.end.cl);
+            uic_edit_move_caret(e, e->selection.end.ln, e->selection.end.cl);
         }
     }
 }
@@ -250,7 +229,6 @@ static ui_point_t uic_edit_lc_to_xy(uic_edit_t* e, int32_t ln, int32_t cl) {
         for (int j = 0; j < r.count; j++) {
             bool last_run = j == r.count - 1; // special case
             int32_t gc = r.run[j].glyphs;
-//          traceln("p#r: %d#%d gc: %d y: [%d..%d[", i, j, gc, pt.y, pt.y +  + e->ui.em.y);
             if (i > e->scroll_pn || j >= rn) {
                 if (i == ln) {
                     // in the last `run` of a parageraph x after last glyph OK:
@@ -269,15 +247,11 @@ static ui_point_t uic_edit_lc_to_xy(uic_edit_t* e, int32_t ln, int32_t cl) {
             text += r.run[j].bytes;
             bytes -= r.run[j].bytes;
         }
-        if (i == ln && pt.x < 0) {
-            traceln("%d", uic_edit_glyphs(e->para[ln].text, e->para[ln].bytes));
-        }
     }
     if (pt.x < 0) { // after last paragraph?
         assert(ln == e->paragraphs && cl == 0, "ln#cl: %d#%d", ln, cl);
         pt.x = 0;
     }
-//  traceln("lc: %d:%d x,y: %d,%d ", ln, cl, pt.x, pt.y);
     return pt;
 }
 
@@ -298,7 +272,6 @@ static uic_edit_lc_t uic_edit_xy_to_lc(uic_edit_t* e, int32_t x, int32_t y) {
     font_t f = *e->ui.font;
     uic_edit_lc_t p = {-1, -1};
     int32_t line_y = 0;
-//  traceln("x: %d y: %d", x, y);
     for (int i = e->scroll_pn; i < e->paragraphs && p.ln < 0; i++) {
         uic_edit_runs_t r;
         uic_edit_layout_pragraph(e, i, e->ui.w, &r);
@@ -308,7 +281,6 @@ static uic_edit_lc_t uic_edit_xy_to_lc(uic_edit_t* e, int32_t x, int32_t y) {
         int column = 0;
         for (int j = 0; j < r.count; j++) {
             int32_t gc = r.run[j].glyphs;
-//          traceln("p#r: %d#%d gc: %d y: [%d..%d[", i, j, gc, line_y, line_y +  + e->ui.em.y);
             if (i > e->scroll_pn || j >= rn) {
                 if (line_y <= y && y < line_y + e->ui.em.y) {
                     int32_t w = gdi.measure_text(f, "%.*s", r.run[j].bytes, s).x;
@@ -320,7 +292,6 @@ static uic_edit_lc_t uic_edit_xy_to_lc(uic_edit_t* e, int32_t x, int32_t y) {
                     if (cw > 0 && x >= w - cw / 2) {
                         p.cl++; // snap to closest glyph's 'x'
                     }
-//                  traceln("x: %d w: %d cw: %d %d:%d", x, w, cw, p.ln, p.cl);
                     break;
                 }
                 line_y += e->ui.em.y;
@@ -331,7 +302,6 @@ static uic_edit_lc_t uic_edit_xy_to_lc(uic_edit_t* e, int32_t x, int32_t y) {
         }
         if (line_y > e->ui.h) { break; }
     }
-//  traceln("x,y: %d,%d lc: %d:%d", x, y, p.ln, p.cl);
     return p;
 }
 
@@ -356,7 +326,6 @@ static void uic_edit_paint_selection(uic_edit_t* e,
             int32_t ofs1 = uic_edit_column_to_offset(text, bytes, (int32_t)(end   & 0xFFFFFFFF));
             int32_t x0 = gdi.measure_text(*e->ui.font, "%.*s", ofs0, text).x;
             int32_t x1 = gdi.measure_text(*e->ui.font, "%.*s", ofs1, text).x;
-//          traceln("line %d selection: %016llX..%016llX  %d %d  %d %d", ln, s0, e0, ofs0, ofs1, x0, x1);
             brush_t b = gdi.set_brush(gdi.brush_color);
             color_t c = gdi.set_brush_color(rgb(48, 64, 72));
             gdi.fill(gdi.x + x0, gdi.y, x1 - x0, e->ui.em.y);
@@ -410,20 +379,23 @@ static void uic_edit_paint(uic_t* ui) {
     gdi.pop();
 }
 
-static void uic_edit_set_caret(uic_edit_t* e, int32_t ln, int32_t cl) {
+static void uic_edit_set_caret(uic_edit_t* e, int32_t x, int32_t y) {
+    if (e->caret.x != x || e->caret.y != y) {
+        fatal_if_false(SetCaretPos(x, y));
+        e->caret.x = x;
+        e->caret.y = y;
+    }
+}
+
+static void uic_edit_move_caret(uic_edit_t* e, int32_t pn, int32_t cl) {
     assert(e->focused && app.focused);
     ui_point_t pt = e->ui.w > 0 ? // ui.w == 0 means  no measure/layout yet
-        uic_edit_lc_to_xy(e, ln, cl) : (ui_point_t){0, 0};
-//  traceln("%d:%d (%d,%d)", ln, cl, pt.x, pt.y);
-    fatal_if_false(SetCaretPos(pt.x, pt.y + e->top));
-    e->selection.end.ln = ln;
+        uic_edit_lc_to_xy(e, pn, cl) : (ui_point_t){0, 0};
+    uic_edit_set_caret(e, pt.x, pt.y + e->top);
+    e->selection.end.ln = pn;
     e->selection.end.cl = cl;
     if (!app.shift && !e->mouse != 0) {
         e->selection.fro = e->selection.end;
-    } else {
-//      traceln("selection %d:%d %d:%d",
-//          e->selection.fro.ln, e->selection.fro.cl,
-//          e->selection.end.ln, e->selection.end.cl);
     }
     e->ui.invalidate(&e->ui);
 }
@@ -437,7 +409,7 @@ static void uic_edit_check_focus(uic_edit_t* e) {
         } else if (app.focus == &e->ui) {
             if (!e->focused) {
                 uic_edit_create_caret(e);
-                uic_edit_set_caret(e, e->selection.end.ln, e->selection.end.cl);
+                uic_edit_move_caret(e, e->selection.end.ln, e->selection.end.cl);
             }
         } else {
             if (e->focused) { uic_edit_destroy_caret(e); }
@@ -454,6 +426,7 @@ static void uic_edit_scroll_up(uic_edit_t* e) {
         e->scroll_pn++;
         e->scroll_rn = 0;
     }
+    e->ui.invalidate(&e->ui);
 }
 
 static void uic_edit_scroll_down(uic_edit_t* e) {
@@ -466,6 +439,7 @@ static void uic_edit_scroll_down(uic_edit_t* e) {
     } else if (e->scroll_rn > 0 && e->scroll_pn > 0) {
         e->scroll_rn--;
     }
+    e->ui.invalidate(&e->ui);
 }
 
 static void uic_edit_mouse(uic_t* ui, int m, int unused(flags)) {
@@ -495,7 +469,7 @@ static void uic_edit_mouse(uic_t* ui, int m, int unused(flags)) {
             if (ln > e->paragraphs) { ln = max(0, e->paragraphs); }
             int32_t chars = uic_edit_glyphs_in_paragraph(e, ln);
             if (cl > chars) { cl = max(0, chars); }
-            uic_edit_set_caret(e, ln, cl);
+            uic_edit_move_caret(e, ln, cl);
         }
     }
     if (left)  { e->mouse |= (1 << 0); }
@@ -515,14 +489,13 @@ static void uic_edit_key_left(uic_edit_t* e, int32_t ln, int32_t cl) {
             ln--;
             cl = uic_edit_glyphs_in_paragraph(e, ln);
         }
-        uic_edit_set_caret(e, ln, cl);
+        uic_edit_move_caret(e, ln, cl);
     }
 }
 
 static void uic_edit_key_right(uic_edit_t* e, int32_t ln, int32_t cl) {
     if (ln < e->paragraphs) {
         int32_t g_in_p = uic_edit_glyphs_in_paragraph(e, ln);
-//      traceln("p#l: %d:%d  glyphs on paragaraph %d", cl, ln, g_in_p);
         if (cl < g_in_p) {
             ui_point_t pt = uic_edit_lc_to_xy(e, ln, cl + 1);
             if (pt.y + e->ui.em.y > e->bottom) { uic_edit_scroll_up(e); }
@@ -533,7 +506,7 @@ static void uic_edit_key_right(uic_edit_t* e, int32_t ln, int32_t cl) {
             ln++;
             cl = 0;
         }
-        uic_edit_set_caret(e, ln, cl);
+        uic_edit_move_caret(e, ln, cl);
     }
 }
 
@@ -559,12 +532,11 @@ static void uic_edit_key_up(uic_edit_t* e, int32_t ln, int32_t cl) {
             cl = lc.cl;
         }
     }
-    uic_edit_set_caret(e, ln, cl);
+    uic_edit_move_caret(e, ln, cl);
 }
 
 static void uic_edit_key_down(uic_edit_t* e, int32_t ln, int32_t cl) {
     ui_point_t pt = uic_edit_lc_to_xy(e, ln, cl);
-//  traceln("%d:%d %d,%d -> %d", ln, cl, pt.x, pt.y, pt.y + ui->em.y + 1);
     pt.y += e->ui.em.y + 1;
     uic_edit_lc_t plc = uic_edit_xy_to_lc(e, pt.x, pt.y);
     if (plc.ln >= 0 && plc.cl >= 0) {
@@ -577,7 +549,7 @@ static void uic_edit_key_down(uic_edit_t* e, int32_t ln, int32_t cl) {
     if (pt.y + e->ui.em.y > e->bottom) {
         uic_edit_scroll_up(e);
     }
-    uic_edit_set_caret(e, ln, cl);
+    uic_edit_move_caret(e, ln, cl);
 }
 
 static void uic_edit_key_pressed(uic_t* ui, int32_t key) {
@@ -604,7 +576,6 @@ static void uic_edit_keyboard(uic_t* unused(ui), int32_t ch) {
     assert(!ui->hidden && !ui->disabled);
     uic_edit_t* e = (uic_edit_t*)ui;
     if (e->focused) {
-//      traceln("char=%08X", ch);
         ui->invalidate(ui);
     }
 }
@@ -661,6 +632,7 @@ void uic_edit_init(uic_edit_t* e) {
     // at the moment of writing there is no API call to inform Windows about process
     // prefered codepage except manifest.xml file in resource #1.
     // Absence of manifest.xml will result to ancient and useless ANSI 1252 codepage
+    // TODO: may be change quick.h to use CreateWindowW() and translate UTF16 to UTF8
 }
 
 end_c

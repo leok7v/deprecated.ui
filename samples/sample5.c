@@ -74,7 +74,6 @@ static void paint(uic_t* ui) {
         edit.ui.h / edit.ui.em.y, edit.ui.em.y,
 
         edit.scroll_pn, edit.scroll_rn);
-    text.ui.invalidate(&text.ui);
 }
 
 static void init() {
@@ -84,6 +83,7 @@ static void init() {
     app.ui->paint = paint;
     static uic_t* children[] = { &left, &right, &bottom, null };
     app.ui->children = children;
+    text.ui.font = &app.fonts.mono;
     uic_edit_init(&edit);
 }
 
