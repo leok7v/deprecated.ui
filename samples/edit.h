@@ -31,7 +31,9 @@ typedef struct uic_edit_selection_s {
 typedef struct uic_edit_s {
     uic_t ui;
     uic_edit_selection_t selection;
-    uic_edit_lc_t scroll; // position in the text of left top corner
+    int32_t scroll_pn; // left top corner paragraph number
+    int32_t scroll_rn; // left top corner run number
+    int32_t mouse;   // bit 0 and bit 1 for LEFT and RIGHT buttons down
     int32_t top;     // y coordinate of the top of view
     int32_t bottom;  // '' (ditto) of the bottom
     void (*copy)();  // selection to clipboard

@@ -73,7 +73,7 @@ static void paint(uic_t* ui) {
         edit.top, edit.ui.h - edit.bottom, edit.ui.w, edit.ui.h,
         edit.ui.h / edit.ui.em.y, edit.ui.em.y,
 
-        edit.scroll.ln, edit.scroll.cl);
+        edit.scroll_pn, edit.scroll_rn);
     text.ui.invalidate(&text.ui);
 }
 
@@ -85,10 +85,6 @@ static void init() {
     static uic_t* children[] = { &left, &right, &bottom, null };
     app.ui->children = children;
     uic_edit_init(&edit);
-    // xxx
-//  edit.ui.font = &app.fonts.mono;
-    edit.scroll.ln = 0;
-    edit.scroll.cl = 0;
 }
 
 static void openned() {
