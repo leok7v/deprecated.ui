@@ -42,12 +42,15 @@ typedef struct uic_edit_selection_s {
     uic_edit_pg_t end; // end always last selected position
 } uic_edit_selection_t;
 
+typedef struct uic_edit_s uic_edit_t;
+
 typedef struct uic_edit_s {
     uic_t ui;
-    void (*copy)();  // selection to clipboard
-    void (*cut)();   // selection to clipboard
-    void (*paste)(); // replace selection with content of clipboard
-    void (*erase)(); // delete selection
+    void (*copy)(uic_edit_t* e);  // selection to clipboard
+    void (*cut)(uic_edit_t* e);   // selection to clipboard
+    void (*paste)(uic_edit_t* e); // replace selection with content of clipboard
+    void (*erase)(uic_edit_t* e); // delete selection
+    void (*fuzz)(uic_edit_t* e);  // start/stop fuzzing test
     int32_t width;   // last measure/layout width
     int32_t height;  // and height
     uic_edit_selection_t selection;
@@ -62,8 +65,16 @@ typedef struct uic_edit_s {
     bool monospaced;
     bool multiline;
     bool wordbreak;
-    int32_t allocated;  // number of bytes allocated for `para` array below
-    int32_t paragraphs; // number of lines in the text
+    // https://en.wikipedia.org/wiki/Fuzzing
+    volatile thread_t fuzzer;     // fuzzer thread != null when fuzzing
+    volatile int32_t  fuzz_count; // fuzzer event count
+    volatile int32_t  fuzz_last;  // last processed fuzz
+    volatile bool     fuzz_quit;  // last processed fuzz
+    // random32 starts with 1 but client can seed it with (crt.nanoseconds() | 1)
+    uint32_t fuzz_seed;    // fuzzer random32 seed (must start with odd number)
+    // paragraphs memory:
+    int32_t allocated;     // number of bytes allocated for `para` array below
+    int32_t paragraphs;    // number of lines in the text
     uic_edit_para_t* para; // para[paragraphs]
 } uic_edit_t;
 
