@@ -18,8 +18,8 @@ static volatile bool stop;
 static volatile double render_time;
 
 uic_button(full_screen, "\xE2\xA7\x89", 1.0, {
-    b->ui.pressed = !b->ui.pressed;
-    app.full_screen(b->ui.pressed);
+    full_screen->ui.pressed = !full_screen->ui.pressed;
+    app.full_screen(full_screen->ui.pressed);
 });
 
 static void paint(uic_t* ui) {

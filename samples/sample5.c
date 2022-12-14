@@ -8,30 +8,35 @@ const char* title = "Sample5";
 
 static uic_edit_t edit;
 
-uic_button(button0, "Full Screen", 7.5, {
+uic_button(full_screen, "Full Screen", 7.5, {
     app.full_screen(!app.is_full_screen);
 });
 
-uic_button(button1, "Quit", 7.5, {
+uic_button(quit, "Quit", 7.5, {
     app.close();
 });
 
-uic_button(button2, "Word Break", 7.5, { // checkbox?
+uic_button(fuzz, "Fuzz", 7.5, {
+    edit.fuzz(&edit);
+    fuzz->ui.pressed = edit.fuzzer != null;
+});
+
+uic_checkbox(wb, "Word Break", 7.5, { // checkbox?
     traceln("Word Break");
 });
 
-uic_button(button3, "Mono", 7.5, {
+uic_checkbox(mono, "Mono", 7.5, {
     traceln("Mono");
 });
 
-uic_button(button4, "Single Line", 7.5, {
+uic_checkbox(sl, "Single Line", 7.5, {
     traceln("Single Line");
 });
 
 uic_multiline(text, 0.0, "...");
 
 static_uic_container(buttons, null,
-    &button0.ui, &button1.ui, &button2.ui, &button3.ui, &button4.ui);
+    &full_screen.ui, &quit.ui, &fuzz.ui, &wb.ui, &mono.ui, &sl.ui);
 static_uic_container(left, null, &edit.ui);
 static_uic_container(right, null, &buttons);
 static_uic_container(bottom, null, &text.ui);
@@ -42,8 +47,8 @@ static void measure(uic_t* ui) {
     bottom.y = ui->h - bottom.h;
     text.ui.w = bottom.w;
     text.ui.h = bottom.h;
-    assert(button1.ui.w > 0 && button1.ui.w == button2.ui.w);
-    buttons.w = button1.ui.w;
+    assert(full_screen.ui.w > 0 && full_screen.ui.w == quit.ui.w);
+    buttons.w = full_screen.ui.w;
     buttons.h = ui->h - text.ui.h -  ui->em.y;
     right.w = buttons.w + ui->em.x * 2;
     right.h = buttons.h;
@@ -66,25 +71,12 @@ static void paint(uic_t* ui) {
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(colors.black);
     gdi.fill(0, 0, ui->w, ui->h);
-    sprintf(text.ui.text, "%d:%d %d:%d top: %d bottom: %d %dx%d %dln:%dpx\n"
-            "scroll %d:%d",
+    sprintf(text.ui.text, "%d:%d %d:%d %dx%d\n"
+            "scroll %03d:%03d",
         edit.selection.fro.pn, edit.selection.fro.gp,
         edit.selection.end.pn, edit.selection.end.gp,
-        edit.top, edit.ui.h - edit.bottom, edit.ui.w, edit.ui.h,
-        edit.ui.h / edit.ui.em.y, edit.ui.em.y,
-
+        edit.ui.w, edit.ui.h,
         edit.scroll_pn, edit.scroll_rn);
-}
-
-static void init() {
-    app.title = title;
-    app.ui->measure = measure;
-    app.ui->layout = layout;
-    app.ui->paint = paint;
-    static uic_t* children[] = { &left, &right, &bottom, null };
-    app.ui->children = children;
-    text.ui.font = &app.fonts.mono;
-    uic_edit_init(&edit);
 }
 
 static void openned() {
@@ -93,12 +85,33 @@ static void openned() {
 //  edit.ui.font = &mono_H3;
 }
 
+static void periodically(uic_t* unused(ui)) {
+    bool fuzzing = edit.fuzzer != null;
+    if (fuzz.ui.pressed != fuzzing) {
+        fuzz.ui.pressed = fuzzing;
+        fuzz.ui.invalidate(&fuzz.ui);
+    }
+}
+
+static void init() {
+    app.title = title;
+    app.ui->measure = measure;
+    app.ui->layout = layout;
+    app.ui->paint = paint;
+    app.ui->periodically = periodically;
+    static uic_t* children[] = { &left, &right, &bottom, null };
+    app.ui->children = children;
+    text.ui.font = &app.fonts.mono;
+    strprintf(fuzz.ui.tip, "Ctrl+Shift+Alt+F5 to start and F5 to stop Fuzzing");
+    uic_edit_init(&edit);
+}
+
 app_t app = {
     .class_name = "sample5",
     .init = init,
     .openned = openned,
     .min_width = 440,
-    .min_height = 400
+    .min_height = 180
 };
 
 end_c

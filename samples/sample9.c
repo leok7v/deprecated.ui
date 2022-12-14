@@ -88,14 +88,16 @@ uic_button(open_file, "&Open", 7.5, {
 });
 
 uic_button(button_full_screen, glyph_two_squares, 1, {
-    b->ui.pressed = !b->ui.pressed;
-    app.full_screen(b->ui.pressed);
-    if (b->ui.pressed) { app.toast(2.75, "Press ESC to exit full screen"); }
+    button_full_screen->ui.pressed = !button_full_screen->ui.pressed;
+    app.full_screen(button_full_screen->ui.pressed);
+    if (button_full_screen->ui.pressed) {
+        app.toast(2.75, "Press ESC to exit full screen");
+    }
 });
 
 uic_button(button_locale, glyph_onna "A", 1, {
-    b->ui.pressed = !b->ui.pressed;
-    app.set_locale(b->ui.pressed ? "zh-CN" : "en-US");
+    button_locale->ui.pressed = !button_locale->ui.pressed;
+    app.set_locale(button_locale->ui.pressed ? "zh-CN" : "en-US");
     app.layout(); // because center panel layout changed
 });
 
