@@ -96,8 +96,6 @@ static void uic_edit_append_paragraph(uic_edit_t* e, const char* s, int32_t n) {
     p->allocated = 0;
     p->runs = 0;
     p->run = null;
-    p->ix2gp = null;
-    p->gp2ix = null;
     e->paragraphs++;
 }
 
@@ -130,34 +128,6 @@ static int32_t uic_edit_glyph_at_x(font_t f, char* text, int32_t bytes,
     }
 }
 
-static void uic_edit_ix2gp_and_gp2idx(uic_edit_t* e, int32_t p) {
-    uic_edit_para_t* para = &e->para[p];
-    assert(para->ix2gp == null && para->gp2ix == null && para->glyphs == 0);
-    int32_t gc = 0; // glyph count
-    int32_t i = 0; // byte index
-    while (i < para->bytes) {
-        gc++;
-        i += uic_edit_glyph_bytes(para->text[i]);
-    }
-    para->glyphs = gc;
-    uic_edit_allocate(&para->ix2gp, para->bytes, sizeof(int32_t));
-    uic_edit_allocate(&para->gp2ix, para->glyphs, sizeof(int32_t));
-    i = 0;
-    int32_t j = 0; // glyph index
-    while (i < para->bytes) {
-        para->ix2gp[i] = j;
-        para->gp2ix[j] = i;
-        const int32_t gb = uic_edit_glyph_bytes(para->text[i]);
-        j++;
-        i++;
-        for (int32_t k = 0; k < gb - 1; k++) {
-            para->ix2gp[i] = -1;
-            i++;
-        }
-    }
-}
-
-
 // uic_edit::layout_pragraph breaks paragraph into `runs` according to `width`
 // and `.wordbreak`, `.singleline`
 
@@ -165,8 +135,8 @@ static void uic_edit_layout_pragraph(uic_edit_t* e, int32_t pn) {
     assert(e->width > 0);
     uic_edit_para_t* para = &e->para[pn];
     if (para->run == null) {
-        uic_edit_ix2gp_and_gp2idx(e, pn);
-        assert(para->runs == 0 && para->run == null);
+        assert(para->runs == 0 && para->run == null && para->glyphs == 0);
+        para->glyphs = uic_edit_glyphs(para->text, para->bytes);
         const int32_t max_runs = para->bytes + 1;
         uic_edit_allocate(&para->run, max_runs, sizeof(uic_edit_run_t));
         uic_edit_run_t* run = para->run;
@@ -176,7 +146,6 @@ static void uic_edit_layout_pragraph(uic_edit_t* e, int32_t pn) {
             para->runs = 1;
             run[0].gp = 0;
             run[0].bytes = para->bytes;
-assert(uic_edit_glyphs(para->text, para->bytes) == para->glyphs);
             run[0].glyphs = para->glyphs;
             run[0].pixels = pixels;
         } else {
@@ -248,14 +217,8 @@ static void uic_edit_dispose_paragraphs_layout(uic_edit_t* e) {
     for (int i = 0; i < e->paragraphs; i++) {
         if (e->para[i].run != null) {
             uic_edit_free(&e->para[i].run);
-            uic_edit_free(&
-            e->para[i].ix2gp);
-            uic_edit_free(&
-            e->para[i].gp2ix);
         }
         assert(e->para[i].run   == null);
-        assert(e->para[i].ix2gp == null);
-        assert(e->para[i].gp2ix == null);
         e->para[i].glyphs = 0;
         e->para[i].runs = 0;
     }
@@ -593,6 +556,7 @@ static void uic_edit_key_left(uic_edit_t* e, int32_t pn, int32_t cl) {
             cl = uic_edit_glyphs_in_paragraph(e, pn);
         }
         uic_edit_move_caret(e, pn, cl);
+        e->last_x = -1;
     }
 }
 
@@ -610,7 +574,22 @@ static void uic_edit_key_right(uic_edit_t* e, int32_t pn, int32_t cl) {
             cl = 0;
         }
         uic_edit_move_caret(e, pn, cl);
+        e->last_x = -1;
     }
+}
+
+static void uic_edit_reuse_last_x(uic_edit_t* e, ui_point_t* pt) {
+    // Vertical caret movement visually tend to move caret horizonally
+    // in propotinal font text. Remembering starting `x' value for vertical
+    // movements aleviates this unpleasant UX experience to some degree.
+    if (pt->x > 0 && e->last_x > 0) {
+        int32_t prev = e->last_x - e->ui.em.x;
+        int32_t next = e->last_x + e->ui.em.x;
+        if (prev <= pt->x && pt->x <= next) {
+            pt->x = e->last_x;
+        }
+    }
+    e->last_x = pt->x;
 }
 
 static void uic_edit_key_up(uic_edit_t* e, int32_t pn, int32_t cl) {
@@ -624,6 +603,7 @@ static void uic_edit_key_up(uic_edit_t* e, int32_t pn, int32_t cl) {
     } else {
         ui_point_t pt = uic_edit_pg_to_xy(e, pn, cl);
         pt.y -= 1;
+        uic_edit_reuse_last_x(e, &pt);
         if (pt.y < e->ui.y) {
             uic_edit_scroll_down(e);
             pt = uic_edit_pg_to_xy(e, pn, cl);
@@ -641,6 +621,7 @@ static void uic_edit_key_up(uic_edit_t* e, int32_t pn, int32_t cl) {
 static void uic_edit_key_down(uic_edit_t* e, int32_t pn, int32_t cl) {
     ui_point_t pt = uic_edit_pg_to_xy(e, pn, cl);
     pt.y += e->ui.em.y + 1;
+    uic_edit_reuse_last_x(e, &pt);
     uic_edit_pg_t pg = uic_edit_xy_to_pg(e, pt.x, pt.y);
     if (pg.pn >= 0 && pg.gp >= 0) {
         pn = pg.pn;
@@ -800,21 +781,7 @@ void uic_edit_init(uic_edit_t* e) {
     uic_init(&e->ui);
     e->ui.tag = uic_tag_edit;
     uic_edit_init_with_text(e, test_content, (int32_t)strlen(test_content));
-//  e->para[0].text = strdup("Hello World!");
-//  e->para[1].text = strdup("Good bye Universe...");
-//  e->para[2].text = strdup("");
-//  e->para[3].text = strdup(glyph_teddy_bear);
-//  e->para[4].text = strdup(glyph_teddy_bear "\x20" glyph_ice_cube);
-//  for (int i = 0; i < 10; i += 2) {
-//      e->para[5 + i].text = strdup(glyph_teddy_bear "0         10        20        30        40        50        60        70        80        90");
-//      e->para[6 + i].text = strdup(glyph_teddy_bear "01234567890123456789012345678901234567890abcdefghi01234567890"
-//                                    glyph_chinese_one glyph_chinese_two                                            "3456789012345678901234567890123456789"
-//                                    glyph_ice_cube);
-//  }
-//  e->paragraphs = 15;
-//  for (int i = 0; i < e->paragraphs; i++) {
-//      e->para[i].bytes = (int32_t)strlen(e->para[i].text);
-//  }
+    e->last_x      = -1;
     e->multiline   = true;
     e->monospaced  = false;
     e->wordbreak   = true;

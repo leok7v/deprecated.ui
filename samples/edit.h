@@ -29,9 +29,6 @@ typedef struct uic_edit_para_s { // "paragraph"
     int32_t allocated;   // if != 0 text copied to heap allocated bytes
     int32_t runs;        // number of runs in the paragraph
     uic_edit_run_t* run; // [runs] array of pointers
-    // both ix2gp[] and gp2ix[] arrays [bytes] heap allocated
-    int32_t* ix2gp;      // text[ix] -> glyph position
-    int32_t* gp2ix;      // glyph position text[ix]
 } uic_edit_para_t;
 
 typedef struct uic_edit_lc_s {
@@ -60,6 +57,7 @@ typedef struct uic_edit_s {
     int32_t mouse;     // bit 0 and bit 1 for LEFT and RIGHT buttons down
     int32_t top;       // y coordinate of the top of view
     int32_t bottom;    // '' (ditto) of the bottom
+    int32_t last_x;    // last_x for up/down caret movement
     bool focused;
     bool monospaced;
     bool multiline;
