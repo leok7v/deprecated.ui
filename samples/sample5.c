@@ -68,8 +68,8 @@ static void paint(uic_t* ui) {
     gdi.fill(0, 0, ui->w, ui->h);
     sprintf(text.ui.text, "%d:%d %d:%d top: %d bottom: %d %dx%d %dln:%dpx\n"
             "scroll %d:%d",
-        edit.selection.fro.ln, edit.selection.fro.cl,
-        edit.selection.end.ln, edit.selection.end.cl,
+        edit.selection.fro.pn, edit.selection.fro.gp,
+        edit.selection.end.pn, edit.selection.end.gp,
         edit.top, edit.ui.h - edit.bottom, edit.ui.w, edit.ui.h,
         edit.ui.h / edit.ui.em.y, edit.ui.em.y,
 
