@@ -295,7 +295,7 @@ static void uic_edit_layout(uic_t* ui) { // top down
     // number of runs in e->scroll_pn may have changed with e->width change
     int32_t runs = uic_edit_pragraph_run_count(e, e->scroll_pn);
     e->scroll_rn = uic_edit_runof(e, e->scroll_pn, scroll_gp);
-    assert(0 <= e->scroll_rn && e->scroll_rn < runs);
+    assert(0 <= e->scroll_rn && e->scroll_rn < runs); (void)runs;
     // For single line editor distribute vertical gap evenly between
     // top and bottom. For multiline snap top line to y coordinate 0
     // otherwise resizing view will result in up-down jiggling of the
@@ -349,9 +349,6 @@ static ui_point_t uic_edit_pg_to_xy(uic_edit_t* e, const int32_t pn, const int32
 
 static int32_t uic_edit_glyph_width_px(uic_edit_t* e, int32_t pn, int32_t gp) {
     char* text = e->para[pn].text;
-    int32_t bytes = e->para[pn].bytes;
-    assert(uic_edit_glyphs(text, bytes) == e->para[pn].glyphs);
-    // TODO: don't need three lines above
     int32_t gc = e->para[pn].glyphs;
     if (gp == 0 &&  gc == 0) {
         return 0; // empty paragraph
