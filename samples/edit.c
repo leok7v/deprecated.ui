@@ -130,9 +130,7 @@ static const uic_edit_run_t* uic_edit_pragraph_runs(uic_edit_t* e, int32_t pn,
     assert(e->width > 0);
     const uic_edit_run_t* r = null;
     if (pn == e->paragraphs) {
-        static const uic_edit_run_t eof_run = {
-            .bytes = 0, .glyphs = 0, .pixels = 0, .gp = 0
-        };
+        static const uic_edit_run_t eof_run = { 0 };
         *runs = 1;
         r = &eof_run;
     } else {
@@ -148,6 +146,7 @@ static const uic_edit_run_t* uic_edit_pragraph_runs(uic_edit_t* e, int32_t pn,
             int32_t pixels = gdi.measure_text(f, "%.*s", para->bytes, para->text).x;
             if (pixels <= e->width) { // whole para fits into width
                 para->runs = 1;
+                run[0].bp = 0;
                 run[0].gp = 0;
                 run[0].bytes = para->bytes;
                 run[0].glyphs = para->glyphs;
@@ -168,7 +167,6 @@ static const uic_edit_run_t* uic_edit_pragraph_runs(uic_edit_t* e, int32_t pn,
                     assert(0 <= glyphs - 1 && glyphs - 1 < gc);
                     int32_t utf8bytes = gp[glyphs - 1];
                     pixels = gdi.measure_text(f, "%.*s", utf8bytes, text).x;
-// traceln("%d#%d bytes=%d utf8bytes=%d glyphs=%d pixels=%d width=%d %.*s", pn, rc, bytes, utf8bytes, glyphs, pixels, e->width, bytes, text);
                     if (glyphs > 1 && utf8bytes < bytes && text[utf8bytes] != 0x20) {
                         // try to find word break SPACE character. utf8 space is 0x20
                         int32_t i = utf8bytes;
@@ -179,6 +177,7 @@ static const uic_edit_run_t* uic_edit_pragraph_runs(uic_edit_t* e, int32_t pn,
                             pixels = gdi.measure_text(f, "%.*s", utf8bytes, text).x;
                         }
                     }
+                    run[rc].bp = (int32_t)(text - para->text);
                     run[rc].gp = ix;
                     run[rc].bytes = utf8bytes;
                     run[rc].glyphs = glyphs;
@@ -208,9 +207,7 @@ static int32_t uic_edit_pragraph_run_count(uic_edit_t* e, int32_t pn) {
 
 static int32_t uic_edit_glyphs_in_paragraph(uic_edit_t* e, int32_t pn) {
     (void)uic_edit_pragraph_run_count(e, pn); // word break paragraph into runs
-    uic_edit_para_t* para = &e->para[pn]; // TODO: remove this and next line
-    assert(uic_edit_glyphs(para->text, para->bytes) == para->glyphs);
-    return para->glyphs;
+    return e->para[pn].glyphs;
 }
 
 static void uic_edit_create_caret(uic_edit_t* e) {
@@ -227,7 +224,7 @@ static void uic_edit_destroy_caret(uic_edit_t* e) {
 }
 
 static void uic_edit_dispose_paragraphs_layout(uic_edit_t* e) {
-    for (int i = 0; i < e->paragraphs; i++) {
+    for (int32_t i = 0; i < e->paragraphs; i++) {
         if (e->para[i].run != null) {
             uic_edit_free(&e->para[i].run);
         }
@@ -249,7 +246,7 @@ static int32_t uic_edit_runof(uic_edit_t* e, int32_t pn, int32_t gp) {
         rn = runs - 1; // past last glyph
     } else {
         int32_t gx = 0;
-        for (int j = 0; j < runs && rn < 0; j++) {
+        for (int32_t j = 0; j < runs && rn < 0; j++) {
             const int last_run = j == runs - 1;
             const int32_t gc = run[j].glyphs;
             if (gx <= gp && gp < gx + gc + last_run) {
@@ -318,47 +315,44 @@ static uint64_t uic_edit_uint64(int32_t high, int32_t low) {
     return ((uint64_t)high << 32) | (uint64_t)low;
 }
 
+static int32_t uic_edit_first_visible_run(uic_edit_t* e, int32_t pn) {
+    return pn == e->scroll_pn ? e->scroll_rn : 0;
+}
+
 // uic_edit::pg_to_xy() paragraph # glyph # -> (x,y) in 0,0 - width, heigth
 
-static ui_point_t uic_edit_pg_to_xy(uic_edit_t* e, int32_t pn, int32_t gp) {
-    ui_point_t pt = {-1, 0};
+static ui_point_t uic_edit_pg_to_xy(uic_edit_t* e, const int32_t pn, const int32_t gp) {
+    ui_point_t pt = { .x = -1, .y = 0 };
     pt.y = 0;
-    for (int i = e->scroll_pn; i < e->paragraphs && pt.x < 0; i++) {
+    for (int32_t i = e->scroll_pn; i < e->paragraphs && pt.x < 0; i++) {
         int32_t runs = 0;
         const uic_edit_run_t* run = uic_edit_pragraph_runs(e, i, &runs);
-        int32_t rn = min(runs - 1, e->scroll_rn);
-        char* s = e->para[i].text;
-        int32_t bytes = e->para[i].bytes;
-        for (int j = 0; j < runs; j++) {
-            const int last_run = j == runs - 1; // special case
+        for (int32_t j = uic_edit_first_visible_run(e, i); j < runs; j++) {
+            const int last_run = j == runs - 1;
             int32_t gc = run[j].glyphs;
-            if (i > e->scroll_pn || j >= rn) {
-                if (i == pn) {
-                    const int32_t go = run[j].gp; // glyph offset
-                    // in the last `run` of a parageraph x after last glyph OK:
-                    if (go <= gp && gp < go + gc + last_run) {
-                        int32_t ofs = uic_edit_gp_to_bytes(s, run[j].bytes, gp - go);
-                        pt.x = gdi.measure_text(*e->ui.font, "%.*s", ofs, s).x;
-                        break;
-                    }
+            if (i == pn) { // in the last `run` of a parageraph x after last glyph is OK
+                if (run[j].gp <= gp && gp < run[j].gp + gc + last_run) {
+                    const char* s = e->para[i].text + run[j].bp;
+                    int32_t ofs = uic_edit_gp_to_bytes(s, run[j].bytes, gp - run[j].gp);
+                    pt.x = gdi.measure_text(*e->ui.font, "%.*s", ofs, s).x;
+                    break;
                 }
-                pt.y += e->ui.em.y;
             }
-            s += run[j].bytes;
-            bytes -= run[j].bytes;
+            pt.y += e->ui.em.y;
         }
     }
-    if (pt.x < 0) { // after last paragraph?
-        assert(pn == e->paragraphs && gp == 0, "pn#gp: %d#%d", pn, gp);
-        pt.x = 0;
-    }
+    if (pn == e->paragraphs) { pt.x = 0; }
+    assert(0 <= pt.x && pt.x < e->width && 0 <= pt.y && pt.y < e->height,
+        "(%d,%d) %dx%d", pt.x, pt.y, e->width, e->height);
     return pt;
 }
 
 static int32_t uic_edit_glyph_width_px(uic_edit_t* e, int32_t pn, int32_t gp) {
     char* text = e->para[pn].text;
     int32_t bytes = e->para[pn].bytes;
-    int32_t gc = uic_edit_glyphs(text, bytes);
+    assert(uic_edit_glyphs(text, bytes) == e->para[pn].glyphs);
+    // TODO: don't need three lines above
+    int32_t gc = e->para[pn].glyphs;
     if (gp == 0 &&  gc == 0) {
         return 0; // empty paragraph
     } else if (gp < gc) {
@@ -377,37 +371,31 @@ static uic_edit_pg_t uic_edit_xy_to_pg(uic_edit_t* e, int32_t x, int32_t y) {
     font_t f = *e->ui.font;
     uic_edit_pg_t pg = {-1, -1};
     int32_t py = 0; // paragraph `y' coordinate
-    for (int i = e->scroll_pn; i < e->paragraphs && pg.pn < 0; i++) {
+    for (int32_t i = e->scroll_pn; i < e->paragraphs && pg.pn < 0; i++) {
         int32_t runs = 0;
         const uic_edit_run_t* run = uic_edit_pragraph_runs(e, i, &runs);
-        int32_t rn = min(runs - 1, e->scroll_rn);
-        char* s = e->para[i].text;
-        int32_t bytes = e->para[i].bytes;
-        for (int j = 0; j < runs; j++) {
+        for (int32_t j = uic_edit_first_visible_run(e, i); j < runs; j++) {
             const uic_edit_run_t* r = &run[j];
-            if (i > e->scroll_pn || j >= rn) {
-                if (py <= y && y < py + e->ui.em.y) {
-                    int32_t w = gdi.measure_text(f, "%.*s", r->bytes, s).x;
-                    pg.pn = i;
-                    pg.gp = r->gp + uic_edit_glyph_at_x(f, s, r->bytes, x);
-                    // allow mouse click past half last glyph
-                    int32_t cw = uic_edit_glyph_width_px(e, pg.pn, pg.gp);
-                    if (cw > 0 && x >= w - cw / 2) {
+            char* s = e->para[i].text + run[j].bp;
+            if (py <= y && y < py + e->ui.em.y) {
+                int32_t w = gdi.measure_text(f, "%.*s", r->bytes, s).x;
+                pg.pn = i;
+                pg.gp = r->gp + uic_edit_glyph_at_x(f, s, r->bytes, x);
+                // allow mouse click past half last glyph
+                int32_t cw = uic_edit_glyph_width_px(e, pg.pn, pg.gp);
+                if (cw > 0 && x >= w - cw / 2) {
+                    pg.gp++; // snap to closest glyph's 'x'
+                } else if (cw > 0 && pg.gp < r->glyphs - 1) {
+                    int32_t x0 = uic_edit_pg_to_xy(e, pg.pn, pg.gp).x;
+                    int32_t x1 = uic_edit_pg_to_xy(e, pg.pn, pg.gp + 1).x;
+//                  traceln("x0: %d cw: %d x: %d x1: %d", x0, cw, x, x1);
+                    if (x1 - x < x - x0) {
                         pg.gp++; // snap to closest glyph's 'x'
-                    } else if (cw > 0 && pg.gp < r->glyphs - 1) {
-                        int32_t x0 = uic_edit_pg_to_xy(e, pg.pn, pg.gp).x;
-                        int32_t x1 = uic_edit_pg_to_xy(e, pg.pn, pg.gp + 1).x;
-//                      traceln("x0: %d cw: %d x: %d x1: %d", x0, cw, x, x1);
-                        if (x1 - x < x - x0) {
-                            pg.gp++; // snap to closest glyph's 'x'
-                        }
                     }
-                    break;
                 }
-                py += e->ui.em.y;
+                break;
             }
-            s += r->bytes;
-            bytes -= r->bytes;
+            py += e->ui.em.y;
         }
         if (py > e->height) { break; }
     }
@@ -448,22 +436,13 @@ static void uic_edit_paint_selection(uic_edit_t* e, const uic_edit_run_t* r,
 static void uic_edit_paint_para(uic_edit_t* e, int32_t pn) {
     int32_t runs = 0;
     const uic_edit_run_t* run = uic_edit_pragraph_runs(e, pn, &runs);
-    int32_t rn = min(runs - 1, e->scroll_rn);
-    const uic_edit_para_t* para = &e->para[pn];
-    int32_t bytes = para->bytes;
-    char* text = para->text;
-    int32_t gp = 0;
-    for (int j = 0; j < runs && gdi.y < e->ui.y + e->bottom; j++) {
-        int32_t gc = run[j].glyphs; // glyph count
-        if (pn > e->scroll_pn || j >= rn) {
-            gdi.x = e->ui.x;
-            uic_edit_paint_selection(e, &run[j], text, pn, gp, gp + gc);
-            gdi.text("%.*s", run[j].bytes, text);
-            gdi.y += e->ui.em.y;
-        }
-        gp += gc;
-        text += run[j].bytes;
-        bytes -= run[j].bytes;
+    for (int32_t j = uic_edit_first_visible_run(e, pn);
+                 j < runs && gdi.y < e->ui.y + e->bottom; j++) {
+        char* text = e->para[pn].text + run[j].bp;
+        gdi.x = e->ui.x;
+        uic_edit_paint_selection(e, &run[j], text, pn, run[j].gp, run[j].gp + run[j].glyphs);
+        gdi.text("%.*s", run[j].bytes, text);
+        gdi.y += e->ui.em.y;
     }
 }
 
@@ -481,7 +460,7 @@ static void uic_edit_paint(uic_t* ui) {
     gdi.set_text_color(ui->color);
     const int32_t bottom = ui->y + e->bottom;
     assert(e->scroll_pn <= e->paragraphs);
-    for (int i = e->scroll_pn; i < e->paragraphs && gdi.y < bottom; i++) {
+    for (int32_t i = e->scroll_pn; i < e->paragraphs && gdi.y < bottom; i++) {
         uic_edit_paint_para(e, i);
     }
     gdi.set_clip(0, 0, 0, 0);
@@ -496,21 +475,65 @@ static void uic_edit_set_caret(uic_edit_t* e, int32_t x, int32_t y) {
     }
 }
 
+static void uic_edit_scroll_up(uic_edit_t* e) {
+    int32_t runs = uic_edit_pragraph_run_count(e, e->scroll_pn);
+    if (e->scroll_rn < runs - 1) {
+        e->scroll_rn++;
+    } else if (e->scroll_pn < e->paragraphs) {
+        e->scroll_pn++;
+        e->scroll_rn = 0;
+    }
+    assert(e->scroll_pn >= 0 && e->scroll_rn >= 0);
+    e->ui.invalidate(&e->ui);
+}
+
+static void uic_edit_scroll_down(uic_edit_t* e) {
+    int32_t runs = uic_edit_pragraph_run_count(e, e->scroll_pn);
+    e->scroll_rn = min(e->scroll_rn, runs - 1);
+    if (e->scroll_rn == 0 && e->scroll_pn > 0) {
+        e->scroll_pn--;
+        e->scroll_rn = uic_edit_pragraph_run_count(e, e->scroll_pn) - 1;
+    } else if (e->scroll_rn > 0) {
+        e->scroll_rn--;
+    }
+    assert(e->scroll_pn >= 0 && e->scroll_rn >= 0);
+    assert(0 <= e->scroll_rn &&
+                e->scroll_rn < uic_edit_pragraph_run_count(e, e->scroll_pn));
+    e->ui.invalidate(&e->ui);
+}
+
+static uint64_t uic_edit_last_visible_run(uic_edit_t* e) {
+    int32_t pn = -1;
+    int32_t rn = -1;
+    int32_t py = 0;
+    for (int32_t i = e->scroll_pn; i < e->paragraphs && py < e->bottom; i++) {
+        pn = i;
+        int32_t runs = uic_edit_pragraph_run_count(e, i);
+        for (int32_t j = uic_edit_first_visible_run(e, i); j < runs && py < e->bottom; j++) {
+            rn = j;
+            py += e->ui.em.y;
+        }
+    }
+    if (e->bottom - py >= e->ui.em.y) {
+        pn = e->paragraphs;
+        rn = 0;
+    }
+    assert(pn >= 0 && rn >= 0);
+    return uic_edit_uint64(pn, rn);
+}
 
 static void uic_edit_scroll_into_view(uic_edit_t* e, int32_t pn, int32_t gp) {
     if (e->paragraphs > 0) {
-        uint64_t scroll = uic_edit_uint64(e->scroll_pn, e->scroll_rn);
-        uint64_t caret  = uic_edit_uint64(pn, uic_edit_runof(e, pn, gp));
+        const int32_t rn = uic_edit_runof(e, pn, gp);
+        const uint64_t scroll = uic_edit_uint64(e->scroll_pn, e->scroll_rn);
+        const uint64_t caret  = uic_edit_uint64(pn, rn);
         uint64_t last   = 0;
         int32_t py = 0;
-        for (int i = e->scroll_pn; i < e->paragraphs && py < e->bottom; i++) {
+        for (int32_t i = e->scroll_pn; i < e->paragraphs && py < e->bottom; i++) {
             int32_t runs = uic_edit_pragraph_run_count(e, i);
-            int32_t rn = min(runs - 1, e->scroll_rn);
-            for (int j = 0; j < runs && py < e->bottom; j++) {
-                if (i > e->scroll_pn || j >= rn) {
-                    last = uic_edit_uint64(i, j);
-                    py += e->ui.em.y;
-                }
+            for (int32_t j = uic_edit_first_visible_run(e, i); j < runs && py < e->bottom; j++) {
+                last = uic_edit_uint64(i, j);
+                py += e->ui.em.y;
             }
         }
         int32_t lp = e->paragraphs - 1; // last paragraph
@@ -522,8 +545,23 @@ static void uic_edit_scroll_into_view(uic_edit_t* e, int32_t pn, int32_t gp) {
         }
         if (scroll <= caret && caret <= last) {
 //          traceln("NO scroll    %016llX %016llX %016llX %016llX", scroll, caret, last, eof);
+        } else if (caret < scroll) {
+            e->scroll_pn = pn;
+            e->scroll_rn = rn;
         } else {
-            traceln("TODO: scroll %016llX %016llX %016llX %016llX", scroll, caret, last, eof);
+            assert(caret > last);
+            e->scroll_pn = pn;
+            e->scroll_rn = rn;
+            while (e->scroll_pn > 0 || e->scroll_rn > 0) {
+                ui_point_t pt = uic_edit_pg_to_xy(e, pn, gp);
+                if (pt.y + e->ui.em.y > e->bottom - e->ui.em.y) { break; }
+                if (e->scroll_rn > 0) {
+                    e->scroll_rn--;
+                } else {
+                    e->scroll_pn--;
+                    e->scroll_rn = uic_edit_pragraph_run_count(e, e->scroll_pn) - 1;
+                }
+            }
         }
     }
 }
@@ -557,33 +595,6 @@ static void uic_edit_check_focus(uic_edit_t* e) {
             if (e->focused) { uic_edit_destroy_caret(e); }
         }
     }
-}
-
-static void uic_edit_scroll_up(uic_edit_t* e) {
-    int32_t runs = uic_edit_pragraph_run_count(e, e->scroll_pn);
-    if (e->scroll_rn < runs - 1) {
-        e->scroll_rn++;
-    } else if (e->scroll_pn < e->paragraphs) {
-        e->scroll_pn++;
-        e->scroll_rn = 0;
-    }
-    assert(e->scroll_pn >= 0 && e->scroll_rn >= 0);
-    e->ui.invalidate(&e->ui);
-}
-
-static void uic_edit_scroll_down(uic_edit_t* e) {
-    int32_t runs = uic_edit_pragraph_run_count(e, e->scroll_pn);
-    e->scroll_rn = min(e->scroll_rn, runs - 1);
-    if (e->scroll_rn == 0 && e->scroll_pn > 0) {
-        e->scroll_pn--;
-        e->scroll_rn = uic_edit_pragraph_run_count(e, e->scroll_pn) - 1;
-    } else if (e->scroll_rn > 0) {
-        e->scroll_rn--;
-    }
-    assert(e->scroll_pn >= 0 && e->scroll_rn >= 0);
-    assert(0 <= e->scroll_rn &&
-                e->scroll_rn < uic_edit_pragraph_run_count(e, e->scroll_pn));
-    e->ui.invalidate(&e->ui);
 }
 
 static void uic_edit_mouse(uic_t* ui, int m, int unused(flags)) {
@@ -645,12 +656,14 @@ static void uic_edit_key_right(uic_edit_t* e, int32_t pn, int32_t gp) {
     if (pn < e->paragraphs) {
         int32_t glyphs = uic_edit_glyphs_in_paragraph(e, pn);
         if (gp < glyphs) {
-            ui_point_t pt = uic_edit_pg_to_xy(e, pn, gp + 1);
-            if (pt.y + e->ui.em.y > e->bottom) { uic_edit_scroll_up(e); }
+            uic_edit_scroll_into_view(e, pn + 1, 0);
+//          ui_point_t pt = uic_edit_pg_to_xy(e, pn, gp + 1);
+//          if (pt.y + e->ui.em.y > e->bottom) { uic_edit_scroll_up(e); }
             gp++;
         } else {
-            ui_point_t pt = uic_edit_pg_to_xy(e, pn + 1, 0);
-            if (pt.y + e->ui.em.y > e->bottom) { uic_edit_scroll_up(e); }
+            uic_edit_scroll_into_view(e, pn + 1, 0);
+//          ui_point_t pt = uic_edit_pg_to_xy(e, pn + 1, 0);
+//          if (pt.y + e->ui.em.y > e->bottom) { uic_edit_scroll_up(e); }
             pn++;
             gp = 0;
         }
@@ -677,7 +690,8 @@ static void uic_edit_key_up(uic_edit_t* e, int32_t pn, int32_t gp) {
     if (pn == e->paragraphs) {
         assert(gp == 0); // positioned past EOF
         pn--;
-        gp = uic_edit_glyphs(e->para[pn].text, e->para[pn].bytes);
+        gp = e->para[pn].glyphs;
+        uic_edit_scroll_into_view(e, pn, gp);
         ui_point_t pt = uic_edit_pg_to_xy(e, pn, gp);
         pt.x = 0;
         gp = uic_edit_xy_to_pg(e, pt.x, pt.y).gp;
@@ -762,9 +776,9 @@ static void uic_edit_key_home(uic_edit_t* e) {
 static void uic_edit_key_end(uic_edit_t* e) {
     if (app.ctrl) {
         int32_t py = e->bottom;
-        for (int i = e->paragraphs - 1; i >= 0 && py >= e->ui.em.y; i--) {
+        for (int32_t i = e->paragraphs - 1; i >= 0 && py >= e->ui.em.y; i--) {
             int32_t runs = uic_edit_pragraph_run_count(e, i);
-            for (int j = runs - 1; j >= 0 && py >= e->ui.em.y; j--) {
+            for (int32_t j = runs - 1; j >= 0 && py >= e->ui.em.y; j--) {
                 py -= e->ui.em.y;
                 if (py < e->ui.em.y) {
                     e->scroll_pn = i;

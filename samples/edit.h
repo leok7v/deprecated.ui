@@ -12,10 +12,11 @@ enum {
 };
 
 typedef struct uic_edit_run_s {
-    int32_t bytes;
-    int32_t glyphs;
-    int32_t pixels;
-    int32_t gp; // glyph position (number of glyph from the start of paragraph)
+    int32_t bp;     // position in bytes  since start of the paragraph
+    int32_t gp;     // position in glyphs since start of the paragraph
+    int32_t bytes;  // number of bytes in this `run`
+    int32_t glyphs; // number of glyphs
+    int32_t pixels; // width in pixels
 } uic_edit_run_t;
 
 // uic_edit_para_t.initially text will point to readonly memory
