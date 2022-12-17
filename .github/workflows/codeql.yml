@@ -64,6 +64,13 @@ jobs:
     # - run: |
     #   echo "Run, Build Application using script"
     #   ./location_of_script_within_repo/buildscript.sh
+    - run: |
+       runs-on: windows-latest
+       steps:
+       - name: setup msbuild
+         uses: microsoft/setup-msbuild@v1.1
+       - name: build debug
+         run:  msbuild msvc2022\quick.samples.sln -t:rebuild -verbosity:quiet -property:Configuration=Debug
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v2
