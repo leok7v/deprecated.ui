@@ -839,7 +839,6 @@ static void uic_edit_key_end(uic_edit_t* e) {
         } else if (e->selection[1].gp == e->para[pn].glyphs) {
             // at the end of paragraph do nothing (or move caret to EOF?)
         } else if (e->para[pn].glyphs > 0 && gp != run[rn].glyphs - 1) {
-            // TODO: find where else .gp can be used
             e->selection[1].gp = run[rn].gp + run[rn].glyphs - 1;
         } else {
             e->selection[1].gp = e->para[pn].glyphs;
