@@ -303,7 +303,6 @@ static uic_edit_pg_t uic_edit_scroll_pg(uic_edit_t* e) {
 
 static void uic_edit_measure(uic_t* ui) { // bottom up
     ui->em = gdi.get_em(*ui->font);
-//  traceln("%dx%d", ui->w, ui->h);
     assert(ui->tag == uic_tag_edit);
     // enforce minimum size - it makes it checking corner cases much simpler
     // and it's hard to edit anything in a smaller area - will result in bad UX
@@ -422,7 +421,6 @@ static uic_edit_pg_t uic_edit_xy_to_pg(uic_edit_t* e, int32_t x, int32_t y) {
                     uic_edit_pg_t right = {pg.pn, pg.gp + 1};
                     int32_t x0 = uic_edit_pg_to_xy(e, pg).x;
                     int32_t x1 = uic_edit_pg_to_xy(e, right).x;
-//                  traceln("x0: %d cw: %d x: %d x1: %d", x0, cw, x, x1);
                     if (x1 - x < x - x0) {
                         pg.gp++; // snap to closest glyph's 'x'
                     }
@@ -592,7 +590,7 @@ static void uic_edit_scroll_into_view(uic_edit_t* e, const uic_edit_pg_t pg) {
             last = uic_edit_uint64(e->paragraphs, 0);
         }
         if (scroll <= caret && caret < last) {
-//          traceln("NO scroll    %016llX %016llX %016llX %016llX", scroll, caret, last, eof);
+            // no scroll
         } else if (caret < scroll) {
             e->scroll.pn = pg.pn;
             e->scroll.rn = rn;
@@ -1102,10 +1100,8 @@ static void uic_edit_fuzzer(void* p) {
             rnd = crt.random32(&e->fuzz_seed);
             int ch = rnd % 128;
             if (ch == 033) { ch = 'a'; } // don't send ESC
-//          traceln("char: %3d", ch);
             app.post(WM_CHAR, ch, 0);
         } else {
-//          traceln("key : %3d", key);
             app.post(WM_KEYDOWN, key, 0);
         }
         if (crt.random32(&e->fuzz_seed) % 32 == 0) {
