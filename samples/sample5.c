@@ -54,8 +54,8 @@ static void measure(uic_t* ui) {
     right.h = buttons.h;
     left.w = ui->w - right.w;
     left.h = ui->h - bottom.h;
-    edit.ui.h = left.h;
-    edit.ui.w = left.w;
+    edit.ui.w = left.w - ui->em.x;
+    edit.ui.h = left.h - ui->em.y;
 }
 
 static void layout(uic_t* ui) {
@@ -63,6 +63,8 @@ static void layout(uic_t* ui) {
     buttons.x = left.w + ui->em.x;
     text.ui.y = ui->h - text.ui.h;
     layouts.vertical(&buttons, buttons.x, buttons.y, 10);
+    edit.ui.x = left.w - edit.ui.w;
+    edit.ui.y = left.h - edit.ui.h;
 }
 
 static void paint(uic_t* ui) {
@@ -73,10 +75,10 @@ static void paint(uic_t* ui) {
     gdi.fill(0, 0, ui->w, ui->h);
     sprintf(text.ui.text, "%d:%d %d:%d %dx%d\n"
             "scroll %03d:%03d",
-        edit.selection.fro.pn, edit.selection.fro.gp,
-        edit.selection.end.pn, edit.selection.end.gp,
+        edit.selection[0].pn, edit.selection[0].gp,
+        edit.selection[1].pn, edit.selection[1].gp,
         edit.ui.w, edit.ui.h,
-        edit.scroll_pn, edit.scroll_rn);
+        edit.scroll.pn, edit.scroll.rn);
 }
 
 static void openned() {

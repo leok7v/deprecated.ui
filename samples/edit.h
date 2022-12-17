@@ -32,16 +32,16 @@ typedef struct uic_edit_para_s { // "paragraph"
     uic_edit_run_t* run; // [runs] array of pointers
 } uic_edit_para_t;
 
-typedef struct uic_edit_lc_s {
+typedef struct uic_edit_pg_s { // page/glyph coordinates
     // humans used to line:column coordinates in text
     int32_t pn; // paragpraph number ("line number")
     int32_t gp; // glyph position ("column")
 } uic_edit_pg_t;
 
-typedef struct uic_edit_selection_s {
-    uic_edit_pg_t fro; // from start to
-    uic_edit_pg_t end; // end always last selected position
-} uic_edit_selection_t;
+typedef struct uic_edit_pr_s { // page/run coordinates
+    int32_t pn; // paragpraph number
+    int32_t rn; // run number inside paragraph
+} uic_edit_pr_t;
 
 typedef struct uic_edit_s uic_edit_t;
 
@@ -53,15 +53,16 @@ typedef struct uic_edit_s {
     void (*erase)(uic_edit_t* e); // delete selection
     void (*fuzz)(uic_edit_t* e);  // start/stop fuzzing test
     int32_t width;   // last measure/layout width
-    int32_t height;  // and height
-    uic_edit_selection_t selection;
+    int32_t height;  // and height in pixels
+    uic_edit_pg_t selection[2];   // selection[0] from selection[1] to
     ui_point_t caret; // (-1, -1) off
-    int32_t scroll_pn; // left top corner paragraph number
-    int32_t scroll_rn; // left top corner run number
+    uic_edit_pr_t scroll; // left top corner paragraph/run coordinates
+    int32_t last_x;    // last_x for up/down caret movement
     int32_t mouse;     // bit 0 and bit 1 for LEFT and RIGHT buttons down
     int32_t top;       // y coordinate of the top of view
     int32_t bottom;    // '' (ditto) of the bottom
-    int32_t last_x;    // last_x for up/down caret movement
+    // number of fully (not partially clipped) visible `runs' from top to bottom:
+    int32_t visible_runs;
     bool focused;
     bool monospaced;
     bool multiline;
