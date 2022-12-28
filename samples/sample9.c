@@ -397,6 +397,8 @@ static void openned() {
     button_full_screen.ui.shortcut = 'f';
     uic_slider_init(&zoomer, "Zoom: 1 / (2^%d)", 7.0, 0, countof(stack) - 1,
         zoomer_callback);
+    strcopy(button_message_box.ui.tip, "Show Yes/No message box");
+    strcopy(button_about.ui.tip, "Show About message box");
     refresh();
 }
 
