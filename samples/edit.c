@@ -354,7 +354,6 @@ static int32_t uic_edit_first_visible_run(uic_edit_t* e, int32_t pn) {
 
 static ui_point_t uic_edit_pg_to_xy(uic_edit_t* e, const uic_edit_pg_t pg) {
     ui_point_t pt = { .x = -1, .y = 0 };
-    pt.y = 0;
     for (int32_t i = e->scroll.pn; i < e->paragraphs && pt.x < 0; i++) {
         int32_t runs = 0;
         const uic_edit_run_t* run = uic_edit_pragraph_runs(e, i, &runs);
@@ -375,7 +374,7 @@ static ui_point_t uic_edit_pg_to_xy(uic_edit_t* e, const uic_edit_pg_t pg) {
     }
     if (pg.pn == e->paragraphs) { pt.x = 0; }
     if (0 <= pt.x && pt.x < e->width && 0 <= pt.y && pt.y <= e->height) {
-        // all good, inside visible rectangle or tight after it
+        // all good, inside visible rectangle or right after it
     } else {
         traceln("outside (%d,%d) %dx%d", pt.x, pt.y, e->width, e->height);
     }
@@ -713,14 +712,16 @@ static void uic_edit_reuse_last_x(uic_edit_t* e, ui_point_t* pt) {
     // Vertical caret movement visually tend to move caret horizonally
     // in propotinal font text. Remembering starting `x' value for vertical
     // movements aleviates this unpleasant UX experience to some degree.
-    if (pt->x > 0 && e->last_x > 0) {
-        int32_t prev = e->last_x - e->ui.em.x;
-        int32_t next = e->last_x + e->ui.em.x;
-        if (prev <= pt->x && pt->x <= next) {
-            pt->x = e->last_x;
+    if (pt->x > 0) {
+        if (e->last_x > 0) {
+            int32_t prev = e->last_x - e->ui.em.x;
+            int32_t next = e->last_x + e->ui.em.x;
+            if (prev <= pt->x && pt->x <= next) {
+                pt->x = e->last_x;
+            }
         }
+        e->last_x = pt->x;
     }
-    e->last_x = pt->x;
 }
 
 static void uic_edit_key_up(uic_edit_t* e, const uic_edit_pg_t pg) {
@@ -737,9 +738,9 @@ static void uic_edit_key_up(uic_edit_t* e, const uic_edit_pg_t pg) {
         ui_point_t pt = uic_edit_pg_to_xy(e, pg);
         if (pt.y == 0) {
             uic_edit_scroll_down(e, 1);
-            pt = uic_edit_pg_to_xy(e, pg);
+        } else {
+            pt.y -= 1;
         }
-        pt.y -= 1;
         uic_edit_reuse_last_x(e, &pt);
         assert(pt.y >= 0);
         to = uic_edit_xy_to_pg(e, pt.x, pt.y);
@@ -764,9 +765,9 @@ static void uic_edit_key_down(uic_edit_t* e, const uic_edit_pg_t pg) {
     int32_t rc = uic_edit_runs_between(e, scroll, pg);
     if (rc >= e->visible_runs - 1) {
         uic_edit_scroll_up(e, 1);
-        pt = uic_edit_pg_to_xy(e, pg);
+    } else {
+        pt.y += e->ui.em.y;
     }
-    pt.y += e->ui.em.y;
     uic_edit_pg_t to = uic_edit_xy_to_pg(e, pt.x, pt.y);
     if (to.pn < 0 && to.gp < 0) {
         assert(pg.pn == e->paragraphs - 1);
