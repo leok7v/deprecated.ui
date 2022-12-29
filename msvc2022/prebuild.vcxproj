@@ -141,6 +141,8 @@
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)..\scripts\prebuild.bat</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)..\samples\version.h;$(SolutionDir)..\quick.h;$(SolutionDir)..\stb_image.h</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)..\samples\version.h;$(SolutionDir)..\quick.h;$(SolutionDir)..\stb_image.h</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
     </CustomBuild>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
