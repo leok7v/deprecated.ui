@@ -54,6 +54,7 @@ dkms.conf
 # User files
 *.vcxproj.user
 
+crt.h
 quick.h
 stb_image.h
 
