@@ -96,11 +96,11 @@ static void uic_edit_free(void** pp) {
 static void uic_edit_reallocate(void** pp, int32_t bytes, size_t element) {
     bytes *= (int32_t)element;
     if (*pp == null) {
-        *pp = malloc(bytes);
+        uic_edit_allocate(pp, bytes, 1);
     } else {
         *pp = realloc(*pp, bytes);
+        fatal_if_null(*pp);
     }
-    fatal_if_null(*pp);
 }
 
 static void uic_edit_append_paragraph(uic_edit_t* e, const char* s, int32_t n) {
@@ -957,13 +957,13 @@ static char* uic_edit_ensure(uic_edit_t* e, int32_t pn, int32_t bytes,
         // enough memory already allocated - do nothing
     } else if (e->para[pn].allocated > 0) {
         assert(preserve <= e->para[pn].allocated);
-        e->para[pn].text = realloc(e->para[pn].text, bytes);
+        uic_edit_reallocate(&e->para[pn].text, bytes, 1);
         fatal_if_null(e->para[pn].text);
         e->para[pn].allocated = bytes;
     } else {
         assert(e->para[pn].allocated == 0);
-        char* text = malloc(bytes);
-        fatal_if_null(text);
+        char* text = null;
+        uic_edit_allocate(&text, bytes, 1);
         e->para[pn].allocated = bytes;
         memcpy(text, e->para[pn].text, preserve);
         e->para[pn].text = text;
@@ -1013,9 +1013,9 @@ static uic_edit_pg_t uic_edit_op(uic_edit_t* e, bool cut,
             uic_clip_append(a, ab, limit, s0 + bp0, bp1 - bp0);
             if (cut) {
                 if (e->para[pn0].allocated == 0) {
+                    s0 = null;
                     int32_t n = bytes0 - (bp1 - bp0);
-                    s0 = malloc(n);
-                    fatal_if_null(s0);
+                    uic_edit_allocate(&s0, n, 1);
                     memcpy(s0, e->para[pn0].text, bp0);
                     e->para[pn0].text = s0;
                     e->para[pn0].allocated = n;
@@ -1088,8 +1088,8 @@ static void uic_edit_cut_copy(uic_edit_t* e, bool cut) {
     int32_t n = 0; // bytes between from..to
     uic_edit_op(e, false, from, to, null, &n);
     if (n > 0) {
-        char* text = (char*)malloc(n + 1);
-        fatal_if_null(text);
+        char* text = null;
+        uic_edit_allocate(&text, n + 1, 1);
         uic_edit_pg_t pg = uic_edit_op(e, cut, from, to, text, &n);
         if (cut && pg.pn >= 0 && pg.gp >= 0) {
             e->selection[0] = pg;
@@ -1147,8 +1147,7 @@ static void uic_edit_init_with_text(uic_edit_t* e, const char* s, int32_t n) {
         if (pass == 0) {
             e->allocated = (paragraphs + 1023) / 1024 * 1024;
             e->allocated *= sizeof(uic_edit_para_t); // bytes
-            e->para = malloc(e->allocated);
-            fatal_if_null(e->para);
+            uic_edit_allocate(&e->para, e->allocated, 1);
         }
     }
 }
