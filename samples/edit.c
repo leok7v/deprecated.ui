@@ -103,19 +103,6 @@ static void uic_edit_reallocate(void** pp, int32_t bytes, size_t element) {
     }
 }
 
-static void uic_edit_append_paragraph(uic_edit_t* e, const char* s, int32_t n) {
-    // uic_edit_append_paragraph() only used by uic_edit_init_with_text()
-    assert(e->paragraphs < e->allocated / (int32_t)sizeof(uic_edit_para_t));
-    uic_edit_para_t* p = &e->para[e->paragraphs];
-    p->text = (char*)s;
-    p->bytes = n;
-    p->glyphs = 0;
-    p->allocated = 0;
-    p->runs = 0;
-    p->run = null;
-    e->paragraphs++;
-}
-
 static int32_t uic_edit_break(font_t f, char* text, int32_t width,
         int32_t* g2b, int32_t gc) { // ~50 microseconds for 100 bytes
     // returns number of glyph (offset) from text of the last glyph that is
@@ -513,7 +500,9 @@ static void uic_edit_paint(uic_t* ui) {
 
 static void uic_edit_set_caret(uic_edit_t* e, int32_t x, int32_t y) {
     if (e->caret.x != x || e->caret.y != y) {
-        fatal_if_false(SetCaretPos(e->ui.x + x, e->ui.y + y));
+        if (e->focused && app.focused) {
+            fatal_if_false(SetCaretPos(e->ui.x + x, e->ui.y + y));
+        }
         e->caret.x = x;
         e->caret.y = y;
     }
@@ -626,7 +615,6 @@ static void uic_edit_scroll_into_view(uic_edit_t* e, const uic_edit_pg_t pg) {
 }
 
 static void uic_edit_move_caret(uic_edit_t* e, const uic_edit_pg_t pg) {
-    assert(e->focused && app.focused);
     uic_edit_scroll_into_view(e, pg);
     ui_point_t pt = e->ui.w > 0 ? // ui.w == 0 means  no measure/layout yet
         uic_edit_pg_to_xy(e, pg) : (ui_point_t){0, 0};
@@ -1205,7 +1193,7 @@ static void uic_edit_copy(uic_edit_t* e) {
     uic_edit_cut_copy(e, false);
 }
 
-static void uic_edit_paste_text(uic_edit_t* e, const char* s, int32_t n) {
+static uic_edit_pg_t uic_edit_paste_text(uic_edit_t* e, const char* s, int32_t n) {
     uic_edit_pg_t pg = e->selection[1];
     int32_t i = 0;
     const char* text = s;
@@ -1224,11 +1212,11 @@ static void uic_edit_paste_text(uic_edit_t* e, const char* s, int32_t n) {
         text = s + next;
         i = next;
     }
-    uic_edit_move_caret(e, pg);
+    return pg;
 }
 
 static void uic_edit_paste(uic_edit_t* e) {
-    (void)e;
+    uic_edit_pg_t pg = e->selection[1];
     int32_t bytes = 0;
     clipboard.text(null, &bytes);
     if (bytes > 0) {
@@ -1241,46 +1229,58 @@ static void uic_edit_paste(uic_edit_t* e) {
         }
         if (bytes > 0) {
             e->erase(e);
-            uic_edit_paste_text(e, text, bytes);
+            pg = uic_edit_paste_text(e, text, bytes);
+            uic_edit_move_caret(e, pg);
         }
         uic_edit_free(&text);
     }
 }
 
+static void uic_edit_init_with_lorem_ipsum(uic_edit_t* e);
+static void uic_edit_fuzz(uic_edit_t* e);
+
+void uic_edit_init(uic_edit_t* e) {
+    memset(e, 0, sizeof(*e));
+    uic_init(&e->ui);
+    e->ui.tag = uic_tag_edit;
+    uic_edit_init_with_lorem_ipsum(e);
+    e->fuzz_seed   = 1; // client can seed it with (crt.nanoseconds() | 1)
+    e->last_x      = -1;
+    e->multiline   = true;
+    e->monospaced  = false;
+    e->wordbreak   = true;
+    e->ui.color    = rgb(168, 168, 150); // colors.text;
+    e->ui.font     = &app.fonts.H1;
+    e->caret       = (ui_point_t){-1, -1};
+    e->ui.paint    = uic_edit_paint;
+    e->ui.measure  = uic_edit_measure;
+    e->ui.layout   = uic_edit_layout;
+    e->ui.mouse    = uic_edit_mouse;
+    e->ui.key_down = uic_edit_key_pressed;
+    e->ui.keyboard = uic_edit_keyboard;
+    e->ui.message  = uic_edit_message;
+    e->cut   = uic_edit_cut;
+    e->copy  = uic_edit_copy;
+    e->paste = uic_edit_paste;
+    e->erase = uic_edit_erase;
+    e->fuzz  = uic_edit_fuzz;
+    // Expected manifest.xml containing UTF-8 code page
+    // for Translate message and WM_CHAR to deliver UTF-8 characters
+    // see: https://learn.microsoft.com/en-us/windows/apps/design/globalizing/use-utf8-code-page
+    if (GetACP() != 65001) {
+        traceln("codepage: %d UTF-8 will not be supported", GetACP());
+    }
+    // at the moment of writing there is no API call to inform Windows about process
+    // prefered codepage except manifest.xml file in resource #1.
+    // Absence of manifest.xml will result to ancient and useless ANSI 1252 codepage
+    // TODO: may be change quick.h to use CreateWindowW() and translate UTF16 to UTF8
+}
 
 #define glyph_teddy_bear  "\xF0\x9F\xA7\xB8"
 #define glyph_chinese_one "\xE5\xA3\xB9"
 #define glyph_chinese_two "\xE8\xB4\xB0"
 #define glyph_teddy_bear  "\xF0\x9F\xA7\xB8"
 #define glyph_ice_cube    "\xF0\x9F\xA7\x8A"
-
-static void uic_edit_init_with_text(uic_edit_t* e, const char* s, int32_t n) {
-    fatal_if(e->paragraphs != 0);
-    static const char empty[] = {0x00};
-    for (int pass = 0; pass <= 1; pass++) {
-        int32_t i = 0;
-        const char* text = s;
-        int32_t paragraphs = 0;
-        while (i < n) {
-            int32_t b = i;
-            while (b < n && s[b] != '\n') { b++; }
-            int32_t next = b + 1;
-            if (b > i && s[b - 1] == '\r') { b--; } // CR LF
-            if (pass == 0) {
-                paragraphs++;
-            } else {
-                uic_edit_append_paragraph(e, b == i ? empty : text, b - i);
-            }
-            text = s + next;
-            i = next;
-        }
-        if (pass == 0) {
-            e->allocated = (paragraphs + 1023) / 1024 * 1024;
-            e->allocated *= sizeof(uic_edit_para_t); // bytes
-            uic_edit_allocate(&e->para, e->allocated, 1);
-        }
-    }
-}
 
 #define lorem_ipsum \
     "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris blandit "    \
@@ -1355,43 +1355,9 @@ static const char* test_content =
     lorem_ipsum
     "";
 
-static void uic_edit_fuzz(uic_edit_t* e);
-
-void uic_edit_init(uic_edit_t* e) {
-    memset(e, 0, sizeof(*e));
-    uic_init(&e->ui);
-    e->ui.tag = uic_tag_edit;
-    uic_edit_init_with_text(e, test_content, (int32_t)strlen(test_content));
-    e->fuzz_seed   = 1; // client can seed it with (crt.nanoseconds() | 1)
-    e->last_x      = -1;
-    e->multiline   = true;
-    e->monospaced  = false;
-    e->wordbreak   = true;
-    e->ui.color    = rgb(168, 168, 150); // colors.text;
-    e->ui.font     = &app.fonts.H1;
-    e->caret       = (ui_point_t){-1, -1};
-    e->ui.paint    = uic_edit_paint;
-    e->ui.measure  = uic_edit_measure;
-    e->ui.layout   = uic_edit_layout;
-    e->ui.mouse    = uic_edit_mouse;
-    e->ui.key_down = uic_edit_key_pressed;
-    e->ui.keyboard = uic_edit_keyboard;
-    e->ui.message  = uic_edit_message;
-    e->cut   = uic_edit_cut;
-    e->copy  = uic_edit_copy;
-    e->paste = uic_edit_paste;
-    e->erase = uic_edit_erase;
-    e->fuzz  = uic_edit_fuzz;
-    // Expected manifest.xml containing UTF-8 code page
-    // for Translate message and WM_CHAR to deliver UTF-8 characters
-    // see: https://learn.microsoft.com/en-us/windows/apps/design/globalizing/use-utf8-code-page
-    if (GetACP() != 65001) {
-        traceln("codepage: %d UTF-8 will not be supported", GetACP());
-    }
-    // at the moment of writing there is no API call to inform Windows about process
-    // prefered codepage except manifest.xml file in resource #1.
-    // Absence of manifest.xml will result to ancient and useless ANSI 1252 codepage
-    // TODO: may be change quick.h to use CreateWindowW() and translate UTF16 to UTF8
+static void uic_edit_init_with_lorem_ipsum(uic_edit_t* e) {
+    fatal_if(e->paragraphs != 0);
+    uic_edit_paste_text(e, test_content, (int32_t)strlen(test_content));
 }
 
 static void uic_edit_next_fuzz(uic_edit_t* e) {
