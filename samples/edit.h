@@ -47,9 +47,12 @@ typedef struct uic_edit_s uic_edit_t;
 
 typedef struct uic_edit_s {
     uic_t ui;
-    void (*copy)(uic_edit_t* e);  // selection to clipboard
-    void (*cut)(uic_edit_t* e);   // selection to clipboard
-    void (*paste)(uic_edit_t* e); // replace selection with content of clipboard
+    void (*paste)(uic_edit_t* e, const char* text, int32_t bytes); // replace selected
+    void (*copy)(uic_edit_t* e, char* text, int32_t* bytes); // copy whole text
+    void (*copy_to_clipboard)(uic_edit_t* e); // selected text to clipboard
+    void (*cut_to_clipboard)(uic_edit_t* e);  // copy selected text to clipboard and erase it
+    void (*paste_from_clipboard)(uic_edit_t* e); // replace selected text with content of clipboard
+    void (*select_all)(uic_edit_t* e); // select whole text
     void (*erase)(uic_edit_t* e); // delete selection
     void (*fuzz)(uic_edit_t* e);  // start/stop fuzzing test
     int32_t width;   // last measure/layout width

@@ -83,8 +83,20 @@ static void paint(uic_t* ui) {
 
 static void openned() {
     app.focus = &edit.ui;
-//  mono_H3 = gdi.font(app.fonts.mono, gdi.get_em(app.fonts.H3).y);
-//  edit.ui.font = &mono_H3;
+    static font_t mono_H3;
+    mono_H3 = gdi.font(app.fonts.mono, gdi.get_em(app.fonts.H3).y);
+    edit.ui.font = &mono_H3;
+    if (app.argc > 1) {
+        char* file = null;
+        int64_t bytes = 0;
+        if (crt.memmap_read(app.argv[1], &file, &bytes) == 0) {
+            if (0 < bytes && bytes <= INT_MAX) {
+                edit.select_all(&edit);
+                edit.paste(&edit, file, (int32_t)bytes);
+            }
+            crt.memunmap(file, bytes);
+        }
+    }
 }
 
 static void periodically(uic_t* unused(ui)) {
