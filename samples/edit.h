@@ -15,7 +15,7 @@ typedef struct uic_edit_run_s {
     int32_t bp;     // position in bytes  since start of the paragraph
     int32_t gp;     // position in glyphs since start of the paragraph
     int32_t bytes;  // number of bytes in this `run`
-    int32_t glyphs; // number of glyphs
+    int32_t glyphs; // number of glyphs in this `run`
     int32_t pixels; // width in pixels
 } uic_edit_run_t;
 
@@ -25,11 +25,13 @@ typedef struct uic_edit_run_s {
 
 typedef struct uic_edit_para_s { // "paragraph"
     char* text;          // text[bytes] utf-8
+    int32_t allocated;   // if != 0 text copied to heap allocated bytes
     int32_t bytes;       // number of bytes in utf-8 text
     int32_t glyphs;      // number of glyphs in text <= bytes
-    int32_t allocated;   // if != 0 text copied to heap allocated bytes
-    int32_t runs;        // number of runs in the paragraph
-    uic_edit_run_t* run; // [runs] array of pointers
+    int32_t runs;        // number of runs in this paragraph
+    uic_edit_run_t* run; // [runs] array of pointers (heap)
+    int32_t* g2b;        // [bytes + 1] glyph to byte positions g2b[0] = 0
+    int32_t  g2b_allocated; // number of bytes on heap allocated for g2b[]
 } uic_edit_para_t;
 
 typedef struct uic_edit_pg_s { // page/glyph coordinates
