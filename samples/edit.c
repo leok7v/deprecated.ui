@@ -20,10 +20,6 @@ begin_c
 // characters. Thus even if edit is monospaced glyph measurements are used
 // in text layout.
 
-
-#define uic_edit_stack_int32_array(n) \
-    ((int32_t*)stackalloc(((n) + 1) * sizeof(int32_t)))
-
 static uint64_t uic_edit_uint64(int32_t high, int32_t low) {
     assert(high >= 0 && low >= 0);
     return ((uint64_t)high << 32) | (uint64_t)low;
@@ -125,26 +121,6 @@ static void uic_edit_paragraph_g2b(uic_edit_t* e, int32_t pn) {
     }
 }
 
-#if 0
-static int32_t uic_edit_break(font_t f, char* text, int32_t width,
-        int32_t* g2b, int32_t gc) { // ~50 microseconds for 100 bytes
-    // returns number of glyph (offset) from text of the last glyph that is
-    // completely to the left of `w`
-    assert(gc > 1, "cannot break single glyph");
-    int i = 0;
-    int j = gc;
-    int32_t k = (i + j) / 2;
-    while (i < j) {
-        assert(0 <= k && k < gc + 1);
-        int32_t px = gdi.measure_text(f, "%.*s", g2b[k + 1], text).x;
-        if (px == width) { break; }
-        if (px < width) { i = k + 1; } else { j = k; }
-        k = (i + j) / 2;
-    }
-    return k;
-}
-#endif
-
 static int32_t uic_edit_word_break_at(uic_edit_t* e, int32_t pn, int32_t rn,
         const int32_t width) {
     font_t f = *e->ui.font;
@@ -185,18 +161,6 @@ static int32_t uic_edit_word_break(uic_edit_t* e, int32_t pn, int32_t rn) {
     return uic_edit_word_break_at(e, pn, rn, e->width);
 }
 
-#if 0
-static int32_t uic_edit_glyph_at_x(font_t f, char* s, int32_t n, int32_t x) {
-    if (x == 0 || n == 0) {
-        return 0;
-    } else {
-        int32_t* g2b = uic_edit_stack_int32_array(n + 1);
-        int gc = uic_edit_g2b(s, n, g2b);
-        return gc <= 1 ? gc : uic_edit_break(f, s, x + 1, g2b, gc);
-    }
-}
-#else
-
 static int32_t uic_edit_glyph_at_x(uic_edit_t* e, int32_t pn, int32_t rn, int32_t x) {
     if (x == 0 || e->para[pn].bytes == 0) {
         return 0;
@@ -204,9 +168,6 @@ static int32_t uic_edit_glyph_at_x(uic_edit_t* e, int32_t pn, int32_t rn, int32_
         return uic_edit_word_break_at(e, pn, rn, x + 1);
     }
 }
-
-#endif
-
 
 // uic_edit::layout_paragraph breaks paragraph into `runs` according to `width`
 // and TODO: `.wordbreak`, `.singleline`
@@ -242,39 +203,13 @@ static const uic_edit_run_t* uic_edit_paragraph_runs(uic_edit_t* e, int32_t pn,
                 int32_t ix = 0; // glyph index from to start of paragraph
                 char* text = para->text;
                 int32_t bytes = para->bytes;
-//              int32_t* g2b = uic_edit_stack_int32_array(bytes + 1);
-                // glyph position (offset in bytes)
                 while (bytes > 0) {
                     assert(rc < max_runs);
-#if 0
-                    const int32_t gc = uic_edit_g2b(text, bytes, g2b);
-                    // expected at least one glyph but not more then bytes
-                    assert(0 < gc && gc <= bytes);
-                    int32_t glyphs = gc == 1 ?
-                        1 : uic_edit_break(f, text, e->width, g2b, gc);
-                    assert(0 <= glyphs - 1 && glyphs - 1 < gc);
-                    int32_t utf8bytes = g2b[glyphs];
-                    pixels = gdi.measure_text(f, "%.*s", utf8bytes, text).x;
-                    run[rc].bp = (int32_t)(text - para->text);
-                    run[rc].gp = ix;
-#else
                     run[rc].bp = (int32_t)(text - para->text);
                     run[rc].gp = ix;
                     int32_t glyphs = uic_edit_word_break(e, pn, rc);
                     int32_t utf8bytes = para->g2b[ix + glyphs] - run[rc].bp;
                     pixels = gdi.measure_text(f, "%.*s", utf8bytes, text).x;
-#endif
-#if 0
-{
-//  traceln("%.*s", para->bytes - run[rc].bp, text);
-    int32_t glyphs2 = uic_edit_word_break(e, pn, rc);
-    assert(glyphs2 == glyphs);
-    int32_t utf8bytes2 = para->g2b[ix + glyphs] - run[rc].bp;
-    assert(utf8bytes2 == utf8bytes);
-    int32_t pixels2 = gdi.measure_text(f, "%.*s", utf8bytes, text).x;
-    assert(pixels2 == pixels);
-}
-#endif
                     if (glyphs > 1 && utf8bytes < bytes && text[utf8bytes] != 0x20) {
                         // try to find word break SPACE character. utf8 space is 0x20
                         int32_t i = utf8bytes;
@@ -469,11 +404,7 @@ static uic_edit_pg_t uic_edit_xy_to_pg(uic_edit_t* e, int32_t x, int32_t y) {
                     const int last_run = j == runs - 1;
                     pg.gp = r->gp + max(0, r->glyphs - 1 + last_run);
                 } else {
-                    #if 0
-                    pg.gp = r->gp + uic_edit_glyph_at_x(f, s, r->bytes, x);
-                    #else
                     pg.gp = r->gp + uic_edit_glyph_at_x(e, i, j, x);
-                    #endif
                     if (pg.gp < r->glyphs - 1) {
                         uic_edit_pg_t right = {pg.pn, pg.gp + 1};
                         int32_t x0 = uic_edit_pg_to_xy(e, pg).x;
