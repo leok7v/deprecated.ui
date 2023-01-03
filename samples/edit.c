@@ -225,12 +225,15 @@ static void uic_edit_create_caret(uic_edit_t* e) {
     fatal_if_false(CreateCaret((HWND)app.window, null, 2, e->ui.em.y));
     fatal_if_false(SetCaretBlinkTime(400));
     fatal_if_false(ShowCaret((HWND)app.window));
+    fatal_if_false(SetCaretPos(e->ui.x, e->ui.y));
+    traceln("");
     e->focused = true;
 }
 
 static void uic_edit_destroy_caret(uic_edit_t* e) {
     fatal_if_false(HideCaret((HWND)app.window));
     fatal_if_false(DestroyCaret());
+    traceln("");
     e->focused = false;
 }
 
@@ -1217,7 +1220,8 @@ static uic_edit_pg_t uic_edit_paste_text(uic_edit_t* e, const char* s, int32_t n
 
 static void uic_edit_paste(uic_edit_t* e, const char* s, int32_t n) {
     e->erase(e);
-    uic_edit_paste_text(e, s, n);
+    uic_edit_pg_t pg = uic_edit_paste_text(e, s, n);
+    if (e->ui.w > 0) { uic_edit_move_caret(e, pg); }
 }
 
 static void uic_edit_clipboard_paste(uic_edit_t* e) {
@@ -1242,8 +1246,8 @@ static void uic_edit_clipboard_paste(uic_edit_t* e) {
 }
 
 static void uic_edit_measure(uic_t* ui) { // bottom up
-    ui->em = gdi.get_em(*ui->font);
     assert(ui->tag == uic_tag_edit);
+    ui->em = gdi.get_em(*ui->font);
     // enforce minimum size - it makes it checking corner cases much simpler
     // and it's hard to edit anything in a smaller area - will result in bad UX
     if (ui->w < ui->em.x * 3) { ui->w = ui->em.x * 4; }

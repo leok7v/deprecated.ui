@@ -81,21 +81,34 @@ static void paint(uic_t* ui) {
         edit.scroll.pn, edit.scroll.rn);
 }
 
+static void open_file(const char* pathname) {
+    char* file = null;
+    int64_t bytes = 0;
+    if (crt.memmap_read(pathname, &file, &bytes) == 0) {
+        if (0 < bytes && bytes <= INT_MAX) {
+            edit.select_all(&edit);
+            edit.paste(&edit, file, (int32_t)bytes);
+        }
+        crt.memunmap(file, bytes);
+    } else {
+        app.toast(5.3, "\nFailed to open file \"%s\".\n%s\n",
+                  pathname, crt.error(crt.err()));
+    }
+}
+
 static void openned() {
     app.focus = &edit.ui;
-    static font_t mono_H3;
-    mono_H3 = gdi.font(app.fonts.mono, gdi.get_em(app.fonts.H3).y);
-    edit.ui.font = &mono_H3;
+    #if 0 // large font:
+        static font_t mono_H3;
+        mono_H3 = gdi.font(app.fonts.mono, gdi.get_em(app.fonts.H3).y);
+        edit.ui.font = &mono_H3;
+    #elif 1
+        edit.ui.font = &app.fonts.mono;
+    #else
+        edit.ui.font = &app.fonts.regular;
+    #endif
     if (app.argc > 1) {
-        char* file = null;
-        int64_t bytes = 0;
-        if (crt.memmap_read(app.argv[1], &file, &bytes) == 0) {
-            if (0 < bytes && bytes <= INT_MAX) {
-                edit.select_all(&edit);
-                edit.paste(&edit, file, (int32_t)bytes);
-            }
-            crt.memunmap(file, bytes);
-        }
+        open_file(app.argv[1]);
     }
 }
 
