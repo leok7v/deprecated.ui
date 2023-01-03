@@ -20,8 +20,6 @@ begin_c
 // characters. Thus even if edit is monospaced glyph measurements are used
 // in text layout.
 
-static void uic_edit_move_caret(uic_edit_t* e, const uic_edit_pg_t pg);
-
 static uint64_t uic_edit_uint64(int32_t high, int32_t low) {
     assert(high >= 0 && low >= 0);
     return ((uint64_t)high << 32) | (uint64_t)low;
@@ -302,51 +300,6 @@ static uic_edit_pg_t uic_edit_scroll_pg(uic_edit_t* e) {
     return (uic_edit_pg_t) { .pn = e->scroll.pn, .gp = run[e->scroll.rn].gp };
 }
 
-static void uic_edit_measure(uic_t* ui) { // bottom up
-    ui->em = gdi.get_em(*ui->font);
-    assert(ui->tag == uic_tag_edit);
-    // enforce minimum size - it makes it checking corner cases much simpler
-    // and it's hard to edit anything in a smaller area - will result in bad UX
-    if (ui->w < ui->em.x * 3) { ui->w = ui->em.x * 4; }
-    if (ui->h < ui->em.y) { ui->h = ui->em.y; }
-}
-
-static void uic_edit_layout(uic_t* ui) { // top down
-    assert(ui->tag == uic_tag_edit);
-    assert(ui->w > 0 && ui->h > 0); // could be `if'
-    uic_edit_t* e = (uic_edit_t*)ui;
-    // glyph position in scroll_pn paragraph:
-    const uic_edit_pg_t scroll = e->width == 0 ?
-        (uic_edit_pg_t){0, 0} : uic_edit_scroll_pg(e);
-    if (ui->w < ui->em.x * 3) { ui->w = ui->em.x * 4; }
-    if (ui->h < ui->em.y) { ui->h = ui->em.y; }
-    if (e->width > 0 && ui->w != e->width) {
-        uic_edit_dispose_paragraphs_layout(e);
-    }
-    // enforce minimum size - again
-    e->width  = ui->w;
-    e->height = ui->h;
-    e->top    = e->multiline ? 0 : (e->height - e->ui.em.y) / 2;
-    e->bottom = e->multiline ? e->height : e->height - e->top - e->ui.em.y;
-    e->visible_runs = (e->bottom - e->top) / e->ui.em.y; // fully visible
-    // number of runs in e->scroll.pn may have changed with e->width change
-    int32_t runs = uic_edit_pragraph_run_count(e, e->scroll.pn);
-    e->scroll.rn = uic_edit_pg_to_pr(e, scroll).rn;
-    assert(0 <= e->scroll.rn && e->scroll.rn < runs); (void)runs;
-    // For single line editor distribute vertical gap evenly between
-    // top and bottom. For multiline snap top line to y coordinate 0
-    // otherwise resizing view will result in up-down jiggling of the
-    // whole text
-    if (e->focused) {
-        // recreate caret because em.y may have changed
-        uic_edit_destroy_caret(e);
-        uic_edit_create_caret(e);
-        if (app.focus && e->focused) {
-            uic_edit_move_caret(e, e->selection[1]);
-        }
-    }
-}
-
 static int32_t uic_edit_first_visible_run(uic_edit_t* e, int32_t pn) {
     return pn == e->scroll.pn ? e->scroll.rn : 0;
 }
@@ -480,27 +433,6 @@ static void uic_edit_paint_para(uic_edit_t* e, int32_t pn) {
         gdi.text("%.*s", run[j].bytes, text);
         gdi.y += e->ui.em.y;
     }
-}
-
-static void uic_edit_paint(uic_t* ui) {
-    assert(ui->tag == uic_tag_edit);
-    assert(!ui->hidden);
-    uic_edit_t* e = (uic_edit_t*)ui;
-    gdi.set_brush(gdi.brush_color);
-    gdi.set_brush_color(rgb(20, 20, 14));
-    gdi.fill(ui->x, ui->y, ui->w, e->height);
-    gdi.push(ui->x, ui->y + e->top);
-    gdi.set_clip(ui->x, ui->y, ui->w, e->height);
-    font_t f = ui->font != null ? *ui->font : app.fonts.regular;
-    gdi.set_font(f);
-    gdi.set_text_color(ui->color);
-    const int32_t bottom = ui->y + e->bottom;
-    assert(e->scroll.pn <= e->paragraphs);
-    for (int32_t i = e->scroll.pn; i < e->paragraphs && gdi.y < bottom; i++) {
-        uic_edit_paint_para(e, i);
-    }
-    gdi.set_clip(0, 0, 0, 0);
-    gdi.pop();
 }
 
 static void uic_edit_set_caret(uic_edit_t* e, int32_t x, int32_t y) {
@@ -1307,6 +1239,72 @@ static void uic_edit_clipboard_paste(uic_edit_t* e) {
         }
         uic_edit_free(&text);
     }
+}
+
+static void uic_edit_measure(uic_t* ui) { // bottom up
+    ui->em = gdi.get_em(*ui->font);
+    assert(ui->tag == uic_tag_edit);
+    // enforce minimum size - it makes it checking corner cases much simpler
+    // and it's hard to edit anything in a smaller area - will result in bad UX
+    if (ui->w < ui->em.x * 3) { ui->w = ui->em.x * 4; }
+    if (ui->h < ui->em.y) { ui->h = ui->em.y; }
+}
+
+static void uic_edit_layout(uic_t* ui) { // top down
+    assert(ui->tag == uic_tag_edit);
+    assert(ui->w > 0 && ui->h > 0); // could be `if'
+    uic_edit_t* e = (uic_edit_t*)ui;
+    // glyph position in scroll_pn paragraph:
+    const uic_edit_pg_t scroll = e->width == 0 ?
+        (uic_edit_pg_t){0, 0} : uic_edit_scroll_pg(e);
+    if (ui->w < ui->em.x * 3) { ui->w = ui->em.x * 4; }
+    if (ui->h < ui->em.y) { ui->h = ui->em.y; }
+    if (e->width > 0 && ui->w != e->width) {
+        uic_edit_dispose_paragraphs_layout(e);
+    }
+    // enforce minimum size - again
+    e->width  = ui->w;
+    e->height = ui->h;
+    e->top    = e->multiline ? 0 : (e->height - e->ui.em.y) / 2;
+    e->bottom = e->multiline ? e->height : e->height - e->top - e->ui.em.y;
+    e->visible_runs = (e->bottom - e->top) / e->ui.em.y; // fully visible
+    // number of runs in e->scroll.pn may have changed with e->width change
+    int32_t runs = uic_edit_pragraph_run_count(e, e->scroll.pn);
+    e->scroll.rn = uic_edit_pg_to_pr(e, scroll).rn;
+    assert(0 <= e->scroll.rn && e->scroll.rn < runs); (void)runs;
+    // For single line editor distribute vertical gap evenly between
+    // top and bottom. For multiline snap top line to y coordinate 0
+    // otherwise resizing view will result in up-down jiggling of the
+    // whole text
+    if (e->focused) {
+        // recreate caret because em.y may have changed
+        uic_edit_destroy_caret(e);
+        uic_edit_create_caret(e);
+        if (app.focus && e->focused) {
+            uic_edit_move_caret(e, e->selection[1]);
+        }
+    }
+}
+
+static void uic_edit_paint(uic_t* ui) {
+    assert(ui->tag == uic_tag_edit);
+    assert(!ui->hidden);
+    uic_edit_t* e = (uic_edit_t*)ui;
+    gdi.set_brush(gdi.brush_color);
+    gdi.set_brush_color(rgb(20, 20, 14));
+    gdi.fill(ui->x, ui->y, ui->w, e->height);
+    gdi.push(ui->x, ui->y + e->top);
+    gdi.set_clip(ui->x, ui->y, ui->w, e->height);
+    font_t f = ui->font != null ? *ui->font : app.fonts.regular;
+    gdi.set_font(f);
+    gdi.set_text_color(ui->color);
+    const int32_t bottom = ui->y + e->bottom;
+    assert(e->scroll.pn <= e->paragraphs);
+    for (int32_t i = e->scroll.pn; i < e->paragraphs && gdi.y < bottom; i++) {
+        uic_edit_paint_para(e, i);
+    }
+    gdi.set_clip(0, 0, 0, 0);
+    gdi.pop();
 }
 
 static void uic_edit_init_with_lorem_ipsum(uic_edit_t* e);
