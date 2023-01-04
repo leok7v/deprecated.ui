@@ -69,12 +69,11 @@ static void uic_edit_reallocate(void** pp, int32_t count, size_t element) {
 }
 
 static int32_t uic_edit_text_width(uic_edit_t* e, const char* s, int32_t n) {
-    assert(n > 0);
 //  double time = crt.seconds();
     // average measure_text() performance per character:
     // "app.fonts.mono"    ~500us (microseconds)
     // "app.fonts.regular" ~250us (microseconds)
-    int32_t x = gdi.measure_text(*e->ui.font, "%.*s", n, s).x;
+    int32_t x = n == 0 ? 0 : gdi.measure_text(*e->ui.font, "%.*s", n, s).x;
 //  time = (crt.seconds() - time) * 1000.0;
 //  static double time_sum;
 //  static double length_sum;
@@ -160,24 +159,19 @@ static void uic_edit_paragraph_g2b(uic_edit_t* e, int32_t pn) {
 
 static int32_t uic_edit_word_break_at(uic_edit_t* e, int32_t pn, int32_t rn,
         const int32_t width) {
-    font_t f = *e->ui.font;
     uic_edit_para_t* p = &e->para[pn];
     int32_t k = 1; // at least 1 glyph
-    // gp/bp offsets inside a run in glyphs and bytes from the start of the paragraph:
+    // offsets inside a run in glyphs and bytes from the start of the paragraph:
     int32_t gp = p->run[rn].gp;
     int32_t bp = p->run[rn].bp;
     if (gp < p->glyphs - 1) {
         const char* text = p->text + bp;
         int32_t* g2b = &p->g2b[gp];
         int32_t gc = 1;
-        int32_t w = gdi.measure_text(f, "%.*s", g2b[gc] - bp, text).x;
-int32_t w1 = uic_edit_text_width(e, text, g2b[gc] - bp);
-assert(w == w1); (void)w1;
+        int32_t w = uic_edit_text_width(e, text, g2b[gc] - bp);
         while (gc < p->glyphs - gp && w < width) {
             gc = min(gc + gc, p->glyphs - gp);
-            w = gdi.measure_text(f, "%.*s", g2b[gc] - bp, text).x;
-int32_t w2 = uic_edit_text_width(e, text, g2b[gc] - bp);
-assert(w == w2); (void)w2;
+            w = uic_edit_text_width(e, text, g2b[gc] - bp);
         }
         if (w < width) {
             k = gc;
@@ -188,9 +182,7 @@ assert(w == w2); (void)w2;
             while (i < j) {
                 assert(0 <= k && k < gc + 1);
                 const int n = g2b[k + 1] - bp;
-                int32_t px = gdi.measure_text(f, "%.*s", n, text).x;
-int32_t px1 = uic_edit_text_width(e, text, n);
-assert(px == px1); (void)px1;
+                int32_t px = uic_edit_text_width(e, text, n);
                 if (px == width) { break; }
                 if (px < width) { i = k + 1; } else { j = k; }
                 k = (i + j) / 2;
@@ -235,10 +227,7 @@ static const uic_edit_run_t* uic_edit_paragraph_runs(uic_edit_t* e, int32_t pn,
             const int32_t max_runs = p->bytes + 1;
             uic_edit_allocate(&p->run, max_runs, sizeof(uic_edit_run_t));
             uic_edit_run_t* run = p->run;
-            font_t f = *e->ui.font;
-            int32_t pixels = gdi.measure_text(f, "%.*s", p->bytes, p->text).x;
-int32_t pixels1 = uic_edit_text_width(e, p->text, p->bytes);
-assert(pixels == pixels1); (void)pixels1;
+            int32_t pixels = uic_edit_text_width(e, p->text, p->bytes);
             if (pixels <= e->width) { // whole paragraph fits into width
                 p->runs = 1;
                 run[0].bp = 0;
@@ -257,9 +246,7 @@ assert(pixels == pixels1); (void)pixels1;
                     run[rc].gp = ix;
                     int32_t glyphs = uic_edit_word_break(e, pn, rc);
                     int32_t utf8bytes = p->g2b[ix + glyphs] - run[rc].bp;
-                    pixels = gdi.measure_text(f, "%.*s", utf8bytes, text).x;
-int32_t pixels2 = uic_edit_text_width(e, text, utf8bytes);
-assert(pixels == pixels2); (void)pixels2;
+                    pixels = uic_edit_text_width(e, text, utf8bytes);
                     if (glyphs > 1 && utf8bytes < bytes && text[utf8bytes] != 0x20) {
                         // try to find word break SPACE character. utf8 space is 0x20
                         int32_t i = utf8bytes;
@@ -267,9 +254,7 @@ assert(pixels == pixels2); (void)pixels2;
                         if (i > 0 && i != utf8bytes) {
                             utf8bytes = i;
                             glyphs = uic_edit_glyphs(text, utf8bytes);
-                            pixels = gdi.measure_text(f, "%.*s", utf8bytes, text).x;
-int32_t pixels3 = uic_edit_text_width(e, text, utf8bytes);
-assert(pixels == pixels3); (void)pixels3;
+                            pixels = uic_edit_text_width(e, text, utf8bytes);
                         }
                     }
                     run[rc].bytes = utf8bytes;
@@ -409,9 +394,7 @@ static ui_point_t uic_edit_pg_to_xy(uic_edit_t* e, const uic_edit_pg_t pg) {
                     const char* s = e->para[i].text + run[j].bp;
                     int32_t ofs = uic_edit_gp_to_bytes(s, run[j].bytes,
                         pg.gp - run[j].gp);
-                    pt.x = ofs == 0 ? 0 : gdi.measure_text(*e->ui.font, "%.*s", ofs, s).x;
-int32_t pt_x = ofs == 0 ? 0 : uic_edit_text_width(e, s, ofs);
-assert(pt.x == pt_x); (void)pt_x;
+                    pt.x = uic_edit_text_width(e, s, ofs);
                     break;
                 }
             }
@@ -435,9 +418,7 @@ static int32_t uic_edit_glyph_width_px(uic_edit_t* e, const uic_edit_pg_t pg) {
     } else if (pg.gp < gc) {
         char* s = text + uic_edit_gp_to_bytes(text, e->para[pg.pn].bytes, pg.gp);
         int32_t bytes_in_glyph = uic_edit_glyph_bytes(*s);
-        int32_t x = gdi.measure_text(*e->ui.font, "%.*s", bytes_in_glyph, s).x;
-int32_t x1 = uic_edit_text_width(e, s, bytes_in_glyph);
-assert(x == x1); (void)x1;
+        int32_t x = uic_edit_text_width(e, s, bytes_in_glyph);
         return x;
     } else {
         assert(pg.gp == gc, "only next position past last glyph is allowed");
@@ -448,7 +429,6 @@ assert(x == x1); (void)x1;
 // uic_edit::xy_to_pg() (x,y) (0,0, widh x height) -> paragraph # glyph #
 
 static uic_edit_pg_t uic_edit_xy_to_pg(uic_edit_t* e, int32_t x, int32_t y) {
-    font_t f = *e->ui.font;
     uic_edit_pg_t pg = {-1, -1};
     int32_t py = 0; // paragraph `y' coordinate
     for (int32_t i = e->scroll.pn; i < e->paragraphs && pg.pn < 0; i++) {
@@ -458,9 +438,7 @@ static uic_edit_pg_t uic_edit_xy_to_pg(uic_edit_t* e, int32_t x, int32_t y) {
             const uic_edit_run_t* r = &run[j];
             char* s = e->para[i].text + run[j].bp;
             if (py <= y && y < py + e->ui.em.y) {
-                int32_t w = gdi.measure_text(f, "%.*s", r->bytes, s).x;
-int32_t w1 = uic_edit_text_width(e, s, r->bytes);
-assert(w == w1); (void)w1;
+                int32_t w = uic_edit_text_width(e, s, r->bytes);
                 pg.pn = i;
                 if (x >= w) {
                     const int last_run = j == runs - 1;
@@ -508,12 +486,8 @@ static void uic_edit_paint_selection(uic_edit_t* e, const uic_edit_run_t* r,
             int32_t to  = (int32_t)end;
             int32_t ofs0 = uic_edit_gp_to_bytes(text, r->bytes, fro);
             int32_t ofs1 = uic_edit_gp_to_bytes(text, r->bytes, to);
-            int32_t x0 = gdi.measure_text(*e->ui.font, "%.*s", ofs0, text).x;
-int32_t x_0 = uic_edit_text_width(e, text, ofs0);
-assert(x_0 == x0); (void)x_0;
-            int32_t x1 = gdi.measure_text(*e->ui.font, "%.*s", ofs1, text).x;
-int32_t x_1 = uic_edit_text_width(e, text, ofs1);
-assert(x_1 == x1); (void)x_1;
+            int32_t x0 = uic_edit_text_width(e, text, ofs0);
+            int32_t x1 = uic_edit_text_width(e, text, ofs1);
             brush_t b = gdi.set_brush(gdi.brush_color);
             color_t c = gdi.set_brush_color(rgb(48, 64, 72));
             gdi.fill(gdi.x + x0, gdi.y, x1 - x0, e->ui.em.y);
@@ -1537,17 +1511,8 @@ static const char* test_content =
     lorem_ipsum;
 
 // 566K angular2.min.js
-// 563K angular2.0.0-beta.0-all.umd.min.js
-// 486K ember.1.13.8.min.js
-// 435K ember.2.2.0.min.js
-// 205K angular2.0.0-beta.0-Rx.min.js
-// 144K react-with-addons-0.14.5.min.js
-// 143K angular.1.4.5.min.js
-// 132K react-0.14.5.min.js
-// 121K angular.1.3.2.min.js
-// 5.3K redux-3.0.5.min.js
-// 706B react-dom-0.14.5.min.js
-// 63K  vue-2.0.3.min.js
+// https://get.cdnpkg.com/angular.js/2.0.0-beta.17/angular2.min.js
+// https://web.archive.org/web/20230104221014/https://get.cdnpkg.com/angular.js/2.0.0-beta.17/angular2.min.js
 
 static void uic_edit_init_with_lorem_ipsum(uic_edit_t* e) {
     fatal_if(e->paragraphs != 0);
