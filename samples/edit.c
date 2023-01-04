@@ -3,6 +3,9 @@
 #include "edit.h"
 #include <Windows.h>
 
+// TODO: undo/redo
+// TODO: back/forward navigation
+// TODO: exit/save keystrokes?
 
 // http://worrydream.com/refs/Tesler%20-%20A%20Personal%20History%20of%20Modeless%20Text%20Editing%20and%20Cut-Copy-Paste.pdf
 // https://web.archive.org/web/20221216044359/http://worrydream.com/refs/Tesler%20-%20A%20Personal%20History%20of%20Modeless%20Text%20Editing%20and%20Cut-Copy-Paste.pdf
@@ -25,26 +28,60 @@ static uint64_t uic_edit_uint64(int32_t high, int32_t low) {
     return ((uint64_t)high << 32) | (uint64_t)low;
 }
 
-static void uic_edit_allocate(void** pp, int32_t bytes, size_t element) {
-    assert(*pp == null);
-    *pp = malloc(bytes * element);
-    fatal_if_null(*pp);
+// All allocate/free functions assume 'fail fast' semantcis
+// if underlying OS runs out of RAM it considered to be fatal.
+// It is possible to implement and hold committed 'safety region'
+// of RAM and free it to general pull or reuse it on malloc() or reallocate()
+// returning null, try to notify user about low memory conditions
+// and attempt to save edited work but all of the above may only
+// work if there is no other run-away code that consumes system
+// memory at a very high rate.
+
+static void* uic_edit_alloc(int32_t bytes) {
+    void* p = malloc(bytes);
+    not_null(p);
+    return p;
+}
+
+static void uic_edit_allocate(void** pp, int32_t count, size_t element) {
+    not_null(pp);
+    assert((int64_t)count * element <= INT_MAX);
+    *pp = uic_edit_alloc(count * (int32_t)element);
 }
 
 static void uic_edit_free(void** pp) {
-    assert(*pp != null);
+    not_null(pp);
+    // free(null) is acceptable but may indicate unbalanced logic
+    not_null(*pp);
     free(*pp);
     *pp = null;
 }
 
-static void uic_edit_reallocate(void** pp, int32_t bytes, size_t element) {
-    bytes *= (int32_t)element;
+static void uic_edit_reallocate(void** pp, int32_t count, size_t element) {
+    not_null(pp);
+    assert((int64_t)count * element <= INT_MAX);
     if (*pp == null) {
-        uic_edit_allocate(pp, bytes, 1);
+        uic_edit_allocate(pp, count, element);
     } else {
-        *pp = realloc(*pp, bytes);
-        fatal_if_null(*pp);
+        *pp = realloc(*pp, count * (size_t)element);
+        not_null(*pp);
     }
+}
+
+static int32_t uic_edit_text_width(uic_edit_t* e, const char* s, int32_t n) {
+    assert(n > 0);
+//  double time = crt.seconds();
+    // average measure_text() performance per character:
+    // "app.fonts.mono"    ~500us (microseconds)
+    // "app.fonts.regular" ~250us (microseconds)
+    int32_t x = gdi.measure_text(*e->ui.font, "%.*s", n, s).x;
+//  time = (crt.seconds() - time) * 1000.0;
+//  static double time_sum;
+//  static double length_sum;
+//  time_sum += time;
+//  length_sum += n;
+//  traceln("avg=%.6fms per char total %.3fms", time_sum / length_sum, time_sum);
+    return x;
 }
 
 static int uic_edit_glyph_bytes(char start_byte_value) { // utf-8
@@ -134,9 +171,13 @@ static int32_t uic_edit_word_break_at(uic_edit_t* e, int32_t pn, int32_t rn,
         int32_t* g2b = &p->g2b[gp];
         int32_t gc = 1;
         int32_t w = gdi.measure_text(f, "%.*s", g2b[gc] - bp, text).x;
+int32_t w1 = uic_edit_text_width(e, text, g2b[gc] - bp);
+assert(w == w1); (void)w1;
         while (gc < p->glyphs - gp && w < width) {
             gc = min(gc + gc, p->glyphs - gp);
             w = gdi.measure_text(f, "%.*s", g2b[gc] - bp, text).x;
+int32_t w2 = uic_edit_text_width(e, text, g2b[gc] - bp);
+assert(w == w2); (void)w2;
         }
         if (w < width) {
             k = gc;
@@ -148,6 +189,8 @@ static int32_t uic_edit_word_break_at(uic_edit_t* e, int32_t pn, int32_t rn,
                 assert(0 <= k && k < gc + 1);
                 const int n = g2b[k + 1] - bp;
                 int32_t px = gdi.measure_text(f, "%.*s", n, text).x;
+int32_t px1 = uic_edit_text_width(e, text, n);
+assert(px == px1); (void)px1;
                 if (px == width) { break; }
                 if (px < width) { i = k + 1; } else { j = k; }
                 k = (i + j) / 2;
@@ -176,6 +219,7 @@ static int32_t uic_edit_glyph_at_x(uic_edit_t* e, int32_t pn, int32_t rn,
 
 static const uic_edit_run_t* uic_edit_paragraph_runs(uic_edit_t* e, int32_t pn,
         int32_t* runs) {
+    double time = crt.seconds();
     assert(e->width > 0);
     const uic_edit_run_t* r = null;
     if (pn == e->paragraphs) {
@@ -193,6 +237,8 @@ static const uic_edit_run_t* uic_edit_paragraph_runs(uic_edit_t* e, int32_t pn,
             uic_edit_run_t* run = p->run;
             font_t f = *e->ui.font;
             int32_t pixels = gdi.measure_text(f, "%.*s", p->bytes, p->text).x;
+int32_t pixels1 = uic_edit_text_width(e, p->text, p->bytes);
+assert(pixels == pixels1); (void)pixels1;
             if (pixels <= e->width) { // whole paragraph fits into width
                 p->runs = 1;
                 run[0].bp = 0;
@@ -212,6 +258,8 @@ static const uic_edit_run_t* uic_edit_paragraph_runs(uic_edit_t* e, int32_t pn,
                     int32_t glyphs = uic_edit_word_break(e, pn, rc);
                     int32_t utf8bytes = p->g2b[ix + glyphs] - run[rc].bp;
                     pixels = gdi.measure_text(f, "%.*s", utf8bytes, text).x;
+int32_t pixels2 = uic_edit_text_width(e, text, utf8bytes);
+assert(pixels == pixels2); (void)pixels2;
                     if (glyphs > 1 && utf8bytes < bytes && text[utf8bytes] != 0x20) {
                         // try to find word break SPACE character. utf8 space is 0x20
                         int32_t i = utf8bytes;
@@ -220,6 +268,8 @@ static const uic_edit_run_t* uic_edit_paragraph_runs(uic_edit_t* e, int32_t pn,
                             utf8bytes = i;
                             glyphs = uic_edit_glyphs(text, utf8bytes);
                             pixels = gdi.measure_text(f, "%.*s", utf8bytes, text).x;
+int32_t pixels3 = uic_edit_text_width(e, text, utf8bytes);
+assert(pixels == pixels3); (void)pixels3;
                         }
                     }
                     run[rc].bytes = utf8bytes;
@@ -239,6 +289,8 @@ static const uic_edit_run_t* uic_edit_paragraph_runs(uic_edit_t* e, int32_t pn,
         r = p->run;
     }
     assert(r != null && *runs >= 1);
+    time = crt.seconds() - time;
+//  traceln("%.3fms", time * 1000.0);
     return r;
 }
 
@@ -357,7 +409,9 @@ static ui_point_t uic_edit_pg_to_xy(uic_edit_t* e, const uic_edit_pg_t pg) {
                     const char* s = e->para[i].text + run[j].bp;
                     int32_t ofs = uic_edit_gp_to_bytes(s, run[j].bytes,
                         pg.gp - run[j].gp);
-                    pt.x = gdi.measure_text(*e->ui.font, "%.*s", ofs, s).x;
+                    pt.x = ofs == 0 ? 0 : gdi.measure_text(*e->ui.font, "%.*s", ofs, s).x;
+int32_t pt_x = ofs == 0 ? 0 : uic_edit_text_width(e, s, ofs);
+assert(pt.x == pt_x); (void)pt_x;
                     break;
                 }
             }
@@ -381,7 +435,10 @@ static int32_t uic_edit_glyph_width_px(uic_edit_t* e, const uic_edit_pg_t pg) {
     } else if (pg.gp < gc) {
         char* s = text + uic_edit_gp_to_bytes(text, e->para[pg.pn].bytes, pg.gp);
         int32_t bytes_in_glyph = uic_edit_glyph_bytes(*s);
-        return gdi.measure_text(*e->ui.font, "%.*s", bytes_in_glyph, s).x;
+        int32_t x = gdi.measure_text(*e->ui.font, "%.*s", bytes_in_glyph, s).x;
+int32_t x1 = uic_edit_text_width(e, s, bytes_in_glyph);
+assert(x == x1); (void)x1;
+        return x;
     } else {
         assert(pg.gp == gc, "only next position past last glyph is allowed");
         return 0;
@@ -402,6 +459,8 @@ static uic_edit_pg_t uic_edit_xy_to_pg(uic_edit_t* e, int32_t x, int32_t y) {
             char* s = e->para[i].text + run[j].bp;
             if (py <= y && y < py + e->ui.em.y) {
                 int32_t w = gdi.measure_text(f, "%.*s", r->bytes, s).x;
+int32_t w1 = uic_edit_text_width(e, s, r->bytes);
+assert(w == w1); (void)w1;
                 pg.pn = i;
                 if (x >= w) {
                     const int last_run = j == runs - 1;
@@ -450,7 +509,11 @@ static void uic_edit_paint_selection(uic_edit_t* e, const uic_edit_run_t* r,
             int32_t ofs0 = uic_edit_gp_to_bytes(text, r->bytes, fro);
             int32_t ofs1 = uic_edit_gp_to_bytes(text, r->bytes, to);
             int32_t x0 = gdi.measure_text(*e->ui.font, "%.*s", ofs0, text).x;
+int32_t x_0 = uic_edit_text_width(e, text, ofs0);
+assert(x_0 == x0); (void)x_0;
             int32_t x1 = gdi.measure_text(*e->ui.font, "%.*s", ofs1, text).x;
+int32_t x_1 = uic_edit_text_width(e, text, ofs1);
+assert(x_1 == x1); (void)x_1;
             brush_t b = gdi.set_brush(gdi.brush_color);
             color_t c = gdi.set_brush_color(rgb(48, 64, 72));
             gdi.fill(gdi.x + x0, gdi.y, x1 - x0, e->ui.em.y);
@@ -604,8 +667,7 @@ static char* uic_edit_ensure(uic_edit_t* e, int32_t pn, int32_t bytes,
         e->para[pn].allocated = bytes;
     } else {
         assert(e->para[pn].allocated == 0);
-        char* text = null;
-        uic_edit_allocate(&text, bytes, 1);
+        char* text = uic_edit_alloc(bytes);
         e->para[pn].allocated = bytes;
         memcpy(text, e->para[pn].text, preserve);
         e->para[pn].text = text;
@@ -653,9 +715,8 @@ static uic_edit_pg_t uic_edit_op(uic_edit_t* e, bool cut,
             uic_clip_append(a, ab, limit, s0 + bp0, bp1 - bp0);
             if (cut) {
                 if (e->para[pn0].allocated == 0) {
-                    s0 = null;
                     int32_t n = bytes0 - (bp1 - bp0);
-                    uic_edit_allocate(&s0, n, 1);
+                    s0 = uic_edit_alloc(n);
                     memcpy(s0, e->para[pn0].text, bp0);
                     e->para[pn0].text = s0;
                     e->para[pn0].allocated = n;
@@ -687,8 +748,11 @@ static uic_edit_pg_t uic_edit_op(uic_edit_t* e, bool cut,
         }
         int32_t deleted = cut ? pn1 - pn0 : 0;
         if (deleted > 0) {
+            assert(pn0 + deleted < e->paragraphs);
             for (int i = pn0 + 1; i <= pn0 + deleted; i++) {
-                if (e->para[i].allocated > 0) { free(e->para[i].text); }
+                if (e->para[i].allocated > 0) {
+                    uic_edit_free(&e->para[i].text);
+                }
             }
             for (int i = pn0 + 1; i < e->paragraphs - deleted; i++) {
                 e->para[i] = e->para[i + deleted];
@@ -752,8 +816,7 @@ static uic_edit_pg_t uic_edit_insert_inline(uic_edit_t* e, uic_edit_pg_t pg,
     const int bp = e->para[pg.pn].g2b[pg.gp];
     int32_t n = (b + bytes) * 3 / 2; // heuristics 1.5 times of total
     if (e->para[pg.pn].allocated == 0) {
-        s = null;
-        uic_edit_allocate(&s, n, 1);
+        s = uic_edit_alloc(n);
         memcpy(s, e->para[pg.pn].text, b);
         e->para[pg.pn].text = s;
         e->para[pg.pn].allocated = n;
@@ -1190,8 +1253,7 @@ static void uic_edit_cut_copy(uic_edit_t* e, bool cut) {
     int32_t n = 0; // bytes between from..to
     uic_edit_op(e, false, from, to, null, &n);
     if (n > 0) {
-        char* text = null;
-        uic_edit_allocate(&text, n + 1, 1);
+        char* text = uic_edit_alloc(n + 1);
         uic_edit_pg_t pg = uic_edit_op(e, cut, from, to, text, &n);
         if (cut && pg.pn >= 0 && pg.gp >= 0) {
             e->selection[0] = pg;
@@ -1202,7 +1264,7 @@ static void uic_edit_cut_copy(uic_edit_t* e, bool cut) {
         clipboard.copy_text(text);
         assert(n == strlen(text), "n=%d strlen(cb)=%d cb=\"%s\"",
                n, strlen(text), text);
-        free(text);
+        uic_edit_free(&text);
     }
 }
 
@@ -1270,8 +1332,7 @@ static void uic_edit_clipboard_paste(uic_edit_t* e) {
     int32_t bytes = 0;
     clipboard.text(null, &bytes);
     if (bytes > 0) {
-        char* text = null;
-        uic_edit_allocate(&text, bytes, 1);
+        char* text = uic_edit_alloc(bytes);
         int r = clipboard.text(text, &bytes);
         fatal_if_not_zero(r);
         if (bytes > 0 && text[bytes - 1] == 0) {
@@ -1475,6 +1536,19 @@ static const char* test_content =
     "\n"
     lorem_ipsum;
 
+// 566K angular2.min.js
+// 563K angular2.0.0-beta.0-all.umd.min.js
+// 486K ember.1.13.8.min.js
+// 435K ember.2.2.0.min.js
+// 205K angular2.0.0-beta.0-Rx.min.js
+// 144K react-with-addons-0.14.5.min.js
+// 143K angular.1.4.5.min.js
+// 132K react-0.14.5.min.js
+// 121K angular.1.3.2.min.js
+// 5.3K redux-3.0.5.min.js
+// 706B react-dom-0.14.5.min.js
+// 63K  vue-2.0.3.min.js
+
 static void uic_edit_init_with_lorem_ipsum(uic_edit_t* e) {
     fatal_if(e->paragraphs != 0);
     uic_edit_paste_text(e, test_content, (int32_t)strlen(test_content));
@@ -1537,9 +1611,9 @@ static void uic_edit_fuzzer(void* p) {
             // they will start clicking buttons around
             int32_t x = crt.random32(&e->fuzz_seed) % e->ui.w;
             int32_t y = crt.random32(&e->fuzz_seed) % e->ui.h;
-            app.post(WM_MOUSEMOVE, 0, x | y << 16);
-            app.post(WM_LBUTTONDOWN, 0, x | y << 16);
-            app.post(WM_LBUTTONUP,   0, x | y << 16);
+            app.post(WM_MOUSEMOVE,   0, (int64_t)(x | (y << 16)));
+            app.post(WM_LBUTTONDOWN, 0, (int64_t)(x | (y << 16)));
+            app.post(WM_LBUTTONUP,   0, (int64_t)(x | (y << 16)));
         }
     }
 }
