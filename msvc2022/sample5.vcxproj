@@ -167,6 +167,7 @@
   <ItemGroup>
     <ClCompile Include="..\samples\crt.c" />
     <ClCompile Include="..\samples\edit.c" />
+    <ClCompile Include="..\samples\edit.test.c" />
     <ClCompile Include="..\samples\quick.c" />
     <ClCompile Include="..\samples\sample5.c" />
   </ItemGroup>

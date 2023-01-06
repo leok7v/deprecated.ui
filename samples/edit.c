@@ -161,16 +161,17 @@ static int32_t uic_edit_word_break_at(uic_edit_t* e, int32_t pn, int32_t rn,
         const int32_t width) {
     uic_edit_para_t* p = &e->para[pn];
     int32_t k = 1; // at least 1 glyph
-    // offsets inside a run in glyphs and bytes from the start of the paragraph:
+    // offsets inside a run in glyphs and bytes from start of the paragraph:
     int32_t gp = p->run[rn].gp;
     int32_t bp = p->run[rn].bp;
     if (gp < p->glyphs - 1) {
         const char* text = p->text + bp;
+        const int32_t glyphs_in_this_run = p->glyphs - gp;
         int32_t* g2b = &p->g2b[gp];
-        int32_t gc = 1;
+        int32_t gc = min(4, glyphs_in_this_run);
         int32_t w = uic_edit_text_width(e, text, g2b[gc] - bp);
-        while (gc < p->glyphs - gp && w < width) {
-            gc = min(gc + gc, p->glyphs - gp);
+        while (gc < glyphs_in_this_run && w < width) {
+            gc = min(gc * 4, glyphs_in_this_run);
             w = uic_edit_text_width(e, text, g2b[gc] - bp);
         }
         if (w < width) {
@@ -211,13 +212,16 @@ static int32_t uic_edit_glyph_at_x(uic_edit_t* e, int32_t pn, int32_t rn,
 
 static const uic_edit_run_t* uic_edit_paragraph_runs(uic_edit_t* e, int32_t pn,
         int32_t* runs) {
-    double time = crt.seconds();
+//  double time = crt.seconds();
     assert(e->width > 0);
     const uic_edit_run_t* r = null;
     if (pn == e->paragraphs) {
         static const uic_edit_run_t eof_run = { 0 };
         *runs = 1;
         r = &eof_run;
+    } else if (e->para[pn].run != null) {
+        *runs = e->para[pn].runs;
+        r = e->para[pn].run;
     } else {
         assert(0 <= pn && pn < e->paragraphs);
         uic_edit_paragraph_g2b(e, pn);
@@ -227,15 +231,17 @@ static const uic_edit_run_t* uic_edit_paragraph_runs(uic_edit_t* e, int32_t pn,
             const int32_t max_runs = p->bytes + 1;
             uic_edit_allocate(&p->run, max_runs, sizeof(uic_edit_run_t));
             uic_edit_run_t* run = p->run;
-            int32_t pixels = uic_edit_text_width(e, p->text, p->bytes);
-            if (pixels <= e->width) { // whole paragraph fits into width
+            run[0].bp = 0;
+            run[0].gp = 0;
+            int32_t gc = p->bytes == 0 ? 0 : uic_edit_word_break(e, pn, 0);
+            if (gc == p->glyphs) { // whole paragraph fits into width
                 p->runs = 1;
-                run[0].bp = 0;
-                run[0].gp = 0;
                 run[0].bytes  = p->bytes;
                 run[0].glyphs = p->glyphs;
+                int32_t pixels = uic_edit_text_width(e, p->text, p->g2b[gc]);
                 run[0].pixels = pixels;
             } else {
+                assert(gc < p->glyphs);
                 int32_t rc = 0; // runs count
                 int32_t ix = 0; // glyph index from to start of pgraph
                 char* text = p->text;
@@ -246,8 +252,8 @@ static const uic_edit_run_t* uic_edit_paragraph_runs(uic_edit_t* e, int32_t pn,
                     run[rc].gp = ix;
                     int32_t glyphs = uic_edit_word_break(e, pn, rc);
                     int32_t utf8bytes = p->g2b[ix + glyphs] - run[rc].bp;
-                    pixels = uic_edit_text_width(e, text, utf8bytes);
-                    if (glyphs > 1 && utf8bytes < bytes && text[utf8bytes] != 0x20) {
+                    int32_t pixels = uic_edit_text_width(e, text, utf8bytes);
+                    if (glyphs > 1 && utf8bytes < bytes && text[utf8bytes - 1] != 0x20) {
                         // try to find word break SPACE character. utf8 space is 0x20
                         int32_t i = utf8bytes;
                         while (i > 0 && text[i - 1] != 0x20) { i--; }
@@ -266,6 +272,7 @@ static const uic_edit_run_t* uic_edit_paragraph_runs(uic_edit_t* e, int32_t pn,
                     bytes -= utf8bytes;
                     ix += glyphs;
                 }
+                assert(rc > 0);
                 p->runs = rc; // truncate heap allocated array:
                 uic_edit_reallocate(&p->run, rc, sizeof(uic_edit_run_t));
             }
@@ -274,7 +281,7 @@ static const uic_edit_run_t* uic_edit_paragraph_runs(uic_edit_t* e, int32_t pn,
         r = p->run;
     }
     assert(r != null && *runs >= 1);
-    time = crt.seconds() - time;
+//  time = crt.seconds() - time;
 //  traceln("%.3fms", time * 1000.0);
     return r;
 }
@@ -354,15 +361,20 @@ static int32_t uic_edit_runs_between(uic_edit_t* e, const uic_edit_pg_t pg0,
     int32_t rn0 = uic_edit_pg_to_pr(e, pg0).rn;
     int32_t rn1 = uic_edit_pg_to_pr(e, pg1).rn;
     int32_t rc = 0;
-    for (int32_t i = pg0.pn; i <= pg1.pn; i++) {
-        const int32_t runs = uic_edit_paragraph_run_count(e, i);
-        if (i == pg0.pn) {
-            rc += runs - rn0;
-        } else if (i == pg1.pn) {
-            rc += rn1;
-        } else {
-            rc += runs;
+    if (pg0.pn == pg1.pn) {
+        assert(rn0 <= rn1);
+        rc = rn1 - rn0;
+    } else {
+        assert(pg0.pn < pg1.pn);
+        for (int32_t i = pg0.pn; i < pg1.pn; i++) {
+            const int32_t runs = uic_edit_paragraph_run_count(e, i);
+            if (i == pg0.pn) {
+                rc += runs - rn0;
+            } else { // i < pg1.pn
+                rc += runs;
+            }
         }
+        rc += rn1;
     }
     return rc;
 }
@@ -1089,7 +1101,7 @@ static void uic_edit_key_enter(uic_edit_t* e) {
     uic_edit_move_caret(e, e->selection[1]);
 }
 
-static void uic_edit_next_fuzz(uic_edit_t* e);
+void uic_edit_next_fuzz(uic_edit_t* e);
 
 static void uic_edit_key_pressed(uic_t* ui, int32_t key) {
     assert(ui->tag == uic_tag_edit);
@@ -1130,10 +1142,11 @@ static void uic_edit_key_pressed(uic_t* ui, int32_t key) {
     if (e->fuzzer != null) { uic_edit_next_fuzz(e); }
 }
 
-static void uic_edit_keyboard(uic_t* unused(ui), int32_t ch) {
+static void uic_edit_character(uic_t* unused(ui), const char* utf8) {
     assert(ui->tag == uic_tag_edit);
     assert(!ui->hidden && !ui->disabled);
     uic_edit_t* e = (uic_edit_t*)ui;
+    char ch = utf8[0];
     if (ch == (char)('a' - 'a' + 1) && app.ctrl) { e->select_all(e); }
     if (ch == (char)('x' - 'a' + 1) && app.ctrl) { e->cut_to_clipboard(e); }
     if (ch == (char)('c' - 'a' + 1) && app.ctrl) { e->copy_to_clipboard(e); }
@@ -1159,8 +1172,8 @@ static void uic_edit_mouse(uic_t* ui, int m, int unused(flags)) {
     const int32_t x = app.mouse.x - e->ui.x;
     const int32_t y = app.mouse.y - e->ui.y - e->top;
     bool inside = 0 <= x && x < ui->w && 0 <= y && y < e->height;
-    bool left = m == messages.left_button_down;
-    bool right = m == messages.right_button_down;
+    bool left = m == messages.left_button_pressed;
+    bool right = m == messages.right_button_pressed;
     if (e->focused  && inside && (left || right || e->mouse != 0)) {
         uic_edit_pg_t p = uic_edit_xy_to_pg(e, x, y);
         if (0 <= p.pn && 0 <= p.gp) {
@@ -1177,8 +1190,8 @@ static void uic_edit_mouse(uic_t* ui, int m, int unused(flags)) {
         if (left)  { e->mouse |= (1 << 0); }
         if (right) { e->mouse |= (1 << 1); }
     }
-    if (m == messages.left_button_up)  { e->mouse &= ~(1 << 0); }
-    if (m == messages.right_button_up) { e->mouse &= ~(1 << 1); }
+    if (m == messages.left_button_released)  { e->mouse &= ~(1 << 0); }
+    if (m == messages.right_button_released) { e->mouse &= ~(1 << 1); }
 }
 
 static void uic_edit_mousewheel(uic_t* ui, int32_t unused(dx), int32_t dy) {
@@ -1297,8 +1310,9 @@ static uic_edit_pg_t uic_edit_paste_text(uic_edit_t* e,
 
 static void uic_edit_paste(uic_edit_t* e, const char* s, int32_t n) {
     e->erase(e);
-    uic_edit_pg_t pg = uic_edit_paste_text(e, s, n);
-    if (e->ui.w > 0) { uic_edit_move_caret(e, pg); }
+    e->selection[1] = uic_edit_paste_text(e, s, n);
+    e->selection[0] = e->selection[1];
+    if (e->ui.w > 0) { uic_edit_move_caret(e, e->selection[1]); }
 }
 
 static void uic_edit_clipboard_paste(uic_edit_t* e) {
@@ -1388,30 +1402,29 @@ static void uic_edit_paint(uic_t* ui) {
     gdi.pop();
 }
 
-static void uic_edit_init_with_lorem_ipsum(uic_edit_t* e);
-static void uic_edit_fuzz(uic_edit_t* e);
+void uic_edit_init_with_lorem_ipsum(uic_edit_t* e);
+void uic_edit_fuzz(uic_edit_t* e);
 
 void uic_edit_init(uic_edit_t* e) {
     memset(e, 0, sizeof(*e));
     uic_init(&e->ui);
     e->ui.tag = uic_tag_edit;
-    uic_edit_init_with_lorem_ipsum(e);
-    e->fuzz_seed   = 1; // client can seed it with (crt.nanoseconds() | 1)
-    e->last_x      = -1;
-    e->multiline   = true;
-    e->monospaced  = false;
-    e->wordbreak   = true;
-    e->ui.color    = rgb(168, 168, 150); // colors.text;
-    e->ui.font     = &app.fonts.H1;
-    e->caret       = (ui_point_t){-1, -1};
-    e->ui.paint    = uic_edit_paint;
-    e->ui.measure  = uic_edit_measure;
-    e->ui.layout   = uic_edit_layout;
-    e->ui.mouse    = uic_edit_mouse;
-    e->ui.key_down = uic_edit_key_pressed;
-    e->ui.keyboard = uic_edit_keyboard;
+    e->fuzz_seed  = 1; // client can seed it with (crt.nanoseconds() | 1)
+    e->last_x     = -1;
+    e->multiline  = true;
+    e->monospaced = false;
+    e->wordbreak  = true;
+    e->ui.color   = rgb(168, 168, 150); // colors.text;
+    e->ui.font    = &app.fonts.H1;
+    e->caret      = (ui_point_t){-1, -1};
+    e->ui.paint     = uic_edit_paint;
+    e->ui.measure   = uic_edit_measure;
+    e->ui.layout    = uic_edit_layout;
+    e->ui.mouse     = uic_edit_mouse;
+    e->ui.character = uic_edit_character;
     e->ui.message  = uic_edit_message;
-    e->ui.mousewheel = uic_edit_mousewheel;
+    e->ui.key_pressed = uic_edit_key_pressed;
+    e->ui.mousewheel  = uic_edit_mousewheel;
     e->paste                = uic_edit_paste;
     e->copy                 = uic_edit_copy;
     e->cut_to_clipboard     = uic_edit_clipboard_cut;
@@ -1419,7 +1432,8 @@ void uic_edit_init(uic_edit_t* e) {
     e->paste_from_clipboard = uic_edit_clipboard_paste;
     e->select_all           = uic_edit_select_all;
     e->erase                = uic_edit_erase;
-    e->fuzz  = uic_edit_fuzz;
+    e->fuzz                 = uic_edit_fuzz;
+    uic_edit_init_with_lorem_ipsum(e);
     // Expected manifest.xml containing UTF-8 code page
     // for Translate message and WM_CHAR to deliver UTF-8 characters
     // see: https://learn.microsoft.com/en-us/windows/apps/design/globalizing/use-utf8-code-page
@@ -1430,169 +1444,6 @@ void uic_edit_init(uic_edit_t* e) {
     // prefered codepage except manifest.xml file in resource #1.
     // Absence of manifest.xml will result to ancient and useless ANSI 1252 codepage
     // TODO: may be change quick.h to use CreateWindowW() and translate UTF16 to UTF8
-}
-
-#define glyph_teddy_bear  "\xF0\x9F\xA7\xB8"
-#define glyph_chinese_one "\xE5\xA3\xB9"
-#define glyph_chinese_two "\xE8\xB4\xB0"
-#define glyph_teddy_bear  "\xF0\x9F\xA7\xB8"
-#define glyph_ice_cube    "\xF0\x9F\xA7\x8A"
-
-#define lorem_ipsum \
-    "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris blandit "    \
-    "neque elementum felis ultricies, sed facilisis magna bibendum. Nullam "      \
-    "blandit est cursus, vulputate orci eget, laoreet turpis. Etiam non purus "   \
-    "ut tellus facilisis semper vel ut nisl. Quisque sagittis posuere ligula "    \
-    "nec congue. Nunc pulvinar tincidunt dapibus. Vestibulum ullamcorper risus "  \
-    "id ultrices vestibulum. Duis ac accumsan massa. Proin quis ex orci.  Sed "   \
-    "tristique sagittis risus scelerisque iaculis. Duis tincidunt dictum mi, "    \
-    "id venenatis risus mollis non. Nulla turpis libero, vestibulum sed urna "    \
-    "eu, molestie porttitor orci. Fusce et nunc molestie, facilisis libero "      \
-    "eget, egestas massa. Etiam lobortis lacus ut lacus rhoncus, in tincidunt "   \
-    "tortor vehicula.\n"                                                          \
-    "\n"                                                                          \
-    "Sed efficitur gravida velit, nec finibus nibh malesuada non. Duis et ex "    \
-    "tristique, accumsan tellus eu, venenatis nisl. Fusce vel egestas ante, "     \
-    "interdum egestas velit. Sed laoreet convallis malesuada. Sed hendrerit ex "  \
-    "nec tincidunt tempor. Morbi pulvinar ultricies mi, sed congue lacus congue " \
-    "non. Mauris nec pulvinar tellus. Cras luctus eget dui nec fringilla. "       \
-    "Cras non tortor vitae ipsum consequat placerat vel eu dolor. Proin posuere " \
-    "turpis eros, eu fringilla ligula iaculis in. Cras nec convallis felis. "     \
-    "Ut lorem enim, efficitur at augue vitae, tincidunt semper ligula. Morbi "    \
-    "sit amet dolor quis felis fringilla tincidunt. Integer bibendum mauris "     \
-    "nec metus varius, sit amet suscipit eros varius. Integer arcu nulla, "       \
-    "efficitur sit amet commodo et, mattis ut purus.\n"                           \
-    "\n"                                                                          \
-    "Maecenas finibus posuere tortor, ac scelerisque nulla rhoncus et. "          \
-    "Pellentesque vel velit ac felis ullamcorper tempor non vel felis. "          \
-    "Donec ex diam, volutpat vel lobortis ut, ullamcorper ut nisi. Maecenas "     \
-    "facilisis magna ornare orci placerat, id iaculis quam dapibus. Ut varius "   \
-    "ante sed efficitur accumsan. Curabitur pulvinar pharetra orci at "           \
-    "venenatis.Vestibulum ac tortor velit.\n"                                     \
-    "\n"                                                                          \
-    "Quisque quam quam, aliquet nec blandit eget, vestibulum et mi. Curabitur "   \
-    "vel augue volutpat, facilisis ligula fringilla, dignissim orci. "            \
-    "Sed lobortis nisi mauris, eget consectetur enim consequat ac. Pellentesque " \
-    "vitae tellus vel turpis pretium dapibus nec eget odio. Pellentesque "        \
-    "aliquam ultrices dolor, placerat porta metus iaculis sit amet. Vivamus at "  \
-    "finibus dui. Nullam eu interdum nisi, et ultricies sem. Curabitur consequat "\
-    "pretium magna, eu mattis urna aliquet non. In eget pulvinar erat. Praesent " \
-    "mollis arcu nec augue placerat, et dictum elit dictum. Ut in mi at nisl "    \
-    "laoreet hendrerit ut non orci. Etiam congue efficitur leo, at euismod nisi " \
-    "vehicula non.\n"                                                             \
-    "\n"                                                                          \
-    "Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere "   \
-    "cubilia curae; Integer in odio dignissim, fringilla quam vel, lacinia nibh. "\
-    "Cras ligula lacus, commodo ac urna at, varius consequat quam. Duis lacinia " \
-    "consectetur faucibus. Vestibulum fringilla diam sem, ac iaculis neque "      \
-    "sollicitudin mollis. Vivamus aliquam vitae mi a venenatis. Vestibulum sit "  \
-    "amet tellus dapibus, lobortis justo quis, semper sem. Vestibulum tincidunt " \
-    "lorem enim, ut vestibulum eros varius id."                                   \
-
-static const char* test_content =
-    "Good bye Universe...\n"
-    "Hello World!\n"
-    "\n"
-    "Ctrl+Shift+Alt+F5 and F5 starts/stops FUZZING test.\n"
-    "\n"
-    "FUZZING use rapid mouse clicks thus UI Fuzz button is hard to press use keyboard shortcut F5 to stop.\n"
-    "\n"
-    "0         10        20        30        40        50        60        70        80        90\n"
-    "01234567890123456789012345678901234567890abcdefghi01234567890123456789012345678901234567890123456789\n"
-    "0         10        20        30        40        50        60        70        80        90\n"
-    "01234567890123456789012345678901234567890abcdefghi01234567890123456789012345678901234567890123456789\n"
-    "\n"
-    "0" glyph_chinese_one glyph_chinese_two "3456789\n"
-    "\n"
-    glyph_teddy_bear "\n"
-    glyph_teddy_bear glyph_ice_cube glyph_teddy_bear glyph_ice_cube glyph_teddy_bear glyph_ice_cube "\n"
-    glyph_teddy_bear glyph_ice_cube glyph_teddy_bear " - " glyph_ice_cube glyph_teddy_bear glyph_ice_cube "\n"
-    "\n"
-    lorem_ipsum;
-
-// 566K angular2.min.js
-// https://get.cdnpkg.com/angular.js/2.0.0-beta.17/angular2.min.js
-// https://web.archive.org/web/20230104221014/https://get.cdnpkg.com/angular.js/2.0.0-beta.17/angular2.min.js
-
-static void uic_edit_init_with_lorem_ipsum(uic_edit_t* e) {
-    fatal_if(e->paragraphs != 0);
-    uic_edit_paste_text(e, test_content, (int32_t)strlen(test_content));
-}
-
-static void uic_edit_next_fuzz(uic_edit_t* e) {
-    atomics.increment_int32(&e->fuzz_count);
-}
-
-static void uic_edit_fuzzer(void* p) {
-    uic_edit_t* e = (uic_edit_t*)p;
-    for (;;) {
-        while (!e->fuzz_quit && e->fuzz_count == e->fuzz_last) {
-            crt.sleep(1.0 / 1024.0); // ~1ms
-        }
-        if (e->fuzz_quit) { e->fuzz_quit = false; break; }
-        e->fuzz_last = e->fuzz_count;
-        app.focused = true; // force application to be focused
-        uint32_t rnd = crt.random32(&e->fuzz_seed);
-        switch (rnd % 8) {
-            case 0: app.alt = 0; app.ctrl = 0; app.shift = 0; break;
-            case 1: app.alt = 1; app.ctrl = 0; app.shift = 0; break;
-            case 2: app.alt = 0; app.ctrl = 1; app.shift = 0; break;
-            case 3: app.alt = 1; app.ctrl = 1; app.shift = 0; break;
-            case 4: app.alt = 0; app.ctrl = 0; app.shift = 1; break;
-            case 5: app.alt = 1; app.ctrl = 0; app.shift = 1; break;
-            case 6: app.alt = 0; app.ctrl = 1; app.shift = 1; break;
-            case 7: app.alt = 1; app.ctrl = 1; app.shift = 1; break;
-            default: assert(false);
-        }
-        int keys[] = {
-            virtual_keys.up,
-            virtual_keys.down,
-            virtual_keys.left,
-            virtual_keys.right,
-            virtual_keys.home,
-            virtual_keys.end,
-            virtual_keys.pageup,
-            virtual_keys.pagedw,
-            virtual_keys.insert,
-// TODO: cut copy paste erase need special treatment in fuzzing
-//       otherwise text collapses to nothing pretty fast
-//          virtual_keys.del,
-//          virtual_keys.back,
-            virtual_keys.enter,
-            0
-        };
-        rnd = crt.random32(&e->fuzz_seed);
-        int key = keys[rnd % countof(keys)];
-        if (key == 0) {
-            rnd = crt.random32(&e->fuzz_seed);
-            int ch = rnd % 128;
-            if (ch == 033) { ch = 'a'; } // don't send ESC
-            app.post(WM_CHAR, ch, 0);
-        } else {
-            app.post(WM_KEYDOWN, key, 0);
-        }
-        if (crt.random32(&e->fuzz_seed) % 32 == 0) {
-            // mouse events only inside edit control otherwise
-            // they will start clicking buttons around
-            int32_t x = crt.random32(&e->fuzz_seed) % e->ui.w;
-            int32_t y = crt.random32(&e->fuzz_seed) % e->ui.h;
-            app.post(WM_MOUSEMOVE,   0, (int64_t)(x | (y << 16)));
-            app.post(WM_LBUTTONDOWN, 0, (int64_t)(x | (y << 16)));
-            app.post(WM_LBUTTONUP,   0, (int64_t)(x | (y << 16)));
-        }
-    }
-}
-
-static void uic_edit_fuzz(uic_edit_t* e) {
-    if (e->fuzzer == null) {
-        e->fuzzer = threads.start(uic_edit_fuzzer, e);
-        uic_edit_next_fuzz(e);
-    } else {
-        e->fuzz_quit = true;
-        threads.join(e->fuzzer);
-        e->fuzzer = null;
-    }
-    traceln("fuzzing %s",e->fuzzer != null ? "started" : "stopped");
 }
 
 end_c

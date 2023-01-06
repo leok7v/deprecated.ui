@@ -92,8 +92,9 @@ static void closed() {
     gdi.image_dispose(&image[1]);
 }
 
-static void keyboard(uic_t* unused, int32_t ch) {
+static void character(uic_t* unused, const char* utf8) {
     (void)unused;
+    char ch = utf8[0];
     if (ch == 'q' || ch == 'Q') { app.close(); }
     if (app.is_full_screen && ch == 033) {
         full_screen_callback(&full_screen);
@@ -115,10 +116,10 @@ static void init() {
     app.openned = openned;
     static uic_t* children[] = { &full_screen.ui, null};
     app.ui->children = children;
-    app.ui->layout = layout;
-    app.ui->measure = measure;
-    app.ui->paint = paint;
-    app.ui->keyboard = keyboard;
+    app.ui->layout    = layout;
+    app.ui->measure   = measure;
+    app.ui->paint     = paint;
+    app.ui->character = character;
     wake = events.create();
     quit = events.create();
 }

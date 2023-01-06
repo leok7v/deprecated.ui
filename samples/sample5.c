@@ -117,6 +117,7 @@ static void periodically(uic_t* unused(ui)) {
     if (fuzz.ui.pressed != fuzzing) {
         fuzz.ui.pressed = fuzzing;
         fuzz.ui.invalidate(&fuzz.ui);
+        text.ui.invalidate(&text.ui);
     }
 }
 

@@ -315,9 +315,9 @@ static void mouse(uic_t* ui, int32_t m, int32_t flags) {
     int x = app.mouse.x - (panel_center.w - image.w) / 2 - panel_center.x;
     int y = app.mouse.y - (panel_center.h - image.h) / 2 - panel_center.y;
     if (0 <= x && x < image.w && 0 <= y && y < image.h) {
-        if (m == messages.right_button_down) {
+        if (m == messages.right_button_pressed) {
             if (zoom < 1) { zoom_out(); refresh(); }
-        } else if (m == messages.left_button_down) {
+        } else if (m == messages.left_button_pressed) {
             if (top < countof(stack)) { zoom_in(x, y); refresh(); }
         }
     }
@@ -341,7 +341,8 @@ static void mousewheel(uic_t* unused, int32_t dx, int32_t dy) {
     refresh();
 }
 
-static void keyboard(uic_t* ui, int32_t ch) {
+static void character(uic_t* ui, const char* utf8) {
+    char ch = utf8[0];
     if (ch == 'q' || ch == 'Q') {
         app.close();
     } else if (ch == 033 && app.is_full_screen) {
@@ -350,16 +351,24 @@ static void keyboard(uic_t* ui, int32_t ch) {
         zoom /= 2; refresh();
     } else if (ch == '-' || ch == '_') {
         zoom = min(zoom * 2, 1.0); refresh();
-    } else if (ch == virtual_keys.up) {
-        mousewheel(ui, 0, +image.h / 8);
-    } else if (ch == virtual_keys.down) {
-        mousewheel(ui, 0, -image.h / 8);
-    } else if (ch == virtual_keys.left || ch == '<' || ch == ',') {
+    } else if (ch == '<' || ch == ',') {
         mousewheel(ui, +image.w / 8, 0);
-    } else if (ch == virtual_keys.right || ch == '>' || ch == '.') {
+    } else if (ch == '>' || ch == '.') {
         mousewheel(ui, -image.w / 8, 0);
     } else if (ch == 3) { // Ctrl+C
         clipboard.copy_bitmap(&image);
+    }
+}
+
+static void keyboard(uic_t* ui, int32_t vk) {
+    if (vk == virtual_keys.up) {
+        mousewheel(ui, 0, +image.h / 8);
+    } else if (vk == virtual_keys.down) {
+        mousewheel(ui, 0, -image.h / 8);
+    } else if (vk == virtual_keys.left) {
+        mousewheel(ui, +image.w / 8, 0);
+    } else if (vk == virtual_keys.right) {
+        mousewheel(ui, -image.w / 8, 0);
     }
 }
 
@@ -406,8 +415,8 @@ static void init() {
     app.title = TITLE;
     app.ui->measure = measure;
     app.ui->layout = layout;
-    app.ui->keyboard = keyboard;
-    app.ui->key_down = keyboard; // virtual_keys
+    app.ui->character   = character;
+    app.ui->key_pressed = keyboard; // virtual_keys
     app.ui->mousewheel = mousewheel;
     app.openned = openned;
     static uic_t* root_children[] = { &panel_top, &panel_center,
