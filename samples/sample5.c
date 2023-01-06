@@ -73,12 +73,6 @@ static void paint(uic_t* ui) {
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(colors.black);
     gdi.fill(0, 0, ui->w, ui->h);
-    sprintf(text.ui.text, "%d:%d %d:%d %dx%d\n"
-            "scroll %03d:%03d",
-        edit.selection[0].pn, edit.selection[0].gp,
-        edit.selection[1].pn, edit.selection[1].gp,
-        edit.ui.w, edit.ui.h,
-        edit.scroll.pn, edit.scroll.rn);
 }
 
 static void open_file(const char* pathname) {
@@ -88,6 +82,8 @@ static void open_file(const char* pathname) {
         if (0 < bytes && bytes <= INT_MAX) {
             edit.select_all(&edit);
             edit.paste(&edit, file, (int32_t)bytes);
+            uic_edit_pg_t start = { .pn = 0, .gp = 0 };
+            edit.move(&edit, start);
         }
         crt.memunmap(file, bytes);
     } else {
@@ -117,8 +113,14 @@ static void periodically(uic_t* unused(ui)) {
     if (fuzz.ui.pressed != fuzzing) {
         fuzz.ui.pressed = fuzzing;
         fuzz.ui.invalidate(&fuzz.ui);
-        text.ui.invalidate(&text.ui);
     }
+    sprintf(text.ui.text, "%d:%d %d:%d %dx%d\n"
+            "scroll %03d:%03d",
+        edit.selection[0].pn, edit.selection[0].gp,
+        edit.selection[1].pn, edit.selection[1].gp,
+        edit.ui.w, edit.ui.h,
+        edit.scroll.pn, edit.scroll.rn);
+    text.ui.invalidate(&text.ui);
 }
 
 static void init() {

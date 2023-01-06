@@ -1402,6 +1402,15 @@ static void uic_edit_paint(uic_t* ui) {
     gdi.pop();
 }
 
+static void uic_edit_move(uic_edit_t* e, uic_edit_pg_t pg) {
+    if (e->width > 0) {
+        uic_edit_move_caret(e, pg); // may select text on move
+    } else {
+        e->selection[1] = pg;
+    }
+    e->selection[0] = e->selection[1];
+}
+
 void uic_edit_init_with_lorem_ipsum(uic_edit_t* e);
 void uic_edit_fuzz(uic_edit_t* e);
 
@@ -1425,6 +1434,7 @@ void uic_edit_init(uic_edit_t* e) {
     e->ui.message  = uic_edit_message;
     e->ui.key_pressed = uic_edit_key_pressed;
     e->ui.mousewheel  = uic_edit_mousewheel;
+    e->move                 = uic_edit_move;
     e->paste                = uic_edit_paste;
     e->copy                 = uic_edit_copy;
     e->cut_to_clipboard     = uic_edit_clipboard_cut;
