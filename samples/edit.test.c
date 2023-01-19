@@ -4,7 +4,6 @@
 
 begin_c
 
-#define glyph_teddy_bear  "\xF0\x9F\xA7\xB8"
 #define glyph_chinese_one "\xE5\xA3\xB9"
 #define glyph_chinese_two "\xE8\xB4\xB0"
 #define glyph_teddy_bear  "\xF0\x9F\xA7\xB8"
