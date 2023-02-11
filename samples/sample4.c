@@ -99,6 +99,7 @@ end_c
 begin_c
 
 #pragma warning(disable: 4459) // parameter/local hides global declaration
+#pragma warning(disable: 4244) // conversion from '...' to '...', possible loss of data
 
 #define STBI_ASSERT(x) assert(x)
 #include "stb_image.h"
