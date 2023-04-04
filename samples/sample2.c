@@ -156,7 +156,8 @@ static void init() {
     app.openned = openned;
     app.ui->paint = paint;
     // no minimize/maximize title bar and system menu
-    app.no_min_max = true;
+    app.no_min = true;
+    app.no_max = true;
     do_not_start_minimized();
 }
 
