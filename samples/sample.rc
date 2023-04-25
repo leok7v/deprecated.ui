@@ -11,7 +11,7 @@
 101 ICON "sample.ico"
 sample_png RCDATA "sample.png" // https://en.wikipedia.org/wiki/File:Philips_PM5544.svg
 
-#define company_name "Insert Name Here"
+#define company_name "Insert Copmany Name Here"
 #define copyright "Copyright (C) YYYY Insert Name Here. All rights reserved."
 #define file_description "UI sample app"
 #define original_file_name "sample.exe"

@@ -1,0 +1,4 @@
+﻿#include "sample.rc"
+
+groot_gif  RCDATA "groot.gif"   // 512x512+alpha animated gif
+

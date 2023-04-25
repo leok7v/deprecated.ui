@@ -29,7 +29,7 @@ static void* load_image(const byte* data, int64_t bytes, int32_t* w, int32_t* h,
 
 static void load_images() {
     int r = 0;
-    void* data = 0;
+    void* data = null;
     int64_t bytes = 0;
     for (int i = 0; i < countof(image); i++) {
         if (i == 0) {
@@ -42,10 +42,10 @@ static void load_images() {
         int h = 0;
         int bpp = 0; // bytes (!) per pixel
         void* pixels = load_image(data, bytes, &w, &h, &bpp, 0);
-        if (pixels != null) {
-            gdi.image_init(&image[i], w, h, bpp, pixels);
-            free(pixels);
-        }
+        fatal_if_null(pixels);
+        gdi.image_init(&image[i], w, h, bpp, pixels);
+        free(pixels);
+        // do not unmap resources:
         if (i == 0) { crt.memunmap(data, bytes); }
     }
 }
