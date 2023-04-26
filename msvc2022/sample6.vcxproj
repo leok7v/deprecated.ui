@@ -176,6 +176,9 @@
       <Project>{9f53c795-2a93-4154-8b04-bb1829d67602}</Project>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\samples\mr_blue_sky.midi" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

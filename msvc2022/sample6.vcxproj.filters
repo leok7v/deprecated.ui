@@ -40,4 +40,9 @@
     <ClCompile Include="..\samples\crt.c" />
     <ClCompile Include="..\samples\quick.c" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\samples\mr_blue_sky.midi">
+      <Filter>res</Filter>
+    </None>
+  </ItemGroup>
 </Project>

@@ -1,4 +1,8 @@
 ﻿#include "sample.rc"
 
-groot_gif  RCDATA "groot.gif"   // 512x512+alpha animated gif
+groot_gif        RCDATA "groot.gif"        // 512x512+alpha animated gif
+mr_blue_sky_midi RCDATA "mr_blue_sky.midi"
 
+// groot.gif made with https://ezgif.com/ ffmpeg and GIMP (re export with Dispose every frame
+// https://tinyurl.com/dancing-baby-groot
+// Mr. Blue Sky Midi: https://freemidi.org/download3-11210-mr-blue-sky-electric-light-orchestra
