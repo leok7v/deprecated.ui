@@ -35,12 +35,12 @@ static void paint(uic_t* ui) {
         render_time * 1000, app.paint_avg * 1000);
 }
 
-static void request_rendering() {
+static void request_rendering(void) {
     rendering = true;
     events.set(wake);
 }
 
-static void stop_rendering() {
+static void stop_rendering(void) {
     if (rendering) {
         stop = true;
         while (rendering || stop) { crt.sleep(0.01); }
@@ -72,7 +72,7 @@ static void layout(uic_t* ui) {
 
 static void renderer(void* unused); // renderer thread
 
-static void openned() {
+static void openned(void) {
     fatal_if(app.crc.w * app.crc.h * 4 > countof(pixels[0]),
         "increase size of pixels[][%d * %d * 4]", app.crc.w, app.crc.h);
     gdi.image_init(&image[0], app.crc.w, app.crc.h, 4, pixels[0]);
@@ -84,7 +84,7 @@ static void openned() {
     full_screen.ui.shortcut = 'F';
 }
 
-static void closed() {
+static void closed(void) {
     events.set(quit);
     threads.join(thread);
     thread = null;
@@ -101,14 +101,14 @@ static void character(uic_t* unused, const char* utf8) {
     }
 }
 
-static void fini() {
+static void fini(void) {
     events.dispose(wake);
     events.dispose(quit);
     wake = null;
     quit = null;
 }
 
-static void init() {
+static void init(void) {
     app.title = title;
     threads.realtime();
     app.fini = fini;

@@ -123,14 +123,14 @@ static void timer(uic_t* ui, tm_t id) {
     }
 }
 
-static void openned() {
+static void openned(void) {
     timer10ms = app.set_timer((uintptr_t)&timer10ms, 10);
     fatal_if(timer10ms == 0);
     thread = threads.start(timer_thread, &quit);
     fatal_if_null(thread);
 }
 
-static void closed() {
+static void closed(void) {
     app.kill_timer(timer10ms);
     quit = true;
     threads.join(thread);
@@ -138,7 +138,7 @@ static void closed() {
     quit = false;
 }
 
-static void do_not_start_minimized() {
+static void do_not_start_minimized(void) {
     // This sample does not start minimized but some applications may.
     if (app.last_visibility != window_visibility.minimize) {
         app.visibility = app.last_visibility;
@@ -148,7 +148,7 @@ static void do_not_start_minimized() {
     }
 }
 
-static void init() {
+static void init(void) {
     app.title = title;
     threads.realtime(); // both main thread and timer thread
     app.ui->timer = timer;

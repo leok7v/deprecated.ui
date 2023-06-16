@@ -326,6 +326,12 @@ static void uic_edit_dispose_paragraphs_layout(uic_edit_t* e) {
     }
 }
 
+static void uic_edit_set_font(uic_edit_t* e, font_t* f) {
+    uic_edit_dispose_paragraphs_layout(e);
+    e->ui.font = f;
+    e->ui.layout(&e->ui);
+}
+
 // Paragraph number, glyph number -> run number
 
 static const uic_edit_pr_t uic_edit_pg_to_pr(uic_edit_t* e, const uic_edit_pg_t pg) {
@@ -1390,7 +1396,7 @@ static void uic_edit_paint(uic_t* ui) {
     gdi.push(ui->x, ui->y + e->top);
     gdi.set_clip(ui->x, ui->y, ui->w, e->height);
     font_t f = ui->font != null ? *ui->font : app.fonts.regular;
-    gdi.set_font(f);
+    f = gdi.set_font(f);
     gdi.set_text_color(ui->color);
     const int32_t pn = e->scroll.pn;
     const int32_t bottom = ui->y + e->bottom;
@@ -1398,6 +1404,7 @@ static void uic_edit_paint(uic_t* ui) {
     for (int32_t i = pn; i < e->paragraphs && gdi.y < bottom; i++) {
         uic_edit_paint_para(e, i);
     }
+    gdi.set_font(f);
     gdi.set_clip(0, 0, 0, 0);
     gdi.pop();
 }
@@ -1422,7 +1429,6 @@ void uic_edit_init(uic_edit_t* e) {
     e->last_x     = -1;
     e->multiline  = true;
     e->monospaced = false;
-    e->wordbreak  = true;
     e->ui.color   = rgb(168, 168, 150); // colors.text;
     e->ui.font    = &app.fonts.H1;
     e->caret      = (ui_point_t){-1, -1};
@@ -1434,6 +1440,7 @@ void uic_edit_init(uic_edit_t* e) {
     e->ui.message  = uic_edit_message;
     e->ui.key_pressed = uic_edit_key_pressed;
     e->ui.mousewheel  = uic_edit_mousewheel;
+    e->set_font             = uic_edit_set_font;
     e->move                 = uic_edit_move;
     e->paste                = uic_edit_paste;
     e->copy                 = uic_edit_copy;

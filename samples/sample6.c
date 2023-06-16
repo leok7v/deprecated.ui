@@ -42,15 +42,15 @@ static struct {
 
 static image_t  background;
 
-static void init();
-static void fini();
+static void init(void);
+static void fini(void);
 static void character(uic_t* ui, const char* utf8);
-static void midi_open();
-static void midi_play();
-static void midi_stop();
-static void midi_close();
+static void midi_open(void);
+static void midi_play(void);
+static void midi_stop(void);
+static void midi_close(void);
 
-static int  console() {
+static int  console(void) {
     fatal_if(true, "%s only SUBSYSTEM:WINDOWS", app.argv[0]);
     return 1;
 }
@@ -144,7 +144,7 @@ static bool message(uic_t* unused(ui), int32_t m, int64_t wp, int64_t lp,
     return m == MM_MCINOTIFY;
 }
 
-static const char* midi_file() {
+static const char* midi_file(void) {
     char path[MAX_PATH];
     if (midi.filename[0] == 0) {
         void* data = null;
@@ -167,7 +167,7 @@ static const char* midi_file() {
     return midi.filename;
 }
 
-static void delete_midi_file() {
+static void delete_midi_file(void) {
     int r = DeleteFile(midi.filename) ? 0 : GetLastError();
     fatal_if(r != 0);
 }
@@ -188,7 +188,7 @@ static void midi_warn_if_error_(int r, const char* call, const char* func, int l
     fatal_if_not_zero(r); \
 } while (0)
 
-static void midi_play() {
+static void midi_play(void) {
     assert(midi.tid == crt.gettid());
     MCI_PLAY_PARMS pp = {0};
     pp.dwCallback = (uintptr_t)app.window;
@@ -196,13 +196,13 @@ static void midi_play() {
         MCI_PLAY, MCI_NOTIFY, (uintptr_t)&pp));
 }
 
-static void midi_stop() {
+static void midi_stop(void) {
     assert(midi.tid == crt.gettid());
     midi_warn_if_error(mciSendCommandA(midi.mop.wDeviceID,
         MCI_STOP, 0, 0));
 }
 
-static void midi_open() {
+static void midi_open(void) {
     assert(midi.tid == crt.gettid());
     midi.mop.dwCallback = (uintptr_t)app.window;
     midi.mop.wDeviceID = (WORD)-1;
@@ -214,14 +214,14 @@ static void midi_open() {
             (uintptr_t)&midi.mop));
 }
 
-static void midi_close() {
+static void midi_close(void) {
     midi_warn_if_error(mciSendCommandA(midi.mop.wDeviceID,
         MCI_CLOSE, MCI_WAIT, 0));
     midi_warn_if_error(mciSendCommandA(MCI_ALL_DEVICE_ID,
         MCI_CLOSE, MCI_WAIT, 0));
 }
 
-static void load_gif() {
+static void load_gif(void) {
     void* data = null;
     int64_t bytes = 0;
     int r = crt.memmap_res("groot_gif", &data, &bytes);
@@ -232,7 +232,7 @@ static void load_gif() {
     // resources cannot be unmapped do not call crt.memunmap()
 }
 
-static void animate() {
+static void animate(void) {
     for (;;) {
         app.redraw();
         double delay_in_seconds = gif.delays[animation.index] * 0.001;
@@ -286,7 +286,7 @@ static void startup(void* unused(ignored)) {
     animate();
 }
 
-static void init() {
+static void init(void) {
     app.title = title;
     app.ui->paint     = paint;
     app.ui->character = character;
@@ -312,7 +312,7 @@ static void init() {
     midi_play();
 }
 
-static void fini() {
+static void fini(void) {
     gdi.image_dispose(&background);
     free(gif.pixels);
     free(gif.delays);

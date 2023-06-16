@@ -7,7 +7,7 @@ begin_c
 
 #define TITLE "Sample9"
 
-static void init();
+static void init(void);
 
 app_t app = {
     .class_name = "sample9",
@@ -292,7 +292,7 @@ static void layout(uic_t* ui) {
 
 static void refresh();
 
-static void zoom_out() {
+static void zoom_out(void) {
     assert(top > 0);
     top--;
     sx = stack[top].x;
@@ -379,7 +379,7 @@ static void init_panel(uic_t* panel, const char* text, color_t color,
     panel->paint = paint;
 }
 
-static void openned() {
+static void openned(void) {
     int n = countof(pixels);
     static_assert(sizeof(pixels[0][0]) == 4, "4 bytes per pixel");
     static_assert(countof(pixels) == countof(pixels[0]), "square");
@@ -411,7 +411,7 @@ static void openned() {
     refresh();
 }
 
-static void init() {
+static void init(void) {
     app.title = TITLE;
     app.ui->measure = measure;
     app.ui->layout = layout;
@@ -469,7 +469,7 @@ static void mandelbrot(image_t* im) {
     }
 }
 
-static void refresh() {
+static void refresh(void) {
     if (sx < 0) { sx = 0; }
     if (sx > 1 - zoom) { sx = 1 - zoom; }
     if (sy < 0) { sy = 0; }

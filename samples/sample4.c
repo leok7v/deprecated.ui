@@ -9,9 +9,9 @@ static image_t image[2];
 
 static char filename[260]; // c:\Users\user\Pictures\mandrill-4.2.03.png
 
-static void init();
+static void init(void);
 
-static int  console() {
+static int  console(void) {
     fatal_if(true, "%s only SUBSYSTEM:WINDOWS", app.argv[0]);
     return 1;
 }
@@ -27,7 +27,7 @@ app_t app = {
 static void* load_image(const byte* data, int64_t bytes, int32_t* w, int32_t* h,
     int32_t* bpp, int32_t preferred_bytes_per_pixel);
 
-static void load_images() {
+static void load_images(void) {
     int r = 0;
     void* data = null;
     int64_t bytes = 0;
@@ -70,7 +70,7 @@ static void paint(uic_t* ui) {
     }
 }
 
-static void download() {
+static void download(void) {
     static const char* url =
         "https://upload.wikimedia.org/wikipedia/commons/c/c1/"
         "Wikipedia-sipi-image-db-mandrill-4.2.03.png";
@@ -85,7 +85,7 @@ static void download() {
     }
 }
 
-static void init() {
+static void init(void) {
     app.title = title;
     app.ui->paint = paint;
     strprintf(filename, "%s\\mandrill-4.2.03.png",

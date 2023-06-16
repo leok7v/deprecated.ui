@@ -17,7 +17,7 @@ static void paint(uic_t* ui) {
     gdi.fill(0, 0, ui->w, ui->h);
 }
 
-static void init() {
+static void init(void) {
     app.title = title;
     app.ui->layout = layout;
     app.ui->paint = paint;

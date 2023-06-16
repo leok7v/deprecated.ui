@@ -7,10 +7,6 @@ begin_c
 // important uic_edit_t will refuse to layout into a box smaller than
 // width 3 x em.x height 1 x em.y
 
-enum {
-    uic_tag_edit       = 'edt'
-};
-
 typedef struct uic_edit_run_s {
     int32_t bp;     // position in bytes  since start of the paragraph
     int32_t gp;     // position in glyphs since start of the paragraph
@@ -49,6 +45,7 @@ typedef struct uic_edit_s uic_edit_t;
 
 typedef struct uic_edit_s {
     uic_t ui;
+    void (*set_font)(uic_edit_t* e, font_t* font); // see notes below (*)
     void (*move)(uic_edit_t* e, uic_edit_pg_t pg); // move caret clear selection
     void (*paste)(uic_edit_t* e, const char* text, int32_t bytes); // replace selected
     void (*copy)(uic_edit_t* e, char* text, int32_t* bytes); // copy whole text
@@ -70,9 +67,8 @@ typedef struct uic_edit_s {
     // number of fully (not partially clipped) visible `runs' from top to bottom:
     int32_t visible_runs;
     bool focused;
-    bool monospaced;
+    bool monospaced;   // see monospaced note below (*)
     bool multiline;
-    bool wordbreak;
     // https://en.wikipedia.org/wiki/Fuzzing
     volatile thread_t fuzzer;     // fuzzer thread != null when fuzzing
     volatile int32_t  fuzz_count; // fuzzer event count
@@ -85,6 +81,44 @@ typedef struct uic_edit_s {
     int32_t paragraphs;    // number of lines in the text
     uic_edit_para_t* para; // para[paragraphs]
 } uic_edit_t;
+
+/*
+    Notes:
+    set_font() - neither edit.ui.font = font nor measure()/layout() functions 
+                 do NOT dispose paragraphs layout unless geometry changed because
+                 it is quite expensive operation. But choosing different font
+                 on the fly needs to relayout all paragraphs. Thus caller needs
+                 to set font via this function instead which also requests
+                 edit UI element relayout.
+
+    monospaced - set automatically when edit discovers that ui->em, 
+                 gdi.measure_text(*ui->font, "i") and measure_text(*ui->font, "W") 
+                 yeild the same results in rendering. Setting it from outside
+                 does not do anything - treat it as a hint for container contained
+                 edit UI element measurement and layout.
+
+    readonly   - edit->ui.enabled used to control readonly mode. If edit control
+                 is disabled it appearance does not change but it refuses to accept
+                 any changes to the rendered text.
+
+    wordbreak  - this attribute was removed as poor UX human experience along with
+                 single line scroll editing. See note below about multiline.
+
+    multiline  - is calculated at edit UI element measurement and layout.
+                 Edit UI element does NOT support horizontal scroll and breaking
+                 words semantics as it is poor UX human experience. This is not
+                 how humans (apart of software developers) edit text.
+                 If content of the edit UI element is wider than the bounding box
+                 width the content is broken on word boundaries and vertical scrolling
+                 semantics is supported. Layouts containing edit control of the single
+                 line height are strongly encouraged to enlarge edit control layout
+                 vertically on as needed basis similar to Google Search Box behavior
+                 change implemented in 2023.
+                 If multiline is set to true by the callers code the edit UI layout
+                 snaps text to the top of x,y,w,h box otherwise the vertical space 
+                 is distributed evenly between single line of text and top botom gaps.
+
+*/
 
 void uic_edit_init(uic_edit_t* e);
 

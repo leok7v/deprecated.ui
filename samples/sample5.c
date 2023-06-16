@@ -27,6 +27,7 @@ uic_checkbox(wb, "Word Break", 7.5, { // checkbox?
 
 uic_checkbox(mono, "Mono", 7.5, {
     traceln("Mono");
+    edit.set_font(&edit, &app.fonts.mono);
 });
 
 uic_checkbox(sl, "Single Line", 7.5, {
@@ -92,13 +93,13 @@ static void open_file(const char* pathname) {
     }
 }
 
-static void openned() {
+static void openned(void) {
     app.focus = &edit.ui;
-    #if 0 // large font:
+    #if 1 // large font:
         static font_t mono_H3;
         mono_H3 = gdi.font(app.fonts.mono, gdi.get_em(app.fonts.H3).y);
         edit.ui.font = &mono_H3;
-    #elif 1
+    #elif 0
         edit.ui.font = &app.fonts.mono;
     #else
         edit.ui.font = &app.fonts.regular;
@@ -123,7 +124,7 @@ static void periodically(uic_t* unused(ui)) {
     text.ui.invalidate(&text.ui);
 }
 
-static void init() {
+static void init(void) {
     app.title = title;
     app.ui->measure = measure;
     app.ui->layout = layout;
