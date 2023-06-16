@@ -65,3 +65,4 @@ msvc2022/.vs/*
 msvc2022/Debug/*
 msvc2022/Release/*
 
+/.vs
