@@ -97,7 +97,7 @@ static void openned(void) {
     app.focus = &edit.ui;
     #if 1 // large font:
         static font_t mono_H3;
-        mono_H3 = gdi.font(app.fonts.mono, gdi.get_em(app.fonts.H3).y);
+        mono_H3 = gdi.font(app.fonts.mono, gdi.get_em(app.fonts.H3).y, -1);
         edit.ui.font = &mono_H3;
     #elif 0
         edit.ui.font = &app.fonts.mono;
