@@ -39,6 +39,7 @@
     <ClCompile Include="..\samples\sample6.c" />
     <ClCompile Include="..\samples\crt.c" />
     <ClCompile Include="..\samples\quick.c" />
+    <ClCompile Include="..\samples\stb_image.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\samples\mr_blue_sky.midi">

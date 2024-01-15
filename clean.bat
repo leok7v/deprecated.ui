@@ -7,4 +7,5 @@ rmdir /q /s msvc2022\.vs     2> nul 1> nul
 del /q samples\version.h
 del /q stb_image.h
 del /q quick.h
+del /q crt.h
 

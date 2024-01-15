@@ -169,6 +169,7 @@
     <ClCompile Include="..\samples\crt.c" />
     <ClCompile Include="..\samples\quick.c" />
     <ClCompile Include="..\samples\sample4.c" />
+    <ClCompile Include="..\samples\stb_image.c" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="prebuild.vcxproj">

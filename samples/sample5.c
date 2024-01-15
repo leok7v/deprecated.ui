@@ -36,11 +36,11 @@ uic_checkbox(sl, "Single Line", 7.5, {
 
 uic_multiline(text, 0.0, "...");
 
-static_uic_container(buttons, null,
+uic_container(buttons, null,
     &full_screen.ui, &quit.ui, &fuzz.ui, &wb.ui, &mono.ui, &sl.ui);
-static_uic_container(left, null, &edit.ui);
-static_uic_container(right, null, &buttons);
-static_uic_container(bottom, null, &text.ui);
+uic_container(left, null, &edit.ui);
+uic_container(right, null, &buttons);
+uic_container(bottom, null, &text.ui);
 
 static void measure(uic_t* ui) {
     bottom.w = ui->w;
@@ -109,7 +109,7 @@ static void openned(void) {
     }
 }
 
-static void periodically(uic_t* unused(ui)) {
+static void every_100ms(uic_t* unused(ui)) {
     bool fuzzing = edit.fuzzer != null;
     if (fuzz.ui.pressed != fuzzing) {
         fuzz.ui.pressed = fuzzing;
@@ -129,7 +129,7 @@ static void init(void) {
     app.ui->measure = measure;
     app.ui->layout = layout;
     app.ui->paint = paint;
-    app.ui->periodically = periodically;
+    app.ui->every_100ms = every_100ms;
     static uic_t* children[] = { &left, &right, &bottom, null };
     app.ui->children = children;
     text.ui.font = &app.fonts.mono;

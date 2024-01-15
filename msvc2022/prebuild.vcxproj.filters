@@ -3,4 +3,7 @@
   <ItemGroup>
     <CustomBuild Include="..\scripts\prebuild.bat" />
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\samples\prebuild.c" />
+  </ItemGroup>
 </Project>

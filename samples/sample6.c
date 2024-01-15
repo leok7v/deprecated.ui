@@ -2,6 +2,8 @@
 #include "quick.h"
 #include <windows.h>
 #include <mmsystem.h>
+#include "stb_image.h"
+
 #pragma comment(lib, "winmm.lib")
 
 begin_c
@@ -324,18 +326,6 @@ static void fini(void) {
     delete_midi_file();
 }
 
-end_c
-
-begin_c
-
-#pragma warning(disable: 4459) // parameter/local hides global declaration
-#pragma warning(disable: 4244) // conversion from '...' to '...', possible loss of data
-
-#define STBI_ASSERT(x) assert(x)
-#include "stb_image.h"
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-
 static void* load_image(const byte* data, int64_t bytes, int32_t* w, int32_t* h,
     int32_t* bpp, int32_t preferred_bytes_per_pixel) {
     void* pixels = stbi_load_from_memory((byte const*)data, (int)bytes, w, h,
@@ -346,7 +336,7 @@ static void* load_image(const byte* data, int64_t bytes, int32_t* w, int32_t* h,
 static void* load_animated_gif(const byte* data, int64_t bytes,
     int32_t** delays, int32_t* w, int32_t* h, int32_t* frames, int32_t* bpp,
     int32_t preferred_bytes_per_pixel) {
-    stbi_uc* pixels = stbi_load_gif_from_memory(data, bytes,
+    stbi_uc* pixels = stbi_load_gif_from_memory(data, (int32_t)bytes,
         delays, w, h, frames,
         bpp, preferred_bytes_per_pixel);
     return pixels;
