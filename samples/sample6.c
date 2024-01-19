@@ -62,8 +62,8 @@ app_t app = {
     .init = init,
     .fini = fini,
     .main = console, // optional
-    .min_width = 640,
-    .min_height = 480
+    .wmin = 6.0f, // 6x4 inches
+    .hmin = 4.0f
 };
 
 static void* load_image(const byte* data, int64_t bytes, int32_t* w, int32_t* h,

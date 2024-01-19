@@ -29,8 +29,8 @@ static void init(void) {
 app_t app = {
     .class_name = "sample1",
     .init = init,
-    .min_width = 400,
-    .min_height = 200
+    .wmin = 4.0f, // 4x2 inches
+    .hmin = 2.0f
 };
 
 end_c

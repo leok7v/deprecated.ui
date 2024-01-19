@@ -12,8 +12,8 @@ static void init(void);
 app_t app = {
     .class_name = "sample9",
     .init = init,
-    .min_width = 1600,
-    .min_height = 990
+    .wmin = 11.0f, // 11x7 inches
+    .hmin =  7.0f
 };
 
 static ui_point_t em;
@@ -383,12 +383,6 @@ static void openned(void) {
     int n = countof(pixels);
     static_assert(sizeof(pixels[0][0]) == 4, "4 bytes per pixel");
     static_assert(countof(pixels) == countof(pixels[0]), "square");
-    if (app.mrc.h < app.min_height) {
-        n = n / 2;
-    } else {
-        app.min_width = 1800;
-        app.min_height = 1300l;
-    }
     gdi.image_init(&image, n, n, (int)sizeof(pixels[0][0]), (byte*)pixels);
     init_panel(&panel_top, "top", colors.orange, panel_paint);
     init_panel(&panel_center, "center", colors.off_white, center_paint);

@@ -141,8 +141,8 @@ app_t app = {
     .class_name = "sample5",
     .init = init,
     .openned = openned,
-    .min_width = 440,
-    .min_height = 180
+    .wmin = 4.0f, // 4x2 inches
+    .hmin = 2.0f
 };
 
 end_c

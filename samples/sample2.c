@@ -6,7 +6,7 @@ begin_c
 
 const char* title = "Sample2";
 
-enum { N = 1800, W = N + 10, H = 1000 };
+enum { N = 1800 };
 
 static tm_t timer10ms;
 static thread_t thread;
@@ -165,10 +165,10 @@ app_t app = {
     .class_name = "sample2",
     .init = init,
     // fixed size app
-    .min_width = W,
-    .min_height = H,
-    .max_width  = W,
-    .max_height = H
+    .wmin = 11.0f, // 11x7 inches
+    .hmin =  7.0f,
+    .wmax = 11.0f,
+    .hmax =  7.0f,
 };
 
 end_c

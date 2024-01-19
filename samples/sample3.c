@@ -127,8 +127,8 @@ static void init(void) {
 app_t app = {
     .class_name = "sample3",
     .init = init,
-    .min_width = 640,
-    .min_height = 480
+    .wmin = 6.0f, // 6x4 inches
+    .hmin = 4.0f
 };
 
 static double scale(int x, int n, double low, double hi) {
