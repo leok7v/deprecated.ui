@@ -93,7 +93,7 @@ static void open_file(const char* pathname) {
     }
 }
 
-static void openned(void) {
+static void opened(void) {
     app.focus = &edit.ui;
     #if 1 // large font:
         static font_t mono_H3;
@@ -140,7 +140,7 @@ static void init(void) {
 app_t app = {
     .class_name = "sample5",
     .init = init,
-    .openned = openned,
+    .opened = opened,
     .wmin = 4.0f, // 4x2 inches
     .hmin = 2.0f
 };

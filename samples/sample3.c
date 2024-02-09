@@ -72,7 +72,7 @@ static void layout(uic_t* ui) {
 
 static void renderer(void* unused); // renderer thread
 
-static void openned(void) {
+static void opened(void) {
     fatal_if(app.crc.w * app.crc.h * 4 > countof(pixels[0]),
         "increase size of pixels[][%d * %d * 4]", app.crc.w, app.crc.h);
     gdi.image_init(&image[0], app.crc.w, app.crc.h, 4, pixels[0]);
@@ -113,7 +113,7 @@ static void init(void) {
     threads.realtime();
     app.fini = fini;
     app.closed = closed;
-    app.openned = openned;
+    app.opened = opened;
     static uic_t* children[] = { &full_screen.ui, null};
     app.ui->children = children;
     app.ui->layout    = layout;

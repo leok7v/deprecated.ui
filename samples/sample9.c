@@ -379,7 +379,7 @@ static void init_panel(uic_t* panel, const char* text, color_t color,
     panel->paint = paint;
 }
 
-static void openned(void) {
+static void opened(void) {
     int n = countof(pixels);
     static_assert(sizeof(pixels[0][0]) == 4, "4 bytes per pixel");
     static_assert(countof(pixels) == countof(pixels[0]), "square");
@@ -412,7 +412,7 @@ static void init(void) {
     app.ui->character   = character;
     app.ui->key_pressed = keyboard; // virtual_keys
     app.ui->mousewheel = mousewheel;
-    app.openned = openned;
+    app.opened = opened;
     static uic_t* root_children[] = { &panel_top, &panel_center,
         &panel_right, &panel_bottom, null };
     app.ui->children = root_children;

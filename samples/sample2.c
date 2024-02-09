@@ -123,7 +123,7 @@ static void timer(uic_t* ui, tm_t id) {
     }
 }
 
-static void openned(void) {
+static void opened(void) {
     timer10ms = app.set_timer((uintptr_t)&timer10ms, 10);
     fatal_if(timer10ms == 0);
     thread = threads.start(timer_thread, &quit);
@@ -153,7 +153,7 @@ static void init(void) {
     threads.realtime(); // both main thread and timer thread
     app.ui->timer = timer;
     app.closed = closed;
-    app.openned = openned;
+    app.opened = opened;
     app.ui->paint = paint;
     // no minimize/maximize title bar and system menu
     app.no_min = true;
