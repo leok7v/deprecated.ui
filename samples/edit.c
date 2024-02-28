@@ -176,17 +176,20 @@ static int32_t uic_edit_word_break_at(uic_edit_t* e, int32_t pn, int32_t rn,
         }
         if (w < width) {
             k = gc;
+            assert(1 <= k && k <= p->glyphs - gp);
         } else {
             int i = 0;
             int j = gc;
             k = (i + j) / 2;
             while (i < j) {
-                assert(0 <= k && k < gc + 1);
+                assert(1 <= k && k < gc + 1);
                 const int n = g2b[k + 1] - bp;
                 int32_t px = uic_edit_text_width(e, text, n);
                 if (px == width) { break; }
                 if (px < width) { i = k + 1; } else { j = k; }
+                if ((i + j) / 2 == 0) { break; }
                 k = (i + j) / 2;
+                assert(1 <= k && k <= p->glyphs - gp);
             }
         }
     }
@@ -1437,7 +1440,7 @@ void uic_edit_init(uic_edit_t* e) {
     e->ui.layout    = uic_edit_layout;
     e->ui.mouse     = uic_edit_mouse;
     e->ui.character = uic_edit_character;
-    e->ui.message  = uic_edit_message;
+    e->ui.message   = uic_edit_message;
     e->ui.key_pressed = uic_edit_key_pressed;
     e->ui.mousewheel  = uic_edit_mousewheel;
     e->set_font             = uic_edit_set_font;
