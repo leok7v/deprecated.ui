@@ -120,12 +120,18 @@ static void mouse(uic_t* unused(ui), int32_t m, int32_t unused(f)) {
         midi.muted = !midi.muted;
         if (midi.muted) {
             midi_stop();
-            midi_close();
+//          midi_close();
         } else {
-            midi_open();
+//          midi_open();
             midi_play();
         }
     }
+}
+
+static void opened(void) {
+    midi.tid = crt.gettid();
+    midi_open();
+    midi_play();
 }
 
 static bool message(uic_t* unused(ui), int32_t m, int64_t wp, int64_t lp,
@@ -294,6 +300,7 @@ static void init(void) {
     app.ui->character = character;
     app.ui->message   = message;
     app.ui->mouse     = mouse;
+    app.opened        = opened;
     animation.seed = (uint32_t)crt.nanoseconds();
     animation.x = -1;
     animation.y = -1;
@@ -309,9 +316,6 @@ static void init(void) {
     fatal_if_null(pixels);
     gdi.image_init(&background, w, h, bpp, pixels);
     free(pixels);
-    midi.tid = crt.gettid();
-    midi_open();
-    midi_play();
 }
 
 static void fini(void) {
