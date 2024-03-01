@@ -22,7 +22,7 @@ static const char* test_content =
     "Good bye Universe...\n"
     "Hello World!\n"
     "\n"
-    "Ctrl+Shift+Alt+F5 and F5 starts/stops FUZZING test.\n"
+    "Ctrl+Shift+Alt and F5 starts/stops FUZZING test.\n"
     "\n"
     "FUZZING use rapid mouse clicks thus UI Fuzz button is hard to press use keyboard shortcut F5 to stop.\n"
     "\n"

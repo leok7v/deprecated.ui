@@ -94,7 +94,6 @@ static void open_file(const char* pathname) {
 }
 
 static void opened(void) {
-    app.focus = &edit.ui;
     #if 1 // large font:
         static font_t mono_H3;
         mono_H3 = gdi.font(app.fonts.mono, gdi.get_em(app.fonts.H3).y, -1);
@@ -109,7 +108,7 @@ static void opened(void) {
     }
 }
 
-static void every_100ms(uic_t* unused(ui)) {
+static void every_sec(uic_t* unused(ui)) {
     bool fuzzing = edit.fuzzer != null;
     if (fuzz.ui.pressed != fuzzing) {
         fuzz.ui.pressed = fuzzing;
@@ -121,25 +120,33 @@ static void every_100ms(uic_t* unused(ui)) {
         edit.selection[1].pn, edit.selection[1].gp,
         edit.ui.w, edit.ui.h,
         edit.scroll.pn, edit.scroll.rn);
+//  traceln("%d:%d %d:%d %dx%d scroll %03d:%03d",
+//      edit.selection[0].pn, edit.selection[0].gp,
+//      edit.selection[1].pn, edit.selection[1].gp,
+//      edit.ui.w, edit.ui.h,
+//      edit.scroll.pn, edit.scroll.rn);
+    // This will interfere with caret blinking
+    // will slow 500ms blinking down 1000ms: 
     text.ui.invalidate(&text.ui);
 }
 
 static void init(void) {
     app.title = title;
-    app.ui->measure = measure;
-    app.ui->layout = layout;
-    app.ui->paint = paint;
-    app.ui->every_100ms = every_100ms;
+    app.ui->measure   = measure;
+    app.ui->layout    = layout;
+    app.ui->paint     = paint;
+    app.ui->every_sec = every_sec;
     static uic_t* children[] = { &left, &right, &bottom, null };
     app.ui->children = children;
     text.ui.font = &app.fonts.mono;
     strprintf(fuzz.ui.tip, "Ctrl+Shift+Alt+F5 to start and F5 to stop Fuzzing");
     uic_edit_init(&edit);
+    app.focus = &edit.ui;
 }
 
 app_t app = {
     .class_name = "sample5",
-    .init = init,
+    .init   = init,
     .opened = opened,
     .wmin = 4.0f, // 4x2 inches
     .hmin = 2.0f

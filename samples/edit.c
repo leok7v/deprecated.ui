@@ -301,17 +301,40 @@ static int32_t uic_edit_glyphs_in_paragraph(uic_edit_t* e, int32_t pn) {
 }
 
 static void uic_edit_create_caret(uic_edit_t* e) {
+    fatal_if(e->focused);
+    assert(GetActiveWindow() == (HWND)app.window);
+    assert(GetFocus() == (HWND)app.window);
     fatal_if_false(CreateCaret((HWND)app.window, null, 2, e->ui.em.y));
-    fatal_if_false(SetCaretBlinkTime(400));
-    fatal_if_false(ShowCaret((HWND)app.window));
-    fatal_if_false(SetCaretPos(e->ui.x + e->caret.x, e->ui.y + e->caret.y));
-    e->focused = true;
+    e->focused = true; // means caret was created
 }
 
 static void uic_edit_destroy_caret(uic_edit_t* e) {
-    fatal_if_false(HideCaret((HWND)app.window));
+    fatal_if(!e->focused);
     fatal_if_false(DestroyCaret());
-    e->focused = false;
+    e->focused = false; // means caret was destroyed
+}
+
+static void uic_edit_show_caret(uic_edit_t* e) {
+    if (e->focused) {
+        assert(GetActiveWindow() == (HWND)app.window);
+        assert(GetFocus() == (HWND)app.window);
+        fatal_if_false(SetCaretPos(e->ui.x + e->caret.x, e->ui.y + e->caret.y));
+        // do not set blink time - use global default
+//      fatal_if_false(SetCaretBlinkTime(500));
+        fatal_if_false(ShowCaret((HWND)app.window));
+        e->shown++;
+//      traceln("shown=%d", e->shown);
+        assert(e->shown == 1);
+    }
+}
+
+static void uic_edit_hide_caret(uic_edit_t* e) {
+    if (e->focused) {
+        fatal_if_false(HideCaret((HWND)app.window));
+        e->shown--;
+//      traceln("shown=%d", e->shown);
+        assert(e->shown == 0);
+    }
 }
 
 static void uic_edit_dispose_paragraphs_layout(uic_edit_t* e) {
@@ -535,6 +558,7 @@ static void uic_edit_set_caret(uic_edit_t* e, int32_t x, int32_t y) {
     if (e->caret.x != x || e->caret.y != y) {
         if (e->focused && app.focused) {
             fatal_if_false(SetCaretPos(e->ui.x + x, e->ui.y + y));
+//          traceln("%d,%d", e->ui.x + x, e->ui.y + y);
         }
         e->caret.x = x;
         e->caret.y = y;
@@ -852,14 +876,14 @@ static void uic_edit_check_focus(uic_edit_t* e) {
     // and single UI control inside window can have focus
     if (e->ui.w > 0 && e->ui.h > 0) {
         if (!app.focused) {
-            if (e->focused) { uic_edit_destroy_caret(e); }
+            if (e->focused) { uic_edit_hide_caret(e); }
         } else if (app.focus == &e->ui) {
             if (!e->focused) {
-                uic_edit_create_caret(e);
+                uic_edit_show_caret(e);
                 uic_edit_move_caret(e, e->selection[1]);
             }
         } else {
-            if (e->focused) { uic_edit_destroy_caret(e); }
+            if (e->focused) { uic_edit_hide_caret(e); }
         }
     }
 }
@@ -1194,6 +1218,7 @@ static void uic_edit_mouse(uic_t* ui, int m, int unused(flags)) {
     }
     if (!e->focused && inside && (left || right)) {
         app.focus = ui;
+        e->focused = true;
         uic_edit_check_focus(e);
     } else if (e->focused) {
         if (left)  { e->mouse |= (1 << 0); }
@@ -1224,11 +1249,25 @@ static void uic_edit_mousewheel(uic_t* ui, int32_t unused(dx), int32_t dy) {
     uic_edit_move_caret(e, pg);
 }
 
-static bool uic_edit_message(uic_t* ui, int32_t unused(message),
-        int64_t unused(wp), int64_t unused(lp), int64_t* unused(rt)){
+static bool uic_edit_set_focus(uic_t* ui) {
+//  traceln("active=%d", GetActiveWindow() == (HWND)app.window);
     assert(ui->tag == uic_tag_edit);
-    uic_edit_check_focus((uic_edit_t*)ui);
-    return false;
+    uic_edit_t* e = (uic_edit_t*)ui;
+    assert(app.focus == ui);
+    assert(ui->focusable);
+    uic_edit_create_caret(e);
+    uic_edit_show_caret(e);
+    return true;
+}
+
+static void uic_edit_kill_focus(uic_t* ui) {
+//  traceln("active=%d", GetActiveWindow() == (HWND)app.window);
+    assert(ui->tag == uic_tag_edit);
+    uic_edit_t* e = (uic_edit_t*)ui;
+    if (e->focused) {
+        uic_edit_hide_caret(e);
+        uic_edit_destroy_caret(e);
+    }
 }
 
 static void uic_edit_erase(uic_edit_t* e) {
@@ -1380,12 +1419,13 @@ static void uic_edit_layout(uic_t* ui) { // top down
     // otherwise resizing view will result in up-down jiggling of the
     // whole text
     if (e->focused) {
+        assert(app.focus == ui);
         // recreate caret because em.y may have changed
+        uic_edit_hide_caret(e);
         uic_edit_destroy_caret(e);
         uic_edit_create_caret(e);
-        if (app.focus && e->focused) {
-            uic_edit_move_caret(e, e->selection[1]);
-        }
+        uic_edit_show_caret(e);
+        uic_edit_move_caret(e, e->selection[1]);
     }
 }
 
@@ -1393,6 +1433,8 @@ static void uic_edit_paint(uic_t* ui) {
     assert(ui->tag == uic_tag_edit);
     assert(!ui->hidden);
     uic_edit_t* e = (uic_edit_t*)ui;
+    // xxx
+    if (e->focused) { uic_edit_hide_caret(e); }
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(rgb(20, 20, 14));
     gdi.fill(ui->x, ui->y, ui->w, e->height);
@@ -1410,6 +1452,7 @@ static void uic_edit_paint(uic_t* ui) {
     gdi.set_font(f);
     gdi.set_clip(0, 0, 0, 0);
     gdi.pop();
+    if (e->focused) { uic_edit_show_caret(e); }
 }
 
 static void uic_edit_move(uic_edit_t* e, uic_edit_pg_t pg) {
@@ -1428,6 +1471,7 @@ void uic_edit_init(uic_edit_t* e) {
     memset(e, 0, sizeof(*e));
     uic_init(&e->ui);
     e->ui.tag = uic_tag_edit;
+    e->ui.focusable = true;
     e->fuzz_seed  = 1; // client can seed it with (crt.nanoseconds() | 1)
     e->last_x     = -1;
     e->multiline  = true;
@@ -1435,12 +1479,13 @@ void uic_edit_init(uic_edit_t* e) {
     e->ui.color   = rgb(168, 168, 150); // colors.text;
     e->ui.font    = &app.fonts.H1;
     e->caret      = (ui_point_t){-1, -1};
-    e->ui.paint     = uic_edit_paint;
-    e->ui.measure   = uic_edit_measure;
-    e->ui.layout    = uic_edit_layout;
-    e->ui.mouse     = uic_edit_mouse;
-    e->ui.character = uic_edit_character;
-    e->ui.message   = uic_edit_message;
+    e->ui.paint       = uic_edit_paint;
+    e->ui.measure     = uic_edit_measure;
+    e->ui.layout      = uic_edit_layout;
+    e->ui.mouse       = uic_edit_mouse;
+    e->ui.character   = uic_edit_character;
+    e->ui.set_focus   = uic_edit_set_focus;
+    e->ui.kill_focus  = uic_edit_kill_focus;
     e->ui.key_pressed = uic_edit_key_pressed;
     e->ui.mousewheel  = uic_edit_mousewheel;
     e->set_font             = uic_edit_set_font;

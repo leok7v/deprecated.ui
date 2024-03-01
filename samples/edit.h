@@ -66,9 +66,10 @@ typedef struct uic_edit_s {
     int32_t bottom;    // '' (ditto) of the bottom
     // number of fully (not partially clipped) visible `runs' from top to bottom:
     int32_t visible_runs;
-    bool focused;
+    bool focused;      // is focused and created caret
     bool monospaced;   // see monospaced note below (*)
     bool multiline;
+    int  shown; // debug: caret show/hide counter 0|1
     // https://en.wikipedia.org/wiki/Fuzzing
     volatile thread_t fuzzer;     // fuzzer thread != null when fuzzing
     volatile int32_t  fuzz_count; // fuzzer event count
