@@ -306,12 +306,14 @@ static void uic_edit_create_caret(uic_edit_t* e) {
     assert(GetFocus() == (HWND)app.window);
     fatal_if_false(CreateCaret((HWND)app.window, null, 2, e->ui.em.y));
     e->focused = true; // means caret was created
+//  traceln("%d,%d", 2, e->ui.em.y);
 }
 
 static void uic_edit_destroy_caret(uic_edit_t* e) {
     fatal_if(!e->focused);
     fatal_if_false(DestroyCaret());
     e->focused = false; // means caret was destroyed
+//  traceln("");
 }
 
 static void uic_edit_show_caret(uic_edit_t* e) {
@@ -354,8 +356,14 @@ static void uic_edit_dispose_paragraphs_layout(uic_edit_t* e) {
 
 static void uic_edit_set_font(uic_edit_t* e, font_t* f) {
     uic_edit_dispose_paragraphs_layout(e);
+    // xxx
+//  e->scroll.pn = 0; // TODO: restore after layout complete?
+    e->scroll.rn = 0; //       which is not trivial
     e->ui.font = f;
-    e->ui.layout(&e->ui);
+    e->ui.em = gdi.get_em(*f);
+    if (e->ui.w > 0 && e->ui.h > 0) {
+        e->ui.layout(&e->ui); // direct call to re-layout
+    }
 }
 
 // Paragraph number, glyph number -> run number
@@ -871,23 +879,6 @@ static uic_edit_pg_t uic_edit_insert_paragraph_break(uic_edit_t* e,
     return next;
 }
 
-static void uic_edit_check_focus(uic_edit_t* e) {
-    // focus is two stage afair: window can be focused or not
-    // and single UI control inside window can have focus
-    if (e->ui.w > 0 && e->ui.h > 0) {
-        if (!app.focused) {
-            if (e->focused) { uic_edit_hide_caret(e); }
-        } else if (app.focus == &e->ui) {
-            if (!e->focused) {
-                uic_edit_show_caret(e);
-                uic_edit_move_caret(e, e->selection[1]);
-            }
-        } else {
-            if (e->focused) { uic_edit_hide_caret(e); }
-        }
-    }
-}
-
 static void uic_edit_key_left(uic_edit_t* e) {
     uic_edit_pg_t to = e->selection[1];
     if (to.pn > 0 || to.gp > 0) {
@@ -1164,8 +1155,8 @@ static void uic_edit_key_pressed(uic_t* ui, int32_t key) {
         } else if (key == virtual_keys.enter) {
             uic_edit_key_enter(e);
         } else if (key == virtual_keys.f5) {
-            if (app.ctrl && app.shift && app.alt && e->fuzzer == null) {
-                e->fuzz(e); // start on Ctrl+Shift+Alt+F5
+            if (app.ctrl && app.shift && e->fuzzer == null) {
+                e->fuzz(e); // start on Ctrl+Shift+F5
             } else if (e->fuzzer != null) {
                 e->fuzz(e); // stop on F5
             }
@@ -1207,7 +1198,7 @@ static void uic_edit_mouse(uic_t* ui, int m, int unused(flags)) {
     bool inside = 0 <= x && x < ui->w && 0 <= y && y < e->height;
     bool left = m == messages.left_button_pressed;
     bool right = m == messages.right_button_pressed;
-    if (e->focused  && inside && (left || right || e->mouse != 0)) {
+    if (e->focused && inside && (left || right || e->mouse != 0)) {
         uic_edit_pg_t p = uic_edit_xy_to_pg(e, x, y);
         if (0 <= p.pn && 0 <= p.gp) {
             if (p.pn > e->paragraphs) { p.pn = max(0, e->paragraphs); }
@@ -1216,10 +1207,14 @@ static void uic_edit_mouse(uic_t* ui, int m, int unused(flags)) {
             uic_edit_move_caret(e, p);
         }
     }
-    if (!e->focused && inside && (left || right)) {
+    if (app.focused && !e->focused && inside && (left || right)) {
+        if (app.focus != null && app.focus->kill_focus != null) {
+            app.focus->kill_focus(app.focus);
+        }
         app.focus = ui;
-        e->focused = true;
-        uic_edit_check_focus(e);
+        traceln("app.focus := %p", ui);
+        bool set = e->ui.set_focus(&e->ui);
+        fatal_if(!set);
     } else if (e->focused) {
         if (left)  { e->mouse |= (1 << 0); }
         if (right) { e->mouse |= (1 << 1); }
@@ -1230,31 +1225,34 @@ static void uic_edit_mouse(uic_t* ui, int m, int unused(flags)) {
 
 static void uic_edit_mousewheel(uic_t* ui, int32_t unused(dx), int32_t dy) {
     // TODO: may make a use of dx in single line not-word-breaked edit control
-    assert(ui->tag == uic_tag_edit);
-    uic_edit_t* e = (uic_edit_t*)ui;
-    int32_t lines = (abs(dy) + ui->em.y - 1) / ui->em.y;
-    if (dy > 0) {
-        uic_edit_scroll_down(e, lines);
-    } else if (dy < 0) {
-        uic_edit_scroll_up(e, lines);
+    if (app.focus == ui) {
+        assert(ui->tag == uic_tag_edit);
+        uic_edit_t* e = (uic_edit_t*)ui;
+        int32_t lines = (abs(dy) + ui->em.y - 1) / ui->em.y;
+        if (dy > 0) {
+            uic_edit_scroll_down(e, lines);
+        } else if (dy < 0) {
+            uic_edit_scroll_up(e, lines);
+        }
+//  TODO: Ctrl UP/DW and caret of out of visible area scrolls are not
+//        implemented. Not sure they are very good UX experience.
+//        MacOS users may be used to scroll with touchpad, take a visual
+//        peek, do NOT click and continue editing at last cursor position.
+//        To me back forward stack navigation is much more intuitive and
+//        much mode "modeless" in spirit of cut/copy/paste. But opinions
+//        and editing habits vary. Easy to implement.
+        uic_edit_pg_t pg = uic_edit_xy_to_pg(e, e->caret.x, e->caret.y);
+        uic_edit_move_caret(e, pg);
     }
-    // TODO: Ctrl UP/DW and caret of out of visible area scrolls are not
-    //       implemented. Not sure they are very good UX experience.
-    //       MacOS users may be used to scroll with touchpad, take a visual
-    //       peek, do NOT click and continue editing at last cursor position.
-    //       To me back forward stack navigation is much more intuitive and
-    //       much mode "modeless" in spirit of cut/copy/paste. But opinions
-    //       and editing habits vary. Easy to implement.
-    uic_edit_pg_t pg = uic_edit_xy_to_pg(e, e->caret.x, e->caret.y);
-    uic_edit_move_caret(e, pg);
 }
 
 static bool uic_edit_set_focus(uic_t* ui) {
 //  traceln("active=%d", GetActiveWindow() == (HWND)app.window);
     assert(ui->tag == uic_tag_edit);
     uic_edit_t* e = (uic_edit_t*)ui;
-    assert(app.focus == ui);
+    assert(app.focus == ui || app.focus == null);
     assert(ui->focusable);
+    app.focus = ui;
     uic_edit_create_caret(e);
     uic_edit_show_caret(e);
     return true;
@@ -1419,7 +1417,6 @@ static void uic_edit_layout(uic_t* ui) { // top down
     // otherwise resizing view will result in up-down jiggling of the
     // whole text
     if (e->focused) {
-        assert(app.focus == ui);
         // recreate caret because em.y may have changed
         uic_edit_hide_caret(e);
         uic_edit_destroy_caret(e);
@@ -1433,8 +1430,6 @@ static void uic_edit_paint(uic_t* ui) {
     assert(ui->tag == uic_tag_edit);
     assert(!ui->hidden);
     uic_edit_t* e = (uic_edit_t*)ui;
-    // xxx
-    if (e->focused) { uic_edit_hide_caret(e); }
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(rgb(20, 20, 14));
     gdi.fill(ui->x, ui->y, ui->w, e->height);
@@ -1452,7 +1447,6 @@ static void uic_edit_paint(uic_t* ui) {
     gdi.set_font(f);
     gdi.set_clip(0, 0, 0, 0);
     gdi.pop();
-    if (e->focused) { uic_edit_show_caret(e); }
 }
 
 static void uic_edit_move(uic_edit_t* e, uic_edit_pg_t pg) {
