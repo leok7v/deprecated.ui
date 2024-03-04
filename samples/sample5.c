@@ -4,7 +4,7 @@
 
 begin_c
 
-static bool debug_layout = false;
+static bool debug_layout; // = true;
 
 const char* title = "Sample5";
 
@@ -164,9 +164,8 @@ static void null_paint(uic_t* ui) {
         null_paint(*c);
     }
     if (ui != app.ui) {
-
+        ui->paint = null;
     }
-    ui->paint = null;
 }
 
 static void paint(uic_t * ui) {
