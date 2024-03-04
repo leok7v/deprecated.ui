@@ -64,29 +64,29 @@ uic_container(bottom, null, &text.ui);
 uic_container(right, null, &buttons);
 
 static void measure(uic_t* ui) {
-//  traceln("%d,%d %dx%d", ui->x, ui->y, ui->w, ui->h);
+    traceln("%d,%d %dx%d", ui->x, ui->y, ui->w, ui->h);
     bottom.w = ui->w;
     bottom.h = max(ui->h / 10, ui->em.y * 2);  // 10% bottom
     text.ui.w = bottom.w;
     text.ui.h = bottom.h;
     buttons.w = 0;
     measurements.vertical(&buttons, ui->em.y);
-//  traceln("buttons %d,%d %dx%d", buttons.x, buttons.y, buttons.w, buttons.h);
+    traceln("buttons %d,%d %dx%d", buttons.x, buttons.y, buttons.w, buttons.h);
     right.w = buttons.w + ui->em.x * 2;
     right.h = ui->h - text.ui.h - ui->em.y;
-//  traceln("right %d,%d %dx%d", right.x, right.y, right.w, right.h);
+    traceln("right %d,%d %dx%d", right.x, right.y, right.w, right.h);
     int32_t h = (ui->h - bottom.h - ui->em.y) / countof(edit);
     for (int32_t i = 0; i < countof(edit); i++) {
         edit[i]->ui.w = ui->w - right.w;
         edit[i]->ui.h = h;
     }
-//  for (int32_t i = 0; i < countof(edit); i++) {
-//      traceln("[%d] %d,%d %dx%d", i, edit[i]->ui.x, edit[i]->ui.y,
-//          edit[i]->ui.w, edit[i]->ui.h);
-//  }
+    for (int32_t i = 0; i < countof(edit); i++) {
+        traceln("[%d] %d,%d %dx%d", i, edit[i]->ui.x, edit[i]->ui.y,
+            edit[i]->ui.w, edit[i]->ui.h);
+    }
     left.w = 0;
     measurements.vertical(&left, ui->em.y);
-//  traceln("left %d,%d %dx%d", left.x, left.y, left.w, left.h);
+    traceln("left %d,%d %dx%d", left.x, left.y, left.w, left.h);
 }
 
 static void layout(uic_t* ui) {
@@ -179,7 +179,7 @@ app_t app = {
     .init   = init,
     .opened = opened,
     .wmin = 5.0f, // 5x5 inches
-    .hmin = 5.0f
+    .hmin = 3.0f
 };
 
 end_c

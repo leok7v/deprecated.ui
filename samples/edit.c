@@ -11,11 +11,11 @@
 // https://web.archive.org/web/20221216044359/http://worrydream.com/refs/Tesler%20-%20A%20Personal%20History%20of%20Modeless%20Text%20Editing%20and%20Cut-Copy-Paste.pdf
 
 // Rich text options that are not addressed yet:
-// * Color of ranges (usefull for code editing)
+// * Color of ranges (useful for code editing)
 // * Soft line breaks inside the paragraph (useful for e.g. bullet lists of options)
 // * Bold/Italic/Underline (along with color ranges)
 // * Multifont (as long as run vertical size is the maximum of font)
-// * Kerning (?! like in overhung "Fl"
+// * Kerning (?! like in overhung "Fl")
 
 begin_c
 
@@ -28,7 +28,7 @@ static uint64_t uic_edit_uint64(int32_t high, int32_t low) {
     return ((uint64_t)high << 32) | (uint64_t)low;
 }
 
-// All allocate/free functions assume 'fail fast' semantcis
+// All allocate/free functions assume 'fail fast' semantics
 // if underlying OS runs out of RAM it considered to be fatal.
 // It is possible to implement and hold committed 'safety region'
 // of RAM and free it to general pull or reuse it on malloc() or reallocate()
@@ -83,7 +83,7 @@ static int32_t uic_edit_text_width(uic_edit_t* e, const char* s, int32_t n) {
     return x;
 }
 
-static int uic_edit_glyph_bytes(char start_byte_value) { // utf-8
+static int32_t uic_edit_glyph_bytes(char start_byte_value) { // utf-8
     // return 1-4 bytes glyph starting with `start_byte_value` character
     uint8_t uc = (uint8_t)start_byte_value;
     // 0xxxxxxx
@@ -102,8 +102,8 @@ static int uic_edit_glyph_bytes(char start_byte_value) { // utf-8
 // g2b[] array with glyphs positions.
 
 static int32_t uic_edit_g2b(const char* utf8, int32_t bytes, int32_t g2b[]) {
-    int i = 0;
-    int k = 1;
+    int32_t i = 0;
+    int32_t k = 1;
     // g2b[k] start postion in byte offset from utf8 text of glyph[k]
     if (g2b != null) { g2b[0] = 0; }
     while (i < bytes) {
@@ -145,8 +145,8 @@ static void uic_edit_paragraph_g2b(uic_edit_t* e, int32_t pn) {
         }
         const char* utf8 = p->text;
         p->g2b[0] = 0; // first glyph starts at 0
-        int i = 0;
-        int k = 1;
+        int32_t i = 0;
+        int32_t k = 1;
         // g2b[k] start postion in byte offset from utf8 text of glyph[k]
         while (i < bytes) {
             i += uic_edit_glyph_bytes(utf8[i]);
@@ -158,7 +158,7 @@ static void uic_edit_paragraph_g2b(uic_edit_t* e, int32_t pn) {
 }
 
 static int32_t uic_edit_word_break_at(uic_edit_t* e, int32_t pn, int32_t rn,
-        const int32_t width) {
+        const int32_t width, bool allow_zero) {
     uic_edit_para_t* p = &e->para[pn];
     int32_t k = 1; // at least 1 glyph
     // offsets inside a run in glyphs and bytes from start of the paragraph:
@@ -178,27 +178,27 @@ static int32_t uic_edit_word_break_at(uic_edit_t* e, int32_t pn, int32_t rn,
             k = gc;
             assert(1 <= k && k <= p->glyphs - gp);
         } else {
-            int i = 0;
-            int j = gc;
+            int32_t i = 0;
+            int32_t j = gc;
             k = (i + j) / 2;
             while (i < j) {
-                assert(1 <= k && k < gc + 1);
-                const int n = g2b[k + 1] - bp;
+                assert(allow_zero || 1 <= k && k < gc + 1);
+                const int32_t n = g2b[k + 1] - bp;
                 int32_t px = uic_edit_text_width(e, text, n);
                 if (px == width) { break; }
                 if (px < width) { i = k + 1; } else { j = k; }
-                if ((i + j) / 2 == 0) { break; }
+                if (!allow_zero && (i + j) / 2 == 0) { break; }
                 k = (i + j) / 2;
-                assert(1 <= k && k <= p->glyphs - gp);
+                assert(allow_zero || 1 <= k && k <= p->glyphs - gp);
             }
         }
     }
-    assert(1 <= k && k <= p->glyphs - gp);
+    assert(allow_zero || 1 <= k && k <= p->glyphs - gp);
     return k;
 }
 
 static int32_t uic_edit_word_break(uic_edit_t* e, int32_t pn, int32_t rn) {
-    return uic_edit_word_break_at(e, pn, rn, e->width);
+    return uic_edit_word_break_at(e, pn, rn, e->width, false);
 }
 
 static int32_t uic_edit_glyph_at_x(uic_edit_t* e, int32_t pn, int32_t rn,
@@ -206,7 +206,7 @@ static int32_t uic_edit_glyph_at_x(uic_edit_t* e, int32_t pn, int32_t rn,
     if (x == 0 || e->para[pn].bytes == 0) {
         return 0;
     } else {
-        return uic_edit_word_break_at(e, pn, rn, x + 1);
+        return uic_edit_word_break_at(e, pn, rn, x + 1, true);
     }
 }
 
@@ -246,7 +246,7 @@ static const uic_edit_run_t* uic_edit_paragraph_runs(uic_edit_t* e, int32_t pn,
             } else {
                 assert(gc < p->glyphs);
                 int32_t rc = 0; // runs count
-                int32_t ix = 0; // glyph index from to start of pgraph
+                int32_t ix = 0; // glyph index from to start of paragraph
                 char* text = p->text;
                 int32_t bytes = p->bytes;
                 while (bytes > 0) {
@@ -266,7 +266,7 @@ static const uic_edit_run_t* uic_edit_paragraph_runs(uic_edit_t* e, int32_t pn,
                             pixels = uic_edit_text_width(e, text, utf8bytes);
                         }
                     }
-                    run[rc].bytes = utf8bytes;
+                    run[rc].bytes  = utf8bytes;
                     run[rc].glyphs = glyphs;
                     run[rc].pixels = pixels;
                     rc++;
@@ -321,6 +321,7 @@ static void uic_edit_show_caret(uic_edit_t* e) {
         assert(GetActiveWindow() == (HWND)app.window);
         assert(GetFocus() == (HWND)app.window);
         fatal_if_false(SetCaretPos(e->ui.x + e->caret.x, e->ui.y + e->caret.y));
+        // TODO: it is possible to support unblinking caret if desired
         // do not set blink time - use global default
 //      fatal_if_false(SetCaretBlinkTime(500));
         fatal_if_false(ShowCaret((HWND)app.window));
@@ -361,6 +362,7 @@ static void uic_edit_set_font(uic_edit_t* e, font_t* f) {
     e->scroll.rn = 0; //       which is not trivial
     e->ui.font = f;
     e->ui.em = gdi.get_em(*f);
+    traceln("%p := %p", e, *f);
     if (e->ui.w > 0 && e->ui.h > 0) {
         e->ui.layout(&e->ui); // direct call to re-layout
     }
@@ -382,7 +384,7 @@ static const uic_edit_pr_t uic_edit_pg_to_pr(uic_edit_t* e, const uic_edit_pg_t 
         } else {
             assert(0 <= pg.gp && pg.gp <= e->para[pg.pn].glyphs);
             for (int32_t j = 0; j < runs && pr.rn < 0; j++) {
-                const int last_run = j == runs - 1;
+                const int32_t last_run = j == runs - 1;
                 const int32_t start = run[j].gp;
                 const int32_t end = run[j].gp + run[j].glyphs + last_run;
                 if (start <= pg.gp && pg.gp < end) {
@@ -438,10 +440,10 @@ static ui_point_t uic_edit_pg_to_xy(uic_edit_t* e, const uic_edit_pg_t pg) {
         int32_t runs = 0;
         const uic_edit_run_t* run = uic_edit_paragraph_runs(e, i, &runs);
         for (int32_t j = uic_edit_first_visible_run(e, i); j < runs; j++) {
-            const int last_run = j == runs - 1;
+            const int32_t last_run = j == runs - 1;
             int32_t gc = run[j].glyphs;
             if (i == pg.pn) {
-                // in the last `run` of a parageraph x after last glyph is OK
+                // in the last `run` of a paragraph x after last glyph is OK
                 if (run[j].gp <= pg.gp && pg.gp < run[j].gp + gc + last_run) {
                     const char* s = e->para[i].text + run[j].bp;
                     int32_t ofs = uic_edit_gp_to_bytes(s, run[j].bytes,
@@ -478,7 +480,7 @@ static int32_t uic_edit_glyph_width_px(uic_edit_t* e, const uic_edit_pg_t pg) {
     }
 }
 
-// uic_edit::xy_to_pg() (x,y) (0,0, widh x height) -> paragraph # glyph #
+// uic_edit::xy_to_pg() (x,y) (0,0, width x height) -> paragraph # glyph #
 
 static uic_edit_pg_t uic_edit_xy_to_pg(uic_edit_t* e, int32_t x, int32_t y) {
     uic_edit_pg_t pg = {-1, -1};
@@ -493,7 +495,7 @@ static uic_edit_pg_t uic_edit_xy_to_pg(uic_edit_t* e, int32_t x, int32_t y) {
                 int32_t w = uic_edit_text_width(e, s, r->bytes);
                 pg.pn = i;
                 if (x >= w) {
-                    const int last_run = j == runs - 1;
+                    const int32_t last_run = j == runs - 1;
                     pg.gp = r->gp + max(0, r->glyphs - 1 + last_run);
                 } else {
                     pg.gp = r->gp + uic_edit_glyph_at_x(e, i, j, x);
@@ -676,6 +678,7 @@ static void uic_edit_move_caret(uic_edit_t* e, const uic_edit_pg_t pg) {
         uic_edit_pg_to_xy(e, pg) : (ui_point_t){0, 0};
     uic_edit_set_caret(e, pt.x, pt.y + e->top);
     e->selection[1] = pg;
+//  traceln("pn: %d gp: %d", pg.pn, pg.gp);
     if (!app.shift && !e->mouse != 0) {
         e->selection[0] = e->selection[1];
     }
@@ -736,9 +739,9 @@ static uic_edit_pg_t uic_edit_op(uic_edit_t* e, bool cut,
         char* s0 = e->para[pn0].text;
         char* s1 = e->para[pn1].text;
         uic_edit_paragraph_g2b(e, pn0);
-        const int bp0 = e->para[pn0].g2b[gp0];
-        if (pn0 == pn1) { // edit inside same paragraph
-            const int bp1 = e->para[pn0].g2b[gp1];
+        const int32_t bp0 = e->para[pn0].g2b[gp0];
+        if (pn0 == pn1) { // inside same paragraph
+            const int32_t bp1 = e->para[pn0].g2b[gp1];
             uic_clip_append(a, ab, limit, s0 + bp0, bp1 - bp0);
             if (cut) {
                 if (e->para[pn0].allocated == 0) {
@@ -756,13 +759,13 @@ static uic_edit_pg_t uic_edit_op(uic_edit_t* e, bool cut,
         } else {
             uic_clip_append(a, ab, limit, s0 + bp0, bytes0 - bp0);
             uic_clip_append(a, ab, limit, "\n", 1);
-            for (int i = pn0 + 1; i < pn1; i++) {
+            for (int32_t i = pn0 + 1; i < pn1; i++) {
                 uic_clip_append(a, ab, limit, e->para[i].text, e->para[i].bytes);
                 uic_clip_append(a, ab, limit, "\n", 1);
             }
             const int32_t bytes1 = e->para[pn1].bytes;
             uic_edit_paragraph_g2b(e, pn1);
-            const int bp1 = e->para[pn1].g2b[gp1];
+            const int32_t bp1 = e->para[pn1].g2b[gp1];
             uic_clip_append(a, ab, limit, s1, bp1);
             if (cut) {
                 int32_t total = bp0 + bytes1 - bp1;
@@ -776,15 +779,15 @@ static uic_edit_pg_t uic_edit_op(uic_edit_t* e, bool cut,
         int32_t deleted = cut ? pn1 - pn0 : 0;
         if (deleted > 0) {
             assert(pn0 + deleted < e->paragraphs);
-            for (int i = pn0 + 1; i <= pn0 + deleted; i++) {
+            for (int32_t i = pn0 + 1; i <= pn0 + deleted; i++) {
                 if (e->para[i].allocated > 0) {
                     uic_edit_free(&e->para[i].text);
                 }
             }
-            for (int i = pn0 + 1; i < e->paragraphs - deleted; i++) {
+            for (int32_t i = pn0 + 1; i < e->paragraphs - deleted; i++) {
                 e->para[i] = e->para[i + deleted];
             }
-            for (int i = e->paragraphs - deleted; i < e->paragraphs; i++) {
+            for (int32_t i = e->paragraphs - deleted; i < e->paragraphs; i++) {
                 memset(&e->para[i], 0, sizeof(e->para[i]));
             }
         }
@@ -812,7 +815,7 @@ static void uic_edit_insert_paragraph(uic_edit_t* e, int32_t pn) {
         e->allocated = n * (int32_t)sizeof(uic_edit_para_t);
     }
     e->paragraphs++;
-    for (int i = e->paragraphs - 1; i > pn; i--) {
+    for (int32_t i = e->paragraphs - 1; i > pn; i--) {
         e->para[i] = e->para[i - 1];
     }
     uic_edit_para_t* p = &e->para[pn];
@@ -840,7 +843,7 @@ static uic_edit_pg_t uic_edit_insert_inline(uic_edit_t* e, uic_edit_pg_t pg,
     const int32_t b = e->para[pg.pn].bytes;
     uic_edit_paragraph_g2b(e, pg.pn);
     char* s = e->para[pg.pn].text;
-    const int bp = e->para[pg.pn].g2b[pg.gp];
+    const int32_t bp = e->para[pg.pn].g2b[pg.gp];
     int32_t n = (b + bytes) * 3 / 2; // heuristics 1.5 times of total
     if (e->para[pg.pn].allocated == 0) {
         s = uic_edit_alloc(n);
@@ -868,7 +871,7 @@ static uic_edit_pg_t uic_edit_insert_paragraph_break(uic_edit_t* e,
     const int32_t bytes = e->para[pg.pn].bytes;
     char* s = e->para[pg.pn].text;
     uic_edit_paragraph_g2b(e, pg.pn);
-    const int bp = e->para[pg.pn].g2b[pg.gp];
+    const int32_t bp = e->para[pg.pn].g2b[pg.gp];
     uic_edit_pg_t next = {.pn = pg.pn + 1, .gp = 0};
     if (bp < bytes) {
         (void)uic_edit_insert_inline(e, next, s + bp, bytes - bp);
@@ -1170,57 +1173,226 @@ static void uic_edit_character(uic_t* unused(ui), const char* utf8) {
     assert(ui->tag == uic_tag_edit);
     assert(!ui->hidden && !ui->disabled);
     uic_edit_t* e = (uic_edit_t*)ui;
-    char ch = utf8[0];
-    if (ch == (char)('a' - 'a' + 1) && app.ctrl) { e->select_all(e); }
-    if (ch == (char)('x' - 'a' + 1) && app.ctrl) { e->cut_to_clipboard(e); }
-    if (ch == (char)('c' - 'a' + 1) && app.ctrl) { e->copy_to_clipboard(e); }
-    if (ch == (char)('v' - 'a' + 1) && app.ctrl) { e->paste_from_clipboard(e); }
-    if (0x20 <= ch) { // 0x20 space
-        int32_t bytes = uic_edit_glyph_bytes(ch % 0xFF);
-        e->erase(e); // remove selected text to be replaced by glyph
-        e->selection[1] = uic_edit_insert_inline(e,
-            e->selection[1], (char*)&ch, bytes);
-        e->selection[0] = e->selection[1];
-        uic_edit_move_caret(e, e->selection[1]);
-    }
     if (e->focused) {
+        char ch = utf8[0];
+        if (ch == (char)('a' - 'a' + 1) && app.ctrl) { e->select_all(e); }
+        if (ch == (char)('x' - 'a' + 1) && app.ctrl) { e->cut_to_clipboard(e); }
+        if (ch == (char)('c' - 'a' + 1) && app.ctrl) { e->copy_to_clipboard(e); }
+        if (ch == (char)('v' - 'a' + 1) && app.ctrl) { e->paste_from_clipboard(e); }
+        if (0x20 <= ch) { // 0x20 space
+            int32_t bytes = uic_edit_glyph_bytes(ch % 0xFF);
+            e->erase(e); // remove selected text to be replaced by glyph
+            e->selection[1] = uic_edit_insert_inline(e,
+                e->selection[1], (char*)&ch, bytes);
+            e->selection[0] = e->selection[1];
+            uic_edit_move_caret(e, e->selection[1]);
+        }
         ui->invalidate(ui);
+        if (e->fuzzer != null) { uic_edit_next_fuzz(e); }
     }
-    if (e->fuzzer != null) { uic_edit_next_fuzz(e); }
 }
 
-static void uic_edit_mouse(uic_t* ui, int m, int unused(flags)) {
+typedef  struct uic_edit_glyph_s {
+    const char* s;
+    int32_t bytes;
+} uic_edit_glyph_t;
+
+static uic_edit_glyph_t uic_edit_glyph_at(uic_edit_t* e, uic_edit_pg_t p) {
+    uic_edit_glyph_t g = { .s = "", .bytes = 0 };
+    if (p.pn == e->paragraphs) {
+        assert(p.gp == 0); // last empty paragraph
+    } else {
+        uic_edit_paragraph_g2b(e, p.pn);
+        const int32_t bytes = e->para[p.pn].bytes;
+        char* s = e->para[p.pn].text;
+        const int32_t bp = e->para[p.pn].g2b[p.gp];
+        if (bp < bytes) {
+            g.s = s + bp;
+            g.bytes = uic_edit_glyph_bytes(*g.s);
+//          traceln("glyph: %.*s 0x%02X bytes: %d", g.bytes, g.s, *g.s, g.bytes);
+        }
+    }
+    return g;
+}
+
+static void uic_edit_select_word(uic_edit_t* e, int32_t x, int32_t y) {
+    uic_edit_pg_t p = uic_edit_xy_to_pg(e, x, y);
+    if (0 <= p.pn && 0 <= p.gp) {
+        if (p.pn > e->paragraphs) { p.pn = max(0, e->paragraphs); }
+        int32_t glyphs = uic_edit_glyphs_in_paragraph(e, p.pn);
+        if (p.gp > glyphs) { p.gp = max(0, glyphs); }
+        if (p.pn == e->paragraphs || glyphs == 0) {
+            // last paragraph is empty - nothing to select on double click
+        } else {
+            uic_edit_glyph_t glyph = uic_edit_glyph_at(e, p);
+            bool not_a_white_space = glyph.bytes > 0 &&
+                *(uint8_t*)glyph.s > 0x20;
+            if (!not_a_white_space && p.gp > 0) {
+                p.gp--;
+                glyph = uic_edit_glyph_at(e, p);
+                not_a_white_space = glyph.bytes > 0 &&
+                    *(uint8_t*)glyph.s > 0x20;
+            }
+            if (glyph.bytes > 0 && *(uint8_t*)glyph.s > 0x20) {
+                uic_edit_pg_t from = p;
+                while (from.gp > 0) {
+                    from.gp--;
+                    uic_edit_glyph_t g = uic_edit_glyph_at(e, from);
+                    if (g.bytes == 0 || *(uint8_t*)g.s <= 0x20) {
+                        from.gp++;
+                        break;
+                    }
+                }
+                e->selection[0] = from;
+                uic_edit_pg_t to = p;
+                while (to.gp < glyphs) {
+                    to.gp++;
+                    uic_edit_glyph_t g = uic_edit_glyph_at(e, to);
+                    if (g.bytes == 0 || *(uint8_t*)g.s <= 0x20) {
+                        break;
+                    }
+                }
+                e->selection[1] = to;
+                e->ui.invalidate(&e->ui);
+                e->mouse = 0;
+            }
+        }
+    }
+}
+
+static void uic_edit_select_paragraph(uic_edit_t* e, int32_t x, int32_t y) {
+    uic_edit_pg_t p = uic_edit_xy_to_pg(e, x, y);
+    if (0 <= p.pn && 0 <= p.gp) {
+        if (p.pn > e->paragraphs) { p.pn = max(0, e->paragraphs); }
+        int32_t glyphs = uic_edit_glyphs_in_paragraph(e, p.pn);
+        if (p.gp > glyphs) { p.gp = max(0, glyphs); }
+        if (p.pn == e->paragraphs || glyphs == 0) {
+            // last paragraph is empty - nothing to select on double click
+        } else if (p.pn == e->selection[0].pn &&
+                (e->selection[0].gp <= p.gp && p.gp <= e->selection[1].gp) ||
+                (e->selection[1].gp <= p.gp && p.gp <= e->selection[0].gp)){
+            e->selection[0].gp = 0;
+            e->selection[1].gp = 0;
+            e->selection[1].pn++;
+        }
+        e->ui.invalidate(&e->ui);
+        e->mouse = 0;
+    }
+}
+
+static void uic_edit_double_click(uic_edit_t* e, int32_t x, int32_t y) {
+    if (e->selection[0].pn == e->selection[1].pn &&
+        e->selection[0].gp == e->selection[1].gp) {
+        uic_edit_select_word(e, x, y);
+    } else {
+        traceln("TODO: if x,y inside selected word select paragraph");
+        if (e->selection[0].pn == e->selection[1].pn &&
+               e->selection[0].pn <= e->paragraphs) {
+            uic_edit_select_paragraph(e, x, y);
+        }
+    }
+}
+
+static void uic_edit_click(uic_edit_t* e, int32_t x, int32_t y) {
+    uic_edit_pg_t p = uic_edit_xy_to_pg(e, x, y);
+    if (0 <= p.pn && 0 <= p.gp) {
+        if (p.pn > e->paragraphs) { p.pn = max(0, e->paragraphs); }
+        int32_t glyphs = uic_edit_glyphs_in_paragraph(e, p.pn);
+        if (p.gp > glyphs) { p.gp = max(0, glyphs); }
+        uic_edit_move_caret(e, p);
+    }
+}
+
+static void uic_edit_focus_on_click(uic_edit_t* e, int32_t x, int32_t y) {
+    if (app.focused && !e->focused && e->mouse != 0) {
+        if (app.focus != null && app.focus->kill_focus != null) {
+            app.focus->kill_focus(app.focus);
+        }
+        app.focus = &e->ui;
+//      traceln("app.focus := %p", e->ui);
+        bool set = e->ui.set_focus(&e->ui);
+        fatal_if(!set);
+    }
+    if (app.focused && e->focused && e->mouse != 0) {
+        e->mouse = 0;
+        uic_edit_click(e, x, y);
+    }
+}
+
+
+static void uic_edit_mouse_button_down(uic_edit_t* e, int32_t m,
+        int32_t x, int32_t y) {
+    if (m == messages.left_button_pressed)  { e->mouse |= (1 << 0); }
+    if (m == messages.right_button_pressed) { e->mouse |= (1 << 1); }
+    uic_edit_focus_on_click(e, x, y);
+}
+
+static void uic_edit_mouse_button_up(uic_edit_t* e, int32_t m) {
+    if (m == messages.left_button_released)  { e->mouse &= ~(1 << 0); }
+    if (m == messages.right_button_released) { e->mouse &= ~(1 << 1); }
+}
+
+#ifdef EDIT_USE_TAP
+
+static bool uic_edit_tap(uic_t* ui, int32_t ix) {
+    traceln("ix: %d", ix);
+    if (ix == 0) {
+        uic_edit_t* e = (uic_edit_t*)ui;
+        const int32_t x = app.mouse.x - e->ui.x;
+        const int32_t y = app.mouse.y - e->ui.y - e->top;
+        bool inside = 0 <= x && x < ui->w && 0 <= y && y < e->height;
+        if (inside) {
+            e->mouse = 0x1;
+            uic_edit_focus_on_click(e, x, y);
+            e->mouse = 0x0;
+        }
+        return inside;
+    } else {
+        return false; // do NOT consume event
+    }
+}
+
+#endif // EDIT_USE_TAP
+
+static bool uic_edit_press(uic_t* ui, int32_t ix) {
+//  traceln("ix: %d", ix);
+    if (ix == 0) {
+        uic_edit_t* e = (uic_edit_t*)ui;
+        const int32_t x = app.mouse.x - e->ui.x;
+        const int32_t y = app.mouse.y - e->ui.y - e->top;
+        bool inside = 0 <= x && x < ui->w && 0 <= y && y < e->height;
+        if (inside) {
+            e->mouse = 0x1;
+            uic_edit_focus_on_click(e, x, y);
+            uic_edit_double_click(e, x, y);
+            e->mouse = 0x0;
+        }
+        return inside;
+    } else {
+        return false; // do NOT consume event
+    }
+}
+
+static void uic_edit_mouse(uic_t * ui, int32_t m, int32_t unused(flags)) {
     assert(ui->tag == uic_tag_edit);
     assert(!ui->hidden);
+    assert(!ui->disabled);
     uic_edit_t* e = (uic_edit_t*)ui;
     const int32_t x = app.mouse.x - e->ui.x;
     const int32_t y = app.mouse.y - e->ui.y - e->top;
     bool inside = 0 <= x && x < ui->w && 0 <= y && y < e->height;
-    bool left = m == messages.left_button_pressed;
-    bool right = m == messages.right_button_pressed;
-    if (e->focused && inside && (left || right || e->mouse != 0)) {
-        uic_edit_pg_t p = uic_edit_xy_to_pg(e, x, y);
-        if (0 <= p.pn && 0 <= p.gp) {
-            if (p.pn > e->paragraphs) { p.pn = max(0, e->paragraphs); }
-            int32_t chars = uic_edit_glyphs_in_paragraph(e, p.pn);
-            if (p.gp > chars) { p.gp = max(0, chars); }
-            uic_edit_move_caret(e, p);
+    if (inside) {
+        if (m == messages.left_button_pressed ||
+            m == messages.right_button_pressed) {
+            uic_edit_mouse_button_down(e, m, x, y);
+        } else if (m == messages.left_button_released ||
+                   m == messages.right_button_released) {
+            uic_edit_mouse_button_up(e, m);
+        } else if (m == messages.left_double_click ||
+                   m == messages.right_double_click) {
+            uic_edit_double_click(e, x, y);
         }
     }
-    if (app.focused && !e->focused && inside && (left || right)) {
-        if (app.focus != null && app.focus->kill_focus != null) {
-            app.focus->kill_focus(app.focus);
-        }
-        app.focus = ui;
-        traceln("app.focus := %p", ui);
-        bool set = e->ui.set_focus(&e->ui);
-        fatal_if(!set);
-    } else if (e->focused) {
-        if (left)  { e->mouse |= (1 << 0); }
-        if (right) { e->mouse |= (1 << 1); }
-    }
-    if (m == messages.left_button_released)  { e->mouse &= ~(1 << 0); }
-    if (m == messages.right_button_released) { e->mouse &= ~(1 << 1); }
 }
 
 static void uic_edit_mousewheel(uic_t* ui, int32_t unused(dx), int32_t dy) {
@@ -1307,9 +1479,9 @@ static void uic_edit_select_all(uic_edit_t* e) {
     e->ui.invalidate(&e->ui);
 }
 
-static int uic_edit_copy(uic_edit_t* e, char* text, int32_t* bytes) {
+static int32_t uic_edit_copy(uic_edit_t* e, char* text, int32_t* bytes) {
     not_null(bytes);
-    int r = 0;
+    int32_t r = 0;
     const uic_edit_pg_t from = {.pn = 0, .gp = 0};
     const uic_edit_pg_t to = {.pn = e->paragraphs, .gp = 0};
     int32_t n = 0; // bytes between from..to
@@ -1367,7 +1539,7 @@ static void uic_edit_clipboard_paste(uic_edit_t* e) {
     clipboard.text(null, &bytes);
     if (bytes > 0) {
         char* text = uic_edit_alloc(bytes);
-        int r = clipboard.text(text, &bytes);
+        int32_t r = clipboard.text(text, &bytes);
         fatal_if_not_zero(r);
         if (bytes > 0 && text[bytes - 1] == 0) {
             bytes--; // clipboard includes zero terminator
@@ -1476,7 +1648,12 @@ void uic_edit_init(uic_edit_t* e) {
     e->ui.paint       = uic_edit_paint;
     e->ui.measure     = uic_edit_measure;
     e->ui.layout      = uic_edit_layout;
+    #ifdef EDIT_USE_TAP
+    e->ui.tap         = uic_edit_tap;
+    #else
     e->ui.mouse       = uic_edit_mouse;
+    #endif
+    e->ui.press       = uic_edit_press;
     e->ui.character   = uic_edit_character;
     e->ui.set_focus   = uic_edit_set_focus;
     e->ui.kill_focus  = uic_edit_kill_focus;
@@ -1500,7 +1677,7 @@ void uic_edit_init(uic_edit_t* e) {
         traceln("codepage: %d UTF-8 will not be supported", GetACP());
     }
     // at the moment of writing there is no API call to inform Windows about process
-    // prefered codepage except manifest.xml file in resource #1.
+    // preferred codepage except manifest.xml file in resource #1.
     // Absence of manifest.xml will result to ancient and useless ANSI 1252 codepage
     // TODO: may be change quick.h to use CreateWindowW() and translate UTF16 to UTF8
 }

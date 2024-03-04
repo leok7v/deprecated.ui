@@ -174,6 +174,7 @@ void uic_edit_init_with_lorem_ipsum(uic_edit_t* e) {
     e->paste(e, test_content, (int32_t)strlen(test_content));
     e->paste(e, "\n\n", 2);
     e->paste(e, p.text, (int32_t)strlen(p.text));
+    e->move(e, (uic_edit_pg_t){ .pn = 0, .gp = 0});
 }
 
 void uic_edit_next_fuzz(uic_edit_t* e) {

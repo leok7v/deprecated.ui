@@ -1,5 +1,5 @@
 #pragma once
-/* Copyright (c) Dmitry "Leo" Kuznetsov 2021 see LICENSE for details */
+/* Copyright (c) Dmitry "Leo" Kuznetsov 2021-24 see LICENSE for details */
 #include "quick.h"
 
 begin_c
@@ -16,7 +16,7 @@ typedef struct uic_edit_run_s {
 } uic_edit_run_t;
 
 // uic_edit_para_t.initially text will point to readonly memory
-// with .allocateed == 0; as text is modified it is copied to
+// with .allocated == 0; as text is modified it is copied to
 // heap and reallocated there.
 
 typedef struct uic_edit_para_s { // "paragraph"
@@ -32,12 +32,12 @@ typedef struct uic_edit_para_s { // "paragraph"
 
 typedef struct uic_edit_pg_s { // page/glyph coordinates
     // humans used to line:column coordinates in text
-    int32_t pn; // paragpraph number ("line number")
+    int32_t pn; // paragraph number ("line number")
     int32_t gp; // glyph position ("column")
 } uic_edit_pg_t;
 
 typedef struct uic_edit_pr_s { // page/run coordinates
-    int32_t pn; // paragpraph number
+    int32_t pn; // paragraph number
     int32_t rn; // run number inside paragraph
 } uic_edit_pr_t;
 
@@ -66,10 +66,10 @@ typedef struct uic_edit_s {
     int32_t bottom;    // '' (ditto) of the bottom
     // number of fully (not partially clipped) visible `runs' from top to bottom:
     int32_t visible_runs;
-    bool focused;      // is focused and created caret
-    bool monospaced;   // see monospaced note below (*)
+    bool focused;    // is focused and created caret
+    bool monospaced; // see monospaced note below (*)
     bool multiline;
-    int  shown; // debug: caret show/hide counter 0|1
+    int32_t shown;   // debug: caret show/hide counter 0|1
     // https://en.wikipedia.org/wiki/Fuzzing
     volatile thread_t fuzzer;     // fuzzer thread != null when fuzzing
     volatile int32_t  fuzz_count; // fuzzer event count
@@ -85,16 +85,16 @@ typedef struct uic_edit_s {
 
 /*
     Notes:
-    set_font() - neither edit.ui.font = font nor measure()/layout() functions 
+    set_font() - neither edit.ui.font = font nor measure()/layout() functions
                  do NOT dispose paragraphs layout unless geometry changed because
                  it is quite expensive operation. But choosing different font
                  on the fly needs to relayout all paragraphs. Thus caller needs
                  to set font via this function instead which also requests
                  edit UI element relayout.
 
-    monospaced - set automatically when edit discovers that ui->em, 
-                 gdi.measure_text(*ui->font, "i") and measure_text(*ui->font, "W") 
-                 yeild the same results in rendering. Setting it from outside
+    monospaced - set automatically when edit discovers that ui->em,
+                 gdi.measure_text(*ui->font, "i") and measure_text(*ui->font, "W")
+                 yield the same results in rendering. Setting it from outside
                  does not do anything - treat it as a hint for container contained
                  edit UI element measurement and layout.
 
@@ -116,7 +116,7 @@ typedef struct uic_edit_s {
                  vertically on as needed basis similar to Google Search Box behavior
                  change implemented in 2023.
                  If multiline is set to true by the callers code the edit UI layout
-                 snaps text to the top of x,y,w,h box otherwise the vertical space 
+                 snaps text to the top of x,y,w,h box otherwise the vertical space
                  is distributed evenly between single line of text and top botom gaps.
 
 */
