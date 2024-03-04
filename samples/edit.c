@@ -1285,7 +1285,6 @@ static void uic_edit_double_click(uic_edit_t* e, int32_t x, int32_t y) {
         e->selection[0].gp == e->selection[1].gp) {
         uic_edit_select_word(e, x, y);
     } else {
-        traceln("TODO: if x,y inside selected word select paragraph");
         if (e->selection[0].pn == e->selection[1].pn &&
                e->selection[0].pn <= e->paragraphs) {
             uic_edit_select_paragraph(e, x, y);
@@ -1308,8 +1307,8 @@ static void uic_edit_focus_on_click(uic_edit_t* e, int32_t x, int32_t y) {
         if (app.focus != null && app.focus->kill_focus != null) {
             app.focus->kill_focus(app.focus);
         }
+//      traceln("app.focus %p := %p", app.focus, &e->ui);
         app.focus = &e->ui;
-//      traceln("app.focus := %p", e->ui);
         bool set = e->ui.set_focus(&e->ui);
         fatal_if(!set);
     }
@@ -1318,7 +1317,6 @@ static void uic_edit_focus_on_click(uic_edit_t* e, int32_t x, int32_t y) {
         uic_edit_click(e, x, y);
     }
 }
-
 
 static void uic_edit_mouse_button_down(uic_edit_t* e, int32_t m,
         int32_t x, int32_t y) {
@@ -1373,7 +1371,8 @@ static bool uic_edit_press(uic_t* ui, int32_t ix) {
     }
 }
 
-static void uic_edit_mouse(uic_t * ui, int32_t m, int32_t unused(flags)) {
+static void uic_edit_mouse(uic_t* ui, int32_t m, int32_t unused(flags)) {
+//  if (m == messages.left_button_pressed) { traceln("%p", ui); }
     assert(ui->tag == uic_tag_edit);
     assert(!ui->hidden);
     assert(!ui->disabled);
@@ -1425,8 +1424,10 @@ static bool uic_edit_set_focus(uic_t* ui) {
     assert(app.focus == ui || app.focus == null);
     assert(ui->focusable);
     app.focus = ui;
-    uic_edit_create_caret(e);
-    uic_edit_show_caret(e);
+    if (app.focused) {
+        uic_edit_create_caret(e);
+        uic_edit_show_caret(e);
+    }
     return true;
 }
 
@@ -1602,10 +1603,10 @@ static void uic_edit_paint(uic_t* ui) {
     assert(ui->tag == uic_tag_edit);
     assert(!ui->hidden);
     uic_edit_t* e = (uic_edit_t*)ui;
+    gdi.push(ui->x, ui->y + e->top);
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(rgb(20, 20, 14));
     gdi.fill(ui->x, ui->y, ui->w, e->height);
-    gdi.push(ui->x, ui->y + e->top);
     gdi.set_clip(ui->x, ui->y, ui->w, e->height);
     font_t f = ui->font != null ? *ui->font : app.fonts.regular;
     f = gdi.set_font(f);
@@ -1630,6 +1631,19 @@ static void uic_edit_move(uic_edit_t* e, uic_edit_pg_t pg) {
     e->selection[0] = e->selection[1];
 }
 
+static bool uic_edit_message(uic_t* ui, int32_t unused(m), 
+        int64_t unused(wp), int64_t unused(lp), int64_t* unused(rt)) {
+    uic_edit_t* e = (uic_edit_t*)ui;
+    if (app.focused && e->focused != (app.focus == ui)) {
+        if (e->focused) { 
+            uic_edit_kill_focus(ui); 
+        } else {
+            uic_edit_set_focus(ui); 
+        }
+    }
+    return false;
+}
+
 void uic_edit_init_with_lorem_ipsum(uic_edit_t* e);
 void uic_edit_fuzz(uic_edit_t* e);
 
@@ -1643,8 +1657,8 @@ void uic_edit_init(uic_edit_t* e) {
     e->multiline  = true;
     e->monospaced = false;
     e->ui.color   = rgb(168, 168, 150); // colors.text;
-    e->ui.font    = &app.fonts.H1;
     e->caret      = (ui_point_t){-1, -1};
+    e->ui.message     = uic_edit_message;
     e->ui.paint       = uic_edit_paint;
     e->ui.measure     = uic_edit_measure;
     e->ui.layout      = uic_edit_layout;
