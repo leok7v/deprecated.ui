@@ -362,7 +362,7 @@ static void uic_edit_set_font(uic_edit_t* e, font_t* f) {
     e->scroll.rn = 0; //       which is not trivial
     e->ui.font = f;
     e->ui.em = gdi.get_em(*f);
-    traceln("%p := %p", e, *f);
+//  traceln("%p := %p", e, *f);
     if (e->ui.w > 0 && e->ui.h > 0) {
         e->ui.layout(&e->ui); // direct call to re-layout
     }

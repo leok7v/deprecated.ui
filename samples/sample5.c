@@ -4,6 +4,8 @@
 
 begin_c
 
+static bool debug_layout = false;
+
 const char* title = "Sample5";
 
 static font_t font;
@@ -43,10 +45,12 @@ uic_checkbox(wb, "&Word Break", 7.5, { // checkbox?
 
 uic_checkbox(mono, "&Mono", 7.5, {
     int32_t ix = focused();
-    traceln("ix: %d %p %p %p", ix, app.focus, &edit0, &edit1);
+//  traceln("ix: %d %p %p %p", ix, app.focus, &edit0, &edit1);
     if (ix >= 0) {
         edit[ix]->set_font(edit[ix],
             mono->ui.pressed ? &app.fonts.mono : &font);
+    } else {
+        mono->ui.pressed = !mono->ui.pressed;
     }
 });
 
@@ -64,38 +68,50 @@ uic_container(bottom, null, &text.ui);
 uic_container(right, null, &buttons);
 
 static void measure(uic_t* ui) {
-    traceln("%d,%d %dx%d", ui->x, ui->y, ui->w, ui->h);
     bottom.w = ui->w;
     bottom.h = max(ui->h / 10, ui->em.y * 2);  // 10% bottom
     text.ui.w = bottom.w;
     text.ui.h = bottom.h;
     buttons.w = 0;
     measurements.vertical(&buttons, ui->em.y);
-    traceln("buttons %d,%d %dx%d", buttons.x, buttons.y, buttons.w, buttons.h);
-    right.w = buttons.w + ui->em.x * 2;
+    buttons.w += ui->em.x;
+    right.w = buttons.w + ui->em.x / 2;
     right.h = ui->h - text.ui.h - ui->em.y;
-    traceln("right %d,%d %dx%d", right.x, right.y, right.w, right.h);
     int32_t h = (ui->h - bottom.h - ui->em.y) / countof(edit);
     for (int32_t i = 0; i < countof(edit); i++) {
-        edit[i]->ui.w = ui->w - right.w;
+        edit[i]->ui.w = ui->w - right.w + ui->em.x;
         edit[i]->ui.h = h;
-    }
-    for (int32_t i = 0; i < countof(edit); i++) {
-        traceln("[%d] %d,%d %dx%d", i, edit[i]->ui.x, edit[i]->ui.y,
-            edit[i]->ui.w, edit[i]->ui.h);
     }
     left.w = 0;
     measurements.vertical(&left, ui->em.y);
-    traceln("left %d,%d %dx%d", left.x, left.y, left.w, left.h);
+    left.w += ui->em.x;
+    if (debug_layout) {
+        traceln("%d,%d %dx%d", ui->x, ui->y, ui->w, ui->h);
+        traceln("buttons %d,%d %dx%d", buttons.x, buttons.y, buttons.w, buttons.h);
+        for (uic_t** c = buttons.children; c != null && *c != null; c++) {
+            traceln("  %s %d,%d %dx%d", (*c)->text, (*c)->x, (*c)->y, (*c)->w, (*c)->h);
+        }
+        traceln("right %d,%d %dx%d", right.x, right.y, right.w, right.h);
+        for (int32_t i = 0; i < countof(edit); i++) {
+            traceln("[%d] %d,%d %dx%d", i, edit[i]->ui.x, edit[i]->ui.y,
+                edit[i]->ui.w, edit[i]->ui.h);
+        }
+        traceln("left %d,%d %dx%d", left.x, left.y, left.w, left.h);
+    }
 }
 
 static void layout(uic_t* ui) {
-    layouts.vertical(&left, left.x, left.y, ui->em.y);
+    left.x = ui->em.x / 2;
+    left.y = ui->em.y / 2;
+    layouts.vertical(&left, left.x, left.y, ui->em.y / 2);
+    right.x = left.x + left.w;
+    right.y = left.y + left.h;
     bottom.y  = ui->h - bottom.h;
-    buttons.y = ui->em.y;
-    buttons.x = left.w + ui->em.x;
+    buttons.x = left.x + left.w;
+    buttons.y = ui->em.y / 2;
+    layouts.vertical(&buttons, buttons.x, buttons.y, ui->em.y / 2);
+    text.ui.x = ui->em.x / 2;
     text.ui.y = ui->h - text.ui.h;
-    layouts.vertical(&buttons, buttons.x, buttons.y, 10);
 }
 
 static void painted(void) {
@@ -113,21 +129,53 @@ static void painted(void) {
             edit[ix]->selection[1].pn, edit[ix]->selection[1].gp,
             edit[ix]->ui.w, edit[ix]->ui.h,
             edit[ix]->scroll.pn, edit[ix]->scroll.rn);
-//          traceln("%d:%d %d:%d %dx%d scroll %03d:%03d",
-//              edit[ix]->selection[0].pn, edit[ix]->selection[0].gp,
-//              edit[ix]->selection[1].pn, edit[ix]->selection[1].gp,
-//              edit[ix]->ui.w, edit[ix]->ui.h,
-//              edit[ix]->scroll.pn, edit[ix]->scroll.rn);
+//      traceln("%d:%d %d:%d %dx%d scroll %03d:%03d",
+//          edit[ix]->selection[0].pn, edit[ix]->selection[0].gp,
+//          edit[ix]->selection[1].pn, edit[ix]->selection[1].gp,
+//          edit[ix]->ui.w, edit[ix]->ui.h,
+//          edit[ix]->scroll.pn, edit[ix]->scroll.rn);
     }
 }
 
-static void paint(uic_t* ui) {
-    // all UIC are transparent and expect parent to paint background
-    // UI control paint is always called with a hollow brush
+static void paint_frames(uic_t* ui) {
+    for (uic_t** c = ui->children; c != null && *c != null; c++) {
+        paint_frames(*c);
+    }
+    color_t fc[] = {
+        colors.red, colors.green, colors.blue, colors.red,
+        colors.yellow, colors.cyan, colors.magenta
+    };
+    static int32_t color;
+    gdi.push(ui->x, ui->y + ui->h - ui->em.y);
+    pen_t p = gdi.set_colored_pen(fc[color]);
+    color_t c = gdi.set_text_color(fc[color]);
+    brush_t b = gdi.set_brush(gdi.brush_hollow);
+    gdi.rect(ui->x, ui->y, ui->w, ui->h);
+    gdi.print("%s", ui->text);
+    gdi.set_text_color(c);
+    gdi.set_brush(b);
+    gdi.set_pen(p);
+    gdi.pop();
+    color = (color + 1) % countof(fc);
+}
+
+static void null_paint(uic_t* ui) {
+    for (uic_t** c = ui->children; c != null && *c != null; c++) {
+        null_paint(*c);
+    }
+    if (ui != app.ui) {
+
+    }
+    ui->paint = null;
+}
+
+static void paint(uic_t * ui) {
+    if (debug_layout) { null_paint(ui); }
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(colors.black);
     gdi.fill(0, 0, ui->w, ui->h);
     painted();
+    if (debug_layout) { paint_frames(ui); }
 }
 
 static void open_file(const char* pathname) {
@@ -156,6 +204,13 @@ static void opened(void) {
     edit[0]->set_font(edit[0], &font);
     if (app.argc > 1) {
         open_file(app.argv[1]);
+    }
+    if (debug_layout) {
+        strprintf(left.text, "left");
+        strprintf(right.text, "right");
+        strprintf(buttons.text, "buttons");
+        strprintf(edit0.ui.text, "edit0");
+        strprintf(edit1.ui.text, "edit1");
     }
 }
 
