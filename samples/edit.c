@@ -14,10 +14,15 @@
 // * Color of ranges (useful for code editing)
 // * Soft line breaks inside the paragraph (useful for e.g. bullet lists of options)
 // * Bold/Italic/Underline (along with color ranges)
-// * Multifont (as long as run vertical size is the maximum of font)
+// * Multiple fonts (as long as run vertical size is the maximum of font)
 // * Kerning (?! like in overhung "Fl")
 
 begin_c
+
+typedef  struct uic_edit_glyph_s {
+    const char* s;
+    int32_t bytes;
+} uic_edit_glyph_t;
 
 // Glyphs in monospaced Windows fonts may have different width for non-ASCII
 // characters. Thus even if edit is monospaced glyph measurements are used
@@ -139,9 +144,9 @@ static void uic_edit_paragraph_g2b(uic_edit_t* e, int32_t pn) {
         const int32_t bytes = p->bytes;
         const int32_t n = p->bytes + 1;
         const int32_t a = (n * sizeof(int32_t)) * 3 / 2; // heuristic
-        if (p->g2b_allocated < a) {
+        if (p->g2b_capacity < a) {
             uic_edit_reallocate(&p->g2b, n, sizeof(int32_t));
-            p->g2b_allocated = a;
+            p->g2b_capacity = a;
         }
         const char* utf8 = p->text;
         p->g2b[0] = 0; // first glyph starts at 0
@@ -168,6 +173,7 @@ static int32_t uic_edit_word_break_at(uic_edit_t* e, int32_t pn, int32_t rn,
         const char* text = p->text + bp;
         const int32_t glyphs_in_this_run = p->glyphs - gp;
         int32_t* g2b = &p->g2b[gp];
+        // 4 is maximum number of bytes in a UTF-8 sequence
         int32_t gc = min(4, glyphs_in_this_run);
         int32_t w = uic_edit_text_width(e, text, g2b[gc] - bp);
         while (gc < glyphs_in_this_run && w < width) {
@@ -208,6 +214,24 @@ static int32_t uic_edit_glyph_at_x(uic_edit_t* e, int32_t pn, int32_t rn,
     } else {
         return uic_edit_word_break_at(e, pn, rn, x + 1, true);
     }
+}
+
+static uic_edit_glyph_t uic_edit_glyph_at(uic_edit_t* e, uic_edit_pg_t p) {
+    uic_edit_glyph_t g = { .s = "", .bytes = 0 };
+    if (p.pn == e->paragraphs) {
+        assert(p.gp == 0); // last empty paragraph
+    } else {
+        uic_edit_paragraph_g2b(e, p.pn);
+        const int32_t bytes = e->para[p.pn].bytes;
+        char* s = e->para[p.pn].text;
+        const int32_t bp = e->para[p.pn].g2b[p.gp];
+        if (bp < bytes) {
+            g.s = s + bp;
+            g.bytes = uic_edit_glyph_bytes(*g.s);
+//          traceln("glyph: %.*s 0x%02X bytes: %d", g.bytes, g.s, *g.s, g.bytes);
+        }
+    }
+    return g;
 }
 
 // uic_edit::paragraph_runs() breaks paragraph into `runs` according to `width`
@@ -302,8 +326,8 @@ static int32_t uic_edit_glyphs_in_paragraph(uic_edit_t* e, int32_t pn) {
 
 static void uic_edit_create_caret(uic_edit_t* e) {
     fatal_if(e->focused);
-    assert(GetActiveWindow() == (HWND)app.window);
-    assert(GetFocus() == (HWND)app.window);
+    assert(app.is_active());
+    assert(app.has_focus());
     fatal_if_false(CreateCaret((HWND)app.window, null, 2, e->ui.em.y));
     e->focused = true; // means caret was created
 //  traceln("%d,%d", 2, e->ui.em.y);
@@ -318,8 +342,8 @@ static void uic_edit_destroy_caret(uic_edit_t* e) {
 
 static void uic_edit_show_caret(uic_edit_t* e) {
     if (e->focused) {
-        assert(GetActiveWindow() == (HWND)app.window);
-        assert(GetFocus() == (HWND)app.window);
+        assert(app.is_active());
+        assert(app.has_focus());
         fatal_if_false(SetCaretPos(e->ui.x + e->caret.x, e->ui.y + e->caret.y));
         // TODO: it is possible to support unblinking caret if desired
         // do not set blink time - use global default
@@ -351,7 +375,7 @@ static void uic_edit_dispose_paragraphs_layout(uic_edit_t* e) {
         }
         p->glyphs = -1;
         p->runs = 0;
-        p->g2b_allocated = 0;
+        p->g2b_capacity = 0;
     }
 }
 
@@ -566,7 +590,7 @@ static void uic_edit_paint_para(uic_edit_t* e, int32_t pn) {
 
 static void uic_edit_set_caret(uic_edit_t* e, int32_t x, int32_t y) {
     if (e->caret.x != x || e->caret.y != y) {
-        if (e->focused && app.focused) {
+        if (e->focused && app.has_focus()) {
             fatal_if_false(SetCaretPos(e->ui.x + x, e->ui.y + y));
 //          traceln("%d,%d", e->ui.x + x, e->ui.y + y);
         }
@@ -826,7 +850,7 @@ static void uic_edit_insert_paragraph(uic_edit_t* e, int32_t pn) {
     p->runs = 0;
     p->run = null;
     p->g2b = null;
-    p->g2b_allocated = 0;
+    p->g2b_capacity = 0;
 }
 
 // uic_edit_insert_inline() inserts text (not containing \n paragraph
@@ -918,9 +942,9 @@ static void uic_edit_key_right(uic_edit_t* e) {
 }
 
 static void uic_edit_reuse_last_x(uic_edit_t* e, ui_point_t* pt) {
-    // Vertical caret movement visually tend to move caret horizonally
-    // in propotinal font text. Remembering starting `x' value for vertical
-    // movements aleviates this unpleasant UX experience to some degree.
+    // Vertical caret movement visually tend to move caret horizontally
+    // in proportional font text. Remembering starting `x' value for vertical
+    // movements alleviates this unpleasant UX experience to some degree.
     if (pt->x > 0) {
         if (e->last_x > 0) {
             int32_t prev = e->last_x - e->ui.em.x;
@@ -1192,29 +1216,6 @@ static void uic_edit_character(uic_t* unused(ui), const char* utf8) {
     }
 }
 
-typedef  struct uic_edit_glyph_s {
-    const char* s;
-    int32_t bytes;
-} uic_edit_glyph_t;
-
-static uic_edit_glyph_t uic_edit_glyph_at(uic_edit_t* e, uic_edit_pg_t p) {
-    uic_edit_glyph_t g = { .s = "", .bytes = 0 };
-    if (p.pn == e->paragraphs) {
-        assert(p.gp == 0); // last empty paragraph
-    } else {
-        uic_edit_paragraph_g2b(e, p.pn);
-        const int32_t bytes = e->para[p.pn].bytes;
-        char* s = e->para[p.pn].text;
-        const int32_t bp = e->para[p.pn].g2b[p.gp];
-        if (bp < bytes) {
-            g.s = s + bp;
-            g.bytes = uic_edit_glyph_bytes(*g.s);
-//          traceln("glyph: %.*s 0x%02X bytes: %d", g.bytes, g.s, *g.s, g.bytes);
-        }
-    }
-    return g;
-}
-
 static void uic_edit_select_word(uic_edit_t* e, int32_t x, int32_t y) {
     uic_edit_pg_t p = uic_edit_xy_to_pg(e, x, y);
     if (0 <= p.pn && 0 <= p.gp) {
@@ -1303,7 +1304,7 @@ static void uic_edit_click(uic_edit_t* e, int32_t x, int32_t y) {
 }
 
 static void uic_edit_focus_on_click(uic_edit_t* e, int32_t x, int32_t y) {
-    if (app.focused && !e->focused && e->mouse != 0) {
+    if (app.has_focus() && !e->focused && e->mouse != 0) {
         if (app.focus != null && app.focus->kill_focus != null) {
             app.focus->kill_focus(app.focus);
         }
@@ -1312,7 +1313,7 @@ static void uic_edit_focus_on_click(uic_edit_t* e, int32_t x, int32_t y) {
         bool set = e->ui.set_focus(&e->ui);
         fatal_if(!set);
     }
-    if (app.focused && e->focused && e->mouse != 0) {
+    if (app.has_focus() && e->focused && e->mouse != 0) {
         e->mouse = 0;
         uic_edit_click(e, x, y);
     }
@@ -1418,13 +1419,13 @@ static void uic_edit_mousewheel(uic_t* ui, int32_t unused(dx), int32_t dy) {
 }
 
 static bool uic_edit_set_focus(uic_t* ui) {
-//  traceln("active=%d", GetActiveWindow() == (HWND)app.window);
+//  traceln("active=%d", app.is_active());
     assert(ui->tag == uic_tag_edit);
     uic_edit_t* e = (uic_edit_t*)ui;
     assert(app.focus == ui || app.focus == null);
     assert(ui->focusable);
     app.focus = ui;
-    if (app.focused) {
+    if (app.has_focus()) {
         uic_edit_create_caret(e);
         uic_edit_show_caret(e);
     }
@@ -1432,7 +1433,7 @@ static bool uic_edit_set_focus(uic_t* ui) {
 }
 
 static void uic_edit_kill_focus(uic_t* ui) {
-//  traceln("active=%d", GetActiveWindow() == (HWND)app.window);
+//  traceln("active=%d", app.is_active());
     assert(ui->tag == uic_tag_edit);
     uic_edit_t* e = (uic_edit_t*)ui;
     if (e->focused) {
@@ -1634,12 +1635,17 @@ static void uic_edit_move(uic_edit_t* e, uic_edit_pg_t pg) {
 static bool uic_edit_message(uic_t* ui, int32_t unused(m), 
         int64_t unused(wp), int64_t unused(lp), int64_t* unused(rt)) {
     uic_edit_t* e = (uic_edit_t*)ui;
-    if (app.focused && e->focused != (app.focus == ui)) {
-        if (e->focused) { 
-            uic_edit_kill_focus(ui); 
-        } else {
-            uic_edit_set_focus(ui); 
+    if (app.is_active() && app.has_focus() && ui->hidden) {
+        if (e->focused != (app.focus == ui)) {
+            if (e->focused) { 
+                uic_edit_kill_focus(ui); 
+            } else {
+                uic_edit_set_focus(ui); 
+            }
         }
+    } else {
+        // do nothing: when app will become active and focused
+        //             it will react on app->focus changes
     }
     return false;
 }

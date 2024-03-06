@@ -189,7 +189,6 @@ static void uic_edit_fuzzer(void* p) {
         }
         if (e->fuzz_quit) { e->fuzz_quit = false; break; }
         e->fuzz_last = e->fuzz_count;
-        app.focused = true; // force application to be focused
         uint32_t rnd = crt.random32(&e->fuzz_seed);
         switch (rnd % 8) {
             case 0: app.alt = 0; app.ctrl = 0; app.shift = 0; break;
@@ -243,6 +242,7 @@ static void uic_edit_fuzzer(void* p) {
 
 void uic_edit_fuzz(uic_edit_t* e) {
     if (e->fuzzer == null) {
+        app.request_focus(); // force application to be focused
         e->fuzzer = threads.start(uic_edit_fuzzer, e);
         uic_edit_next_fuzz(e);
     } else {
