@@ -10,7 +10,8 @@ const char* title = "Sample5";
 
 static uic_edit_t edit0;
 static uic_edit_t edit1;
-static uic_edit_t* edit[2] = { &edit0, &edit1 };
+static uic_edit_t edit2;
+static uic_edit_t* edit[3] = { &edit0, &edit1, &edit2 };
 
 static int32_t focused(void);
 static void focus_back_to_edit(void);
@@ -62,7 +63,9 @@ uic_checkbox(mono, "&Mono", 7.5, {
 
 uic_checkbox(sl, "&Single Line", 7.5, {
     int32_t ix = focused();
-    if (ix >= 0) {
+    if (ix == 2) {
+        sl->ui.pressed = true; // always single line
+    } else if (0 <= ix && ix < 2) {
         uic_edit_t* e = edit[ix];
         e->multiline = !sl->ui.pressed;
 //      traceln("edit[%d].multiline: %d", ix, e->multiline);
@@ -77,7 +80,8 @@ uic_checkbox(sl, "&Single Line", 7.5, {
 uic_multiline(text, 0.0, "...");
 
 uic_container(right, null,
-    &full_screen.ui, &quit.ui, &fuzz.ui, &wb.ui, &mono.ui, &sl.ui, &ro.ui);
+    &full_screen.ui, &quit.ui, &fuzz.ui,
+    &wb.ui, &mono.ui, &sl.ui, &ro.ui, &edit2.ui);
 
 uic_container(left, null, &edit0.ui, &edit1.ui);
 uic_container(bottom, null, &text.ui);
@@ -89,11 +93,17 @@ static void set_text(int32_t ix) {
         edit[ix]->selection[1].pn, edit[ix]->selection[1].gp,
         edit[ix]->ui.w, edit[ix]->ui.h,
         edit[ix]->scroll.pn, edit[ix]->scroll.rn);
-//      traceln("%d:%d %d:%d %dx%d scroll %03d:%03d",
-//          edit[ix]->selection[0].pn, edit[ix]->selection[0].gp,
-//          edit[ix]->selection[1].pn, edit[ix]->selection[1].gp,
-//          edit[ix]->ui.w, edit[ix]->ui.h,
-//          edit[ix]->scroll.pn, edit[ix]->scroll.rn);
+    if (0) {
+        traceln("%d:%d %d:%d %dx%d scroll %03d:%03d",
+            edit[ix]->selection[0].pn, edit[ix]->selection[0].gp,
+            edit[ix]->selection[1].pn, edit[ix]->selection[1].gp,
+            edit[ix]->ui.w, edit[ix]->ui.h,
+            edit[ix]->scroll.pn, edit[ix]->scroll.rn);
+    }
+    // can be called before text.ui initialized
+    if (text.ui.invalidate != null) {
+        text.ui.invalidate(&text.ui);
+    }
 }
 
 static void after_paint(void) {
@@ -213,6 +223,11 @@ static void measure(uic_t* ui) {
     // gaps:
     const int32_t gx = ui->em.x;
     const int32_t gy = ui->em.y;
+    if (edit[2]->multiline) {
+        edit[2]->multiline = false;
+        edit[2]->select_all(edit[2]);
+        edit[2]->paste(edit[2], "Single line edit control", -1);
+    }
     right.h = ui->h - text.ui.h - gy;
     right.w = 0;
     measurements.vertical(&right, gy / 2);
@@ -227,6 +242,8 @@ static void measure(uic_t* ui) {
     left.w = 0;
     measurements.vertical(&left, gy);
     left.w += gx;
+    edit2.ui.h = ro.ui.h;
+    edit2.ui.w = ro.ui.w;
     if (debug_layout) {
         traceln("%d,%d %dx%d", ui->x, ui->y, ui->w, ui->h);
         traceln("right %d,%d %dx%d", right.x, right.y, right.w, right.h);
@@ -260,8 +277,8 @@ static void layout(uic_t* ui) {
 
 static void key_pressed(uic_t* unused(ui), int32_t key) {
     if (app.has_focus() && key == virtual_keys.escape) { app.close(); }
+    int32_t ix = focused();
     if (key == virtual_keys.f5) {
-        int32_t ix = focused();
         if (ix >= 0) {
             uic_edit_t* e = edit[ix];
             if (app.ctrl && app.shift && e->fuzzer == null) {
@@ -271,6 +288,7 @@ static void key_pressed(uic_t* unused(ui), int32_t key) {
             }
         }
     }
+    if (ix >= 0) { set_text(ix); }
 }
 
 static void edit_enter(uic_edit_t* e) {
@@ -293,8 +311,8 @@ static void init(void) {
         edit[i]->enter = edit_enter;
     }
     app.focus = &edit[0]->ui;
-    set_text(0);
     app.every_100ms = every_100ms;
+    set_text(0); // need to be two lines for measure
 }
 
 app_t app = {

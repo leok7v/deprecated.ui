@@ -218,6 +218,7 @@ static void uic_edit_fuzzer(void* p) {
             virtual_keys.enter,
             0
         };
+// TODO: Alt+Q should be filtered out as well as ESC
         rnd = crt.random32(&e->fuzz_seed);
         int key = keys[rnd % countof(keys)];
         if (key == 0) {

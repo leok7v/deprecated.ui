@@ -24,6 +24,8 @@ typedef  struct uic_edit_glyph_s {
     int32_t bytes;
 } uic_edit_glyph_t;
 
+static void uic_edit_layout(uic_t* ui);
+
 // Glyphs in monospaced Windows fonts may have different width for non-ASCII
 // characters. Thus even if edit is monospaced glyph measurements are used
 // in text layout.
@@ -622,6 +624,7 @@ static void uic_edit_scroll_up(uic_edit_t* e, int32_t run_count) {
             assert(e->scroll.pn >= 0 && e->scroll.rn >= 0);
         }
     }
+    if (!e->multiline) { uic_edit_layout(&e->ui); }
     e->ui.invalidate(&e->ui);
 }
 
@@ -644,6 +647,7 @@ static void uic_edit_scroll_down(uic_edit_t* e, int32_t run_count) {
                     e->scroll.rn < uic_edit_paragraph_run_count(e, e->scroll.pn));
         run_count--;
     }
+    if (!e->multiline) { uic_edit_layout(&e->ui); }
     e->ui.invalidate(&e->ui);
 }
 
@@ -832,6 +836,8 @@ static uic_edit_pg_t uic_edit_op(uic_edit_t* e, bool cut,
     }
     if (bytes != null) { *bytes = ab; }
     (void)unused(limit); // only in debug
+    // for single line control operation may change vertical centering of text
+    if (!e->multiline) { uic_edit_layout(&e->ui); }
     return from;
 }
 
@@ -890,6 +896,8 @@ static uic_edit_pg_t uic_edit_insert_inline(uic_edit_t* e, uic_edit_pg_t pg,
     e->para[pg.pn].bytes += bytes;
     uic_edit_dispose_paragraphs_layout(e);
     pg.gp = uic_edit_glyphs(s, bp + bytes);
+    // for single line control insert may change vertical centering of text
+    if (!e->multiline) { uic_edit_layout(&e->ui); }
     return pg;
 }
 
@@ -1592,11 +1600,21 @@ static void uic_edit_layout(uic_t* ui) { // top down
     if (e->width > 0 && ui->w != e->width) {
         uic_edit_dispose_paragraphs_layout(e);
     }
-    // enforce minimum size - again
+    // enforce minimum size
     e->width  = ui->w;
     e->height = ui->h;
-    e->top    = e->multiline ? 0 : (e->height - e->ui.em.y) / 2;
-    e->bottom = e->multiline ? e->height : e->height - e->top - e->ui.em.y;
+    int32_t sle_height = 0;
+    if (!e->multiline) {
+        int32_t runs = uic_edit_paragraph_run_count(e, 0);
+        sle_height = e->ui.em.y * runs;
+        // for mutiple runs single line edit grow down:
+        if (sle_height > ui->h) {
+            ui->h = sle_height;
+            e->height = ui->h;
+        }
+    }
+    e->top    = e->multiline ? 0 : (e->height - sle_height) / 2;
+    e->bottom = e->multiline ? e->height : e->top + sle_height - 1;
     e->visible_runs = (e->bottom - e->top) / e->ui.em.y; // fully visible
     // number of runs in e->scroll.pn may have changed with e->width change
     int32_t runs = uic_edit_paragraph_run_count(e, e->scroll.pn);
