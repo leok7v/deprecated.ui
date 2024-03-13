@@ -30,9 +30,22 @@ uic_button(fuzz, "Fu&zz", 7.5, {
     }
 });
 
-uic_checkbox(wb, "&Word Break", 7.5, { // checkbox?
-    traceln("Word Break");
-    focus_back_to_edit();
+uic_checkbox(wb, "&Word Break", 7.5, {
+    int32_t ix = focused();
+    if (ix >= 0) {
+        edit[ix]->wordbreak = wb->ui.pressed;
+//      traceln("edit[%d].wordbreak: %d", ix, edit[ix]->wordbreak);
+        focus_back_to_edit();
+    }
+});
+
+uic_checkbox(ro, "&Read Only", 7.5, {
+    int32_t ix = focused();
+    if (ix >= 0) {
+        edit[ix]->readonly = ro->ui.pressed;
+//      traceln("edit[%d].readonly: %d", ix, edit[ix]->readonly);
+        focus_back_to_edit();
+    }
 });
 
 uic_checkbox(mono, "&Mono", 7.5, {
@@ -48,14 +61,23 @@ uic_checkbox(mono, "&Mono", 7.5, {
 });
 
 uic_checkbox(sl, "&Single Line", 7.5, {
-    traceln("Single Line");
-    focus_back_to_edit();
+    int32_t ix = focused();
+    if (ix >= 0) {
+        uic_edit_t* e = edit[ix];
+        e->multiline = !sl->ui.pressed;
+//      traceln("edit[%d].multiline: %d", ix, e->multiline);
+        if (!e->multiline) {
+            e->select_all(e);
+            e->paste(e, "Hello World! Single Line Edit", -1);
+        }
+        focus_back_to_edit();
+    }
 });
 
 uic_multiline(text, 0.0, "...");
 
 uic_container(right, null,
-    &full_screen.ui, &quit.ui, &fuzz.ui, &wb.ui, &mono.ui, &sl.ui);
+    &full_screen.ui, &quit.ui, &fuzz.ui, &wb.ui, &mono.ui, &sl.ui, &ro.ui);
 
 uic_container(left, null, &edit0.ui, &edit1.ui);
 uic_container(bottom, null, &text.ui);
@@ -122,11 +144,19 @@ static void paint(uic_t* ui) {
     int32_t ix = focused();
     for (int32_t i = 0; i < countof(edit); i++) {
         uic_t* e = &edit[i]->ui;
+        color_t c = edit[i]->readonly ?
+            colors.tone_red : colors.btn_hover_highlight;
         gdi.frame_with(e->x - 1, e->y - 1, e->w + 2, e->h + 2,
-            i == ix ? colors.btn_hover_highlight : colors.dkgray4);
+            i == ix ? c : colors.dkgray4);
     }
     after_paint();
     if (debug_layout) { paint_frames(ui); }
+    if (ix >= 0) {
+        ro.ui.pressed = edit[ix]->readonly;
+        wb.ui.pressed = edit[ix]->wordbreak;
+        sl.ui.pressed = !edit[ix]->multiline;
+        mono.ui.pressed = edit[ix]->ui.font == &app.fonts.mono;
+    }
 }
 
 static void open_file(const char* pathname) {
@@ -228,17 +258,39 @@ static void layout(uic_t* ui) {
     text.ui.y = ui->h - text.ui.h;
 }
 
+static void key_pressed(uic_t* unused(ui), int32_t key) {
+    if (app.has_focus() && key == virtual_keys.escape) { app.close(); }
+    if (key == virtual_keys.f5) {
+        int32_t ix = focused();
+        if (ix >= 0) {
+            uic_edit_t* e = edit[ix];
+            if (app.ctrl && app.shift && e->fuzzer == null) {
+                e->fuzz(e); // start on Ctrl+Shift+F5
+            } else if (e->fuzzer != null) {
+                e->fuzz(e); // stop on F5
+            }
+        }
+    }
+}
+
+static void edit_enter(uic_edit_t* e) {
+    assert(!e->multiline);
+    traceln("text: %.*s", e->para[0].bytes, e->para[0].text);
+}
+
 static void init(void) {
     app.title = title;
     app.ui->measure     = measure;
     app.ui->layout      = layout;
     app.ui->paint       = paint;
+    app.ui->key_pressed = key_pressed;
     static uic_t* children[] = { &left, &right, &bottom, null };
     app.ui->children = children;
     text.ui.font = &app.fonts.mono;
     strprintf(fuzz.ui.tip, "Ctrl+Shift+F5 to start / F5 to stop Fuzzing");
     for (int32_t i = 0; i < countof(edit); i++) {
         uic_edit_init(edit[i]);
+        edit[i]->enter = edit_enter;
     }
     app.focus = &edit[0]->ui;
     set_text(0);

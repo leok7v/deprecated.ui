@@ -47,17 +47,21 @@ typedef struct uic_edit_s {
     uic_t ui;
     void (*set_font)(uic_edit_t* e, font_t* font); // see notes below (*)
     void (*move)(uic_edit_t* e, uic_edit_pg_t pg); // move caret clear selection
-    void (*paste)(uic_edit_t* e, const char* text, int32_t bytes); // replace selected
+    // replace selected text. If bytes < 0 text is treated as zero terminated
+    void (*paste)(uic_edit_t* e, const char* text, int32_t bytes);
     void (*copy)(uic_edit_t* e, char* text, int32_t* bytes); // copy whole text
     void (*copy_to_clipboard)(uic_edit_t* e); // selected text to clipboard
     void (*cut_to_clipboard)(uic_edit_t* e);  // copy selected text to clipboard and erase it
-    void (*paste_from_clipboard)(uic_edit_t* e); // replace selected text with content of clipboard
+    // replace selected text with content of clipboard:
+    void (*paste_from_clipboard)(uic_edit_t* e);
     void (*select_all)(uic_edit_t* e); // select whole text
-    void (*erase)(uic_edit_t* e); // delete selection
+    void (*erase)(uic_edit_t* e); // delete selected text
     void (*fuzz)(uic_edit_t* e);  // start/stop fuzzing test
+    // called when ENTER keyboard key is pressed in single line mode
+    void (*enter)(uic_edit_t* e);
     int32_t width;   // last measure/layout width
     int32_t height;  // and height in pixels
-    uic_edit_pg_t selection[2];   // selection[0] from selection[1] to
+    uic_edit_pg_t selection[2]; // from selection[0] to selection[1]
     ui_point_t caret; // (-1, -1) off
     uic_edit_pr_t scroll; // left top corner paragraph/run coordinates
     int32_t last_x;    // last_x for up/down caret movement
@@ -67,8 +71,9 @@ typedef struct uic_edit_s {
     // number of fully (not partially clipped) visible `runs' from top to bottom:
     int32_t visible_runs;
     bool focused;    // is focused and created caret
-    bool monospaced; // see monospaced note below (*)
     bool multiline;
+    bool readonly;
+    bool wordbreak;
     int32_t shown;   // debug: caret show/hide counter 0|1
     // https://en.wikipedia.org/wiki/Fuzzing
     volatile thread_t fuzzer;     // fuzzer thread != null when fuzzing
@@ -78,7 +83,7 @@ typedef struct uic_edit_s {
     // random32 starts with 1 but client can seed it with (crt.nanoseconds() | 1)
     uint32_t fuzz_seed;    // fuzzer random32 seed (must start with odd number)
     // paragraphs memory:
-    int32_t allocated;     // number of bytes allocated for `para` array below
+    int32_t capacity;      // number of bytes allocated for `para` array below
     int32_t paragraphs;    // number of lines in the text
     uic_edit_para_t* para; // para[paragraphs]
 } uic_edit_t;
@@ -91,12 +96,6 @@ typedef struct uic_edit_s {
                  on the fly needs to relayout all paragraphs. Thus caller needs
                  to set font via this function instead which also requests
                  edit UI element relayout.
-
-    monospaced - set automatically when edit discovers that ui->em,
-                 gdi.measure_text(*ui->font, "i") and measure_text(*ui->font, "W")
-                 yield the same results in rendering. Setting it from outside
-                 does not do anything - treat it as a hint for container contained
-                 edit UI element measurement and layout.
 
     readonly   - edit->ui.enabled used to control readonly mode. If edit control
                  is disabled it appearance does not change but it refuses to accept
