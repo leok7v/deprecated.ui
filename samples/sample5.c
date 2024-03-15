@@ -34,8 +34,8 @@ uic_button(fuzz, "Fu&zz", 7.5, {
 uic_checkbox(wb, "&Word Break", 7.5, {
     int32_t ix = focused();
     if (ix >= 0) {
-        edit[ix]->wordbreak = wb->ui.pressed;
-//      traceln("edit[%d].wordbreak: %d", ix, edit[ix]->wordbreak);
+        edit[ix]->wb = wb->ui.pressed;
+//      traceln("edit[%d].wordbreak: %d", ix, edit[ix]->wb);
         focus_back_to_edit();
     }
 });
@@ -43,8 +43,8 @@ uic_checkbox(wb, "&Word Break", 7.5, {
 uic_checkbox(ro, "&Read Only", 7.5, {
     int32_t ix = focused();
     if (ix >= 0) {
-        edit[ix]->readonly = ro->ui.pressed;
-//      traceln("edit[%d].readonly: %d", ix, edit[ix]->readonly);
+        edit[ix]->ro = ro->ui.pressed;
+//      traceln("edit[%d].readonly: %d", ix, edit[ix]->ro);
         focus_back_to_edit();
     }
 });
@@ -67,9 +67,9 @@ uic_checkbox(sl, "&Single Line", 7.5, {
         sl->ui.pressed = true; // always single line
     } else if (0 <= ix && ix < 2) {
         uic_edit_t* e = edit[ix];
-        e->multiline = !sl->ui.pressed;
+        e->sle = sl->ui.pressed;
 //      traceln("edit[%d].multiline: %d", ix, e->multiline);
-        if (!e->multiline) {
+        if (e->sle) {
             e->select_all(e);
             e->paste(e, "Hello World! Single Line Edit", -1);
         }
@@ -154,7 +154,7 @@ static void paint(uic_t* ui) {
     int32_t ix = focused();
     for (int32_t i = 0; i < countof(edit); i++) {
         uic_t* e = &edit[i]->ui;
-        color_t c = edit[i]->readonly ?
+        color_t c = edit[i]->ro ?
             colors.tone_red : colors.btn_hover_highlight;
         gdi.frame_with(e->x - 1, e->y - 1, e->w + 2, e->h + 2,
             i == ix ? c : colors.dkgray4);
@@ -162,9 +162,9 @@ static void paint(uic_t* ui) {
     after_paint();
     if (debug_layout) { paint_frames(ui); }
     if (ix >= 0) {
-        ro.ui.pressed = edit[ix]->readonly;
-        wb.ui.pressed = edit[ix]->wordbreak;
-        sl.ui.pressed = !edit[ix]->multiline;
+        ro.ui.pressed = edit[ix]->ro;
+        wb.ui.pressed = edit[ix]->wb;
+        sl.ui.pressed = edit[ix]->sle;
         mono.ui.pressed = edit[ix]->ui.font == &app.fonts.mono;
     }
 }
@@ -223,8 +223,8 @@ static void measure(uic_t* ui) {
     // gaps:
     const int32_t gx = ui->em.x;
     const int32_t gy = ui->em.y;
-    if (edit[2]->multiline) {
-        edit[2]->multiline = false;
+    if (!edit[2]->sle) { // edit[2] is always SLE
+        edit[2]->sle = true;
         edit[2]->select_all(edit[2]);
         edit[2]->paste(edit[2], "Single line edit control", -1);
     }
@@ -292,7 +292,7 @@ static void key_pressed(uic_t* unused(ui), int32_t key) {
 }
 
 static void edit_enter(uic_edit_t* e) {
-    assert(!e->multiline);
+    assert(e->sle);
     traceln("text: %.*s", e->para[0].bytes, e->para[0].text);
 }
 

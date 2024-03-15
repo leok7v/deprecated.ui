@@ -302,7 +302,7 @@ static const uic_edit_run_t* uic_edit_paragraph_runs(uic_edit_t* e, int32_t pn,
                     ix += glyphs;
                 }
                 assert(rc > 0);
-                p->runs = rc; // truncate heap allocated array:
+                p->runs = rc; // truncate heap capacity array:
                 uic_edit_reallocate(&p->run, rc, sizeof(uic_edit_run_t));
             }
         }
@@ -624,7 +624,7 @@ static void uic_edit_scroll_up(uic_edit_t* e, int32_t run_count) {
             assert(e->scroll.pn >= 0 && e->scroll.rn >= 0);
         }
     }
-    if (!e->multiline) { uic_edit_layout(&e->ui); }
+    if (e->sle) { uic_edit_layout(&e->ui); }
     e->ui.invalidate(&e->ui);
 }
 
@@ -647,7 +647,7 @@ static void uic_edit_scroll_down(uic_edit_t* e, int32_t run_count) {
                     e->scroll.rn < uic_edit_paragraph_run_count(e, e->scroll.pn));
         run_count--;
     }
-    if (!e->multiline) { uic_edit_layout(&e->ui); }
+    if (e->sle) { uic_edit_layout(&e->ui); }
     e->ui.invalidate(&e->ui);
 }
 
@@ -702,7 +702,7 @@ static void uic_edit_scroll_into_view(uic_edit_t* e, const uic_edit_pg_t pg) {
 
 static void uic_edit_move_caret(uic_edit_t* e, const uic_edit_pg_t pg) {
     // single line edit control cannot move caret past fist paragraph
-    bool can_move = e->multiline || pg.pn < e->paragraphs;
+    bool can_move = !e->sle || pg.pn < e->paragraphs;
     if (can_move) {
         uic_edit_scroll_into_view(e, pg);
         ui_point_t pt = e->width > 0 ? // width == 0 means no measure/layout yet
@@ -720,17 +720,17 @@ static void uic_edit_move_caret(uic_edit_t* e, const uic_edit_pg_t pg) {
 static char* uic_edit_ensure(uic_edit_t* e, int32_t pn, int32_t bytes,
         int32_t preserve) {
     assert(bytes >= 0 && preserve <= bytes);
-    if (bytes <= e->para[pn].allocated) {
-        // enough memory already allocated - do nothing
-    } else if (e->para[pn].allocated > 0) {
-        assert(preserve <= e->para[pn].allocated);
+    if (bytes <= e->para[pn].capacity) {
+        // enough memory already capacity - do nothing
+    } else if (e->para[pn].capacity > 0) {
+        assert(preserve <= e->para[pn].capacity);
         uic_edit_reallocate(&e->para[pn].text, bytes, 1);
         fatal_if_null(e->para[pn].text);
-        e->para[pn].allocated = bytes;
+        e->para[pn].capacity = bytes;
     } else {
-        assert(e->para[pn].allocated == 0);
+        assert(e->para[pn].capacity == 0);
         char* text = uic_edit_alloc(bytes);
-        e->para[pn].allocated = bytes;
+        e->para[pn].capacity = bytes;
         memcpy(text, e->para[pn].text, preserve);
         e->para[pn].text = text;
         e->para[pn].bytes = preserve;
@@ -776,12 +776,12 @@ static uic_edit_pg_t uic_edit_op(uic_edit_t* e, bool cut,
             const int32_t bp1 = e->para[pn0].g2b[gp1];
             uic_clip_append(a, ab, limit, s0 + bp0, bp1 - bp0);
             if (cut) {
-                if (e->para[pn0].allocated == 0) {
+                if (e->para[pn0].capacity == 0) {
                     int32_t n = bytes0 - (bp1 - bp0);
                     s0 = uic_edit_alloc(n);
                     memcpy(s0, e->para[pn0].text, bp0);
                     e->para[pn0].text = s0;
-                    e->para[pn0].allocated = n;
+                    e->para[pn0].capacity = n;
                 }
                 assert(bytes0 - bp1 >= 0);
                 memcpy(s0 + bp0, s1 + bp1, (size_t)bytes0 - bp1);
@@ -812,7 +812,7 @@ static uic_edit_pg_t uic_edit_op(uic_edit_t* e, bool cut,
         if (deleted > 0) {
             assert(pn0 + deleted < e->paragraphs);
             for (int32_t i = pn0 + 1; i <= pn0 + deleted; i++) {
-                if (e->para[i].allocated > 0) {
+                if (e->para[i].capacity > 0) {
                     uic_edit_free(&e->para[i].text);
                 }
             }
@@ -837,7 +837,7 @@ static uic_edit_pg_t uic_edit_op(uic_edit_t* e, bool cut,
     if (bytes != null) { *bytes = ab; }
     (void)unused(limit); // only in debug
     // for single line control operation may change vertical centering of text
-    if (!e->multiline) { uic_edit_layout(&e->ui); }
+    if (e->sle) { uic_edit_layout(&e->ui); }
     return from;
 }
 
@@ -856,7 +856,7 @@ static void uic_edit_insert_paragraph(uic_edit_t* e, int32_t pn) {
     p->text = null;
     p->bytes = 0;
     p->glyphs = -1;
-    p->allocated = 0;
+    p->capacity = 0;
     p->runs = 0;
     p->run = null;
     p->g2b = null;
@@ -879,15 +879,15 @@ static uic_edit_pg_t uic_edit_insert_inline(uic_edit_t* e, uic_edit_pg_t pg,
     char* s = e->para[pg.pn].text;
     const int32_t bp = e->para[pg.pn].g2b[pg.gp];
     int32_t n = (b + bytes) * 3 / 2; // heuristics 1.5 times of total
-    if (e->para[pg.pn].allocated == 0) {
+    if (e->para[pg.pn].capacity == 0) {
         s = uic_edit_alloc(n);
         memcpy(s, e->para[pg.pn].text, b);
         e->para[pg.pn].text = s;
-        e->para[pg.pn].allocated = n;
-    } else if (e->para[pg.pn].allocated < b + bytes) {
+        e->para[pg.pn].capacity = n;
+    } else if (e->para[pg.pn].capacity < b + bytes) {
         uic_edit_reallocate(&s, n, 1);
         e->para[pg.pn].text = s;
-        e->para[pg.pn].allocated = n;
+        e->para[pg.pn].capacity = n;
     }
     s = e->para[pg.pn].text;
     assert(b - bp >= 0);
@@ -897,7 +897,7 @@ static uic_edit_pg_t uic_edit_insert_inline(uic_edit_t* e, uic_edit_pg_t pg,
     uic_edit_dispose_paragraphs_layout(e);
     pg.gp = uic_edit_glyphs(s, bp + bytes);
     // for single line control insert may change vertical centering of text
-    if (!e->multiline) { uic_edit_layout(&e->ui); }
+    if (e->sle) { uic_edit_layout(&e->ui); }
     return pg;
 }
 
@@ -1158,8 +1158,8 @@ static void uic_edit_key_backspace(uic_edit_t* e) {
 }
 
 static void uic_edit_key_enter(uic_edit_t* e) {
-    assert(!e->readonly);
-    if (e->multiline) {
+    assert(!e->ro);
+    if (!e->sle) {
         e->erase(e);
         e->selection[1] = uic_edit_insert_paragraph_break(e, e->selection[1]);
         e->selection[0] = e->selection[1];
@@ -1191,11 +1191,11 @@ static void uic_edit_key_pressed(uic_t* ui, int32_t key) {
             uic_edit_key_home(e);
         } else if (key == virtual_keys.end) {
             uic_edit_key_end(e);
-        } else if (key == virtual_keys.del && !e->readonly) {
+        } else if (key == virtual_keys.del && !e->ro) {
             uic_edit_key_delete(e);
-        } else if (key == virtual_keys.back && !e->readonly) {
+        } else if (key == virtual_keys.back && !e->ro) {
             uic_edit_key_backspace(e);
-        } else if (key == virtual_keys.enter && !e->readonly) {
+        } else if (key == virtual_keys.enter && !e->ro) {
             uic_edit_key_enter(e);
         } else {
             // ignore other keys
@@ -1215,12 +1215,12 @@ static void uic_edit_character(uic_t* unused(ui), const char* utf8) {
         if (app.ctrl) {
             if (ch == ctl('a')) { e->select_all(e); }
             if (ch == ctl('c')) { e->copy_to_clipboard(e); }
-            if (!e->readonly) {
+            if (!e->ro) {
                 if (ch == ctl('x')) { e->cut_to_clipboard(e); }
                 if (ch == ctl('v')) { e->paste_from_clipboard(e); }
             }
         }
-        if (0x20 <= ch && !e->readonly) { // 0x20 space
+        if (0x20 <= ch && !e->ro) { // 0x20 space
             int32_t bytes = uic_edit_glyph_bytes(ch);
             e->erase(e); // remove selected text to be replaced by glyph
             e->selection[1] = uic_edit_insert_inline(e,
@@ -1516,7 +1516,7 @@ static int32_t uic_edit_copy(uic_edit_t* e, char* text, int32_t* bytes) {
 }
 
 static void uic_edit_clipboard_cut(uic_edit_t* e) {
-    if (!e->readonly) { uic_edit_cut_copy(e, true); }
+    if (!e->ro) { uic_edit_cut_copy(e, true); }
 }
 
 static void uic_edit_clipboard_copy(uic_edit_t* e) {
@@ -1525,7 +1525,7 @@ static void uic_edit_clipboard_copy(uic_edit_t* e) {
 
 static uic_edit_pg_t uic_edit_paste_text(uic_edit_t* e,
         const char* s, int32_t n) {
-    assert(!e->readonly);
+    assert(!e->ro);
     uic_edit_pg_t pg = e->selection[1];
     int32_t i = 0;
     const char* text = s;
@@ -1548,7 +1548,7 @@ static uic_edit_pg_t uic_edit_paste_text(uic_edit_t* e,
 }
 
 static void uic_edit_paste(uic_edit_t* e, const char* s, int32_t n) {
-    if (!e->readonly) {
+    if (!e->ro) {
         if (n < 0) { n = (int32_t)strlen(s); }
         e->erase(e);
         e->selection[1] = uic_edit_paste_text(e, s, n);
@@ -1558,7 +1558,7 @@ static void uic_edit_paste(uic_edit_t* e, const char* s, int32_t n) {
 }
 
 static void uic_edit_clipboard_paste(uic_edit_t* e) {
-    if (!e->readonly) {
+    if (!e->ro) {
         uic_edit_pg_t pg = e->selection[1];
         int32_t bytes = 0;
         clipboard.text(null, &bytes);
@@ -1604,7 +1604,7 @@ static void uic_edit_layout(uic_t* ui) { // top down
     e->width  = ui->w;
     e->height = ui->h;
     int32_t sle_height = 0;
-    if (!e->multiline) {
+    if (e->sle) {
         int32_t runs = uic_edit_paragraph_run_count(e, 0);
         sle_height = e->ui.em.y * runs;
         // for mutiple runs single line edit grow down:
@@ -1613,8 +1613,8 @@ static void uic_edit_layout(uic_t* ui) { // top down
             e->height = ui->h;
         }
     }
-    e->top    = e->multiline ? 0 : (e->height - sle_height) / 2;
-    e->bottom = e->multiline ? e->height : e->top + sle_height - 1;
+    e->top    = !e->sle ? 0 : (e->height - sle_height) / 2;
+    e->bottom = !e->sle ? e->height : e->top + sle_height - 1;
     e->visible_runs = (e->bottom - e->top) / e->ui.em.y; // fully visible
     // number of runs in e->scroll.pn may have changed with e->width change
     int32_t runs = uic_edit_paragraph_run_count(e, e->scroll.pn);
@@ -1692,22 +1692,22 @@ void uic_edit_init(uic_edit_t* e) {
     uic_init(&e->ui);
     e->ui.tag = uic_tag_edit;
     e->ui.focusable = true;
-    e->fuzz_seed  = 1; // client can seed it with (crt.nanoseconds() | 1)
-    e->last_x     = -1;
-    e->focused    = false;
-    e->multiline  = true;
-    e->readonly   = false;
-    e->wordbreak  = true;
-    e->ui.color   = rgb(168, 168, 150); // colors.text;
-    e->caret      = (ui_point_t){-1, -1};
-    e->ui.message     = uic_edit_message;
-    e->ui.paint       = uic_edit_paint;
-    e->ui.measure     = uic_edit_measure;
-    e->ui.layout      = uic_edit_layout;
+    e->fuzz_seed = 1; // client can seed it with (crt.nanoseconds() | 1)
+    e->last_x    = -1;
+    e->focused   = false;
+    e->sle       = false;
+    e->ro        = false;
+    e->wb        = true;
+    e->ui.color  = rgb(168, 168, 150); // colors.text;
+    e->caret     = (ui_point_t){-1, -1};
+    e->ui.message = uic_edit_message;
+    e->ui.paint   = uic_edit_paint;
+    e->ui.measure = uic_edit_measure;
+    e->ui.layout  = uic_edit_layout;
     #ifdef EDIT_USE_TAP
-    e->ui.tap         = uic_edit_tap;
+    e->ui.tap     = uic_edit_tap;
     #else
-    e->ui.mouse       = uic_edit_mouse;
+    e->ui.mouse   = uic_edit_mouse;
     #endif
     e->ui.press       = uic_edit_press;
     e->ui.character   = uic_edit_character;
@@ -1719,11 +1719,11 @@ void uic_edit_init(uic_edit_t* e) {
     e->move                 = uic_edit_move;
     e->paste                = uic_edit_paste;
     e->copy                 = uic_edit_copy;
+    e->erase                = uic_edit_erase;
     e->cut_to_clipboard     = uic_edit_clipboard_cut;
     e->copy_to_clipboard    = uic_edit_clipboard_copy;
     e->paste_from_clipboard = uic_edit_clipboard_paste;
     e->select_all           = uic_edit_select_all;
-    e->erase                = uic_edit_erase;
     e->fuzz                 = uic_edit_fuzz;
     uic_edit_init_with_lorem_ipsum(e);
     // Expected manifest.xml containing UTF-8 code page

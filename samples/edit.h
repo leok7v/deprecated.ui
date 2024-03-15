@@ -21,7 +21,7 @@ typedef struct uic_edit_run_s {
 
 typedef struct uic_edit_para_s { // "paragraph"
     char* text;          // text[bytes] utf-8
-    int32_t allocated;   // if != 0 text copied to heap allocated bytes
+    int32_t capacity;   // if != 0 text copied to heap allocated bytes
     int32_t bytes;       // number of bytes in utf-8 text
     int32_t glyphs;      // number of glyphs in text <= bytes
     int32_t runs;        // number of runs in this paragraph
@@ -71,9 +71,9 @@ typedef struct uic_edit_s {
     // number of fully (not partially clipped) visible `runs' from top to bottom:
     int32_t visible_runs;
     bool focused;    // is focused and created caret
-    bool multiline;
-    bool readonly;
-    bool wordbreak;
+    bool sle;        // Single Line Edit
+    bool ro;         // Read Only
+    bool wb;         // Word Break
     int32_t shown;   // debug: caret show/hide counter 0|1
     // https://en.wikipedia.org/wiki/Fuzzing
     volatile thread_t fuzzer;     // fuzzer thread != null when fuzzing
