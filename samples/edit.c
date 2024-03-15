@@ -381,17 +381,22 @@ static void uic_edit_dispose_paragraphs_layout(uic_edit_t* e) {
     }
 }
 
+static void uic_edit_relayout_sle(uic_edit_t* e) {
+    // only for single line edit controls that were already initialized 
+    // and measured horizontally at least once.
+    if (e->sle && e->ui.layout != null && e->ui.width > 0) {
+        e->ui.measure(&e->ui);
+        e->ui.layout(&e->ui);
+        e->ui.invalidate(&e->ui);
+    }
+}
+
 static void uic_edit_set_font(uic_edit_t* e, font_t* f) {
     uic_edit_dispose_paragraphs_layout(e);
-    // xxx
-//  e->scroll.pn = 0; // TODO: restore after layout complete?
-    e->scroll.rn = 0; //       which is not trivial
+    e->scroll.rn = 0;
     e->ui.font = f;
     e->ui.em = gdi.get_em(*f);
-//  traceln("%p := %p", e, *f);
-    if (e->ui.w > 0 && e->ui.h > 0) {
-        e->ui.layout(&e->ui); // direct call to re-layout
-    }
+    uic_edit_relayout_sle(e);
 }
 
 // Paragraph number, glyph number -> run number
@@ -624,7 +629,7 @@ static void uic_edit_scroll_up(uic_edit_t* e, int32_t run_count) {
             assert(e->scroll.pn >= 0 && e->scroll.rn >= 0);
         }
     }
-    if (e->sle) { uic_edit_layout(&e->ui); }
+    uic_edit_relayout_sle(e);
     e->ui.invalidate(&e->ui);
 }
 
@@ -647,7 +652,7 @@ static void uic_edit_scroll_down(uic_edit_t* e, int32_t run_count) {
                     e->scroll.rn < uic_edit_paragraph_run_count(e, e->scroll.pn));
         run_count--;
     }
-    if (e->sle) { uic_edit_layout(&e->ui); }
+    uic_edit_relayout_sle(e);
     e->ui.invalidate(&e->ui);
 }
 
@@ -668,6 +673,8 @@ static void uic_edit_scroll_into_view(uic_edit_t* e, const uic_edit_pg_t pg) {
                 py += e->ui.em.y;
             }
         }
+        int32_t sle_runs = e->sle && e->width > 0 ? 
+            uic_edit_paragraph_run_count(e, 0) : 0;
         uic_edit_paragraph_g2b(e, e->paragraphs - 1);
         uic_edit_pg_t last_paragraph = {.pn = e->paragraphs - 1,
             .gp = e->para[e->paragraphs - 1].glyphs };
@@ -682,6 +689,8 @@ static void uic_edit_scroll_into_view(uic_edit_t* e, const uic_edit_pg_t pg) {
         } else if (caret < scroll) {
             e->scroll.pn = pg.pn;
             e->scroll.rn = rn;
+        } else if (e->sle && sle_runs * e->ui.em.y <= e->height) {
+            // single line edit control fits vertically - no scroll
         } else {
             assert(caret >= last);
             e->scroll.pn = pg.pn;
@@ -836,8 +845,7 @@ static uic_edit_pg_t uic_edit_op(uic_edit_t* e, bool cut,
     }
     if (bytes != null) { *bytes = ab; }
     (void)unused(limit); // only in debug
-    // for single line control operation may change vertical centering of text
-    if (e->sle) { uic_edit_layout(&e->ui); }
+    uic_edit_relayout_sle(e);
     return from;
 }
 
@@ -1011,7 +1019,7 @@ static void uic_edit_key_down(uic_edit_t* e) {
     // scroll runs guaranteed to be already layout for current state of view:
     uic_edit_pg_t scroll = uic_edit_scroll_pg(e);
     int32_t run_count = uic_edit_runs_between(e, scroll, pg);
-    if (run_count >= e->visible_runs - 1) {
+    if (!e->sle && run_count >= e->visible_runs - 1) {
         uic_edit_scroll_up(e, 1);
     } else {
         pt.y += e->ui.em.y;
@@ -1581,11 +1589,16 @@ static void uic_edit_clipboard_paste(uic_edit_t* e) {
 
 static void uic_edit_measure(uic_t* ui) { // bottom up
     assert(ui->tag == uic_tag_edit);
-    ui->em = gdi.get_em(*ui->font);
+    uic_edit_t* e = (uic_edit_t*)ui;
+    ui->em = gdi.get_em(ui->font == null ? app.fonts.regular : *ui->font);
     // enforce minimum size - it makes it checking corner cases much simpler
     // and it's hard to edit anything in a smaller area - will result in bad UX
-    if (ui->w < ui->em.x * 3) { ui->w = ui->em.x * 4; }
+    if (ui->w < ui->em.x * 4) { ui->w = ui->em.x * 4; }
     if (ui->h < ui->em.y) { ui->h = ui->em.y; }
+    if (e->sle) { // for SLE if more than one run resize vertical:
+        int32_t runs = max(uic_edit_paragraph_run_count(e, 0), 1);
+        if (ui->h < ui->em.y * runs) { ui->h = ui->em.y * runs; }
+    }
 }
 
 static void uic_edit_layout(uic_t* ui) { // top down

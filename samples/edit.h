@@ -72,7 +72,7 @@ typedef struct uic_edit_s {
     int32_t visible_runs;
     bool focused;    // is focused and created caret
     bool sle;        // Single Line Edit
-    bool ro;         // Read Only
+    bool ro;         // Read Only: TODO: replace with edit->ui.enabled
     bool wb;         // Word Break
     int32_t shown;   // debug: caret show/hide counter 0|1
     // https://en.wikipedia.org/wiki/Fuzzing
@@ -93,18 +93,18 @@ typedef struct uic_edit_s {
     set_font() - neither edit.ui.font = font nor measure()/layout() functions
                  do NOT dispose paragraphs layout unless geometry changed because
                  it is quite expensive operation. But choosing different font
-                 on the fly needs to relayout all paragraphs. Thus caller needs
+                 on the fly needs to re-layout all paragraphs. Thus caller needs
                  to set font via this function instead which also requests
-                 edit UI element relayout.
+                 edit UI element re-layout.
 
-    readonly   - edit->ui.enabled used to control readonly mode. If edit control
-                 is disabled it appearance does not change but it refuses to accept
-                 any changes to the rendered text.
+    .ro        - readonly edit->ui.enabled used to control readonly mode. 
+                 If edit control is disabled it appearance does not change but it 
+                 refuses to accept any changes to the rendered text.
 
-    wordbreak  - this attribute was removed as poor UX human experience along with
-                 single line scroll editing. See note below about multiline.
+    .wb        - wordbreak this attribute was removed as poor UX human experience 
+                 along with single line scroll editing. See note below about .sle.
 
-    multiline  - is calculated at edit UI element measurement and layout.
+    .sle       - Single line edit control.
                  Edit UI element does NOT support horizontal scroll and breaking
                  words semantics as it is poor UX human experience. This is not
                  how humans (apart of software developers) edit text.
@@ -116,8 +116,10 @@ typedef struct uic_edit_s {
                  change implemented in 2023.
                  If multiline is set to true by the callers code the edit UI layout
                  snaps text to the top of x,y,w,h box otherwise the vertical space
-                 is distributed evenly between single line of text and top botom gaps.
-
+                 is distributed evenly between single line of text and top bottom gaps.
+                 IMPORTANT: SLE resizes itself vertically to accommodate for
+                 input that is too wide. If caller wants to limit vertical space it
+                 will need to hook .measure() function of SLE and do the math there.
 */
 
 void uic_edit_init(uic_edit_t* e);
