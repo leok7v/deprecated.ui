@@ -73,6 +73,9 @@ uic_checkbox(sl, "&Single Line", 7.5, {
             e->select_all(e);
             e->paste(e, "Hello World! Single Line Edit", -1);
         }
+        // alternatively app.layout() for everything or:
+        e->ui.measure(&e->ui);
+        e->ui.layout(&e->ui);
         focus_back_to_edit();
     }
 });
@@ -87,6 +90,7 @@ uic_container(left, null, &edit0.ui, &edit1.ui);
 uic_container(bottom, null, &text.ui);
 
 static void set_text(int32_t ix) {
+    static char last[128];
     sprintf(text.ui.text, "%d:%d %d:%d %dx%d\n"
         "scroll %03d:%03d",
         edit[ix]->selection[0].pn, edit[ix]->selection[0].gp,
@@ -101,9 +105,10 @@ static void set_text(int32_t ix) {
             edit[ix]->scroll.pn, edit[ix]->scroll.rn);
     }
     // can be called before text.ui initialized
-    if (text.ui.invalidate != null) {
+    if (text.ui.invalidate != null && !strequ(last, text.ui.text)) {
         text.ui.invalidate(&text.ui);
     }
+    sprintf(last, "%s", text.ui.text);
 }
 
 static void after_paint(void) {
@@ -147,6 +152,7 @@ static void null_paint(uic_t* ui) {
 }
 
 static void paint(uic_t* ui) {
+//  traceln("");
     if (debug_layout) { null_paint(ui); }
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(colors.black);
@@ -214,20 +220,17 @@ static void focus_back_to_edit(void) {
 }
 
 static void every_100ms(void) {
+//  traceln("");
     static uic_t* last;
     if (last != app.focus) { app.redraw(); }
     last = app.focus;
 }
 
 static void measure(uic_t* ui) {
+//  traceln("");
     // gaps:
     const int32_t gx = ui->em.x;
     const int32_t gy = ui->em.y;
-    if (!edit[2]->sle) { // edit[2] is always SLE
-        edit[2]->sle = true;
-        edit[2]->select_all(edit[2]);
-        edit[2]->paste(edit[2], "Single line edit control", -1);
-    }
     right.h = ui->h - text.ui.h - gy;
     right.w = 0;
     measurements.vertical(&right, gy / 2);
@@ -235,15 +238,14 @@ static void measure(uic_t* ui) {
     bottom.w = text.ui.w - gx;
     bottom.h = text.ui.h;
     int32_t h = (ui->h - bottom.h - gy * 3) / countof(edit);
-    for (int32_t i = 0; i < countof(edit); i++) {
+    for (int32_t i = 0; i < 2; i++) { // edit[0] and edit[1] only
         edit[i]->ui.w = ui->w - right.w - gx * 2;
-        edit[i]->ui.h = h;
+        edit[i]->ui.h = h; // TODO: remove me - bad idea
     }
     left.w = 0;
     measurements.vertical(&left, gy);
     left.w += gx;
-    edit2.ui.h = ro.ui.h;
-    edit2.ui.w = ro.ui.w;
+    edit2.ui.w = ro.ui.w; // only "width" height determined by text
     if (debug_layout) {
         traceln("%d,%d %dx%d", ui->x, ui->y, ui->w, ui->h);
         traceln("right %d,%d %dx%d", right.x, right.y, right.w, right.h);
@@ -260,6 +262,7 @@ static void measure(uic_t* ui) {
 }
 
 static void layout(uic_t* ui) {
+//  traceln("");
     // gaps:
     const int32_t gx2 = ui->em.x / 2;
     const int32_t gy2 = ui->em.y / 2;
@@ -273,6 +276,25 @@ static void layout(uic_t* ui) {
     layouts.vertical(&right, right.x + gx2, right.y, gy2);
     text.ui.x = gx2;
     text.ui.y = ui->h - text.ui.h;
+}
+
+// limiting vertical height of SLE to 3 lines of text:
+
+static void (*hooked_sle_measure)(uic_t* unused(ui));
+
+static void measure_3_lines_sle(uic_t* ui) {
+    assert(ui == &edit[2]->ui);
+//  traceln("WxH: %dx%d <- r/o button", ro.ui.w, ro.ui.h);
+    ui->w = ro.ui.w; // r/o button
+    hooked_sle_measure(ui);
+//  traceln("WxH: %dx%d (%dx%d) em: %d lines: %d", 
+//          edit[2]->ui.w, edit[2]->ui.h, 
+//          edit[2]->width, edit[2]->height, 
+//          edit[2]->ui.em.y, edit[2]->ui.h / edit[2]->ui.em.y);
+    if (ui->h > ui->em.y * 3) {
+        ui->h = ui->em.y * 3;
+        edit[2]->height = ui->h;
+    }
 }
 
 static void key_pressed(uic_t* unused(ui), int32_t key) {
@@ -293,8 +315,15 @@ static void key_pressed(uic_t* unused(ui), int32_t key) {
 
 static void edit_enter(uic_edit_t* e) {
     assert(e->sle);
-    traceln("text: %.*s", e->para[0].bytes, e->para[0].text);
+    if (!app.shift) { // ignore shift ENRER:
+        traceln("text: %.*s", e->para[0].bytes, e->para[0].text);
+    }
 }
+
+// see edit.test.c
+
+void uic_edit_init_with_lorem_ipsum(uic_edit_t* e); 
+void uic_edit_fuzz(uic_edit_t* e);
 
 static void init(void) {
     app.title = title;
@@ -308,11 +337,21 @@ static void init(void) {
     strprintf(fuzz.ui.tip, "Ctrl+Shift+F5 to start / F5 to stop Fuzzing");
     for (int32_t i = 0; i < countof(edit); i++) {
         uic_edit_init(edit[i]);
-        edit[i]->enter = edit_enter;
+        uic_edit_init_with_lorem_ipsum(edit[i]);
+        edit[i]->fuzz = uic_edit_fuzz;
     }
     app.focus = &edit[0]->ui;
     app.every_100ms = every_100ms;
     set_text(0); // need to be two lines for measure
+    // edit[2] is SLE:
+    uic_edit_init(edit[2]);
+    hooked_sle_measure = edit[2]->ui.measure;
+    edit[2]->fuzz = uic_edit_fuzz;
+    edit[2]->ui.measure = measure_3_lines_sle;
+    edit[2]->sle = true;
+    edit[2]->select_all(edit[2]);
+    edit[2]->paste(edit[2], "Single line edit control", -1);
+    edit[2]->enter = edit_enter;
 }
 
 app_t app = {

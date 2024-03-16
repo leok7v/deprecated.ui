@@ -75,6 +75,11 @@ static void uic_edit_reallocate(void** pp, int32_t count, size_t element) {
     }
 }
 
+static void uic_edit_invalidate(uic_edit_t* e) {
+//  traceln("");
+    e->ui.invalidate(&e->ui);
+}
+
 static int32_t uic_edit_text_width(uic_edit_t* e, const char* s, int32_t n) {
 //  double time = crt.seconds();
     // average measure_text() performance per character:
@@ -330,9 +335,11 @@ static void uic_edit_create_caret(uic_edit_t* e) {
     fatal_if(e->focused);
     assert(app.is_active());
     assert(app.has_focus());
-    fatal_if_false(CreateCaret((HWND)app.window, null, 2, e->ui.em.y));
+    int32_t caret_width = min(2, max(1, app.dpi.monitor_effective / 100));
+//  traceln("%d,%d", caret_width, e->ui.em.y);
+    fatal_if_false(CreateCaret((HWND)app.window, null, caret_width, e->ui.em.y));
+    assert(GetSystemMetrics(SM_CARETBLINKINGENABLED) == true);
     e->focused = true; // means caret was created
-//  traceln("%d,%d", 2, e->ui.em.y);
 }
 
 static void uic_edit_destroy_caret(uic_edit_t* e) {
@@ -381,13 +388,20 @@ static void uic_edit_dispose_paragraphs_layout(uic_edit_t* e) {
     }
 }
 
+static void uic_edit_layout_now(uic_edit_t* e) {
+    if (e->ui.measure != null && e->ui.layout != null && e->width > 0) {
+        uic_edit_dispose_paragraphs_layout(e);
+        e->ui.measure(&e->ui);
+        e->ui.layout(&e->ui);
+        uic_edit_invalidate(e);
+    }
+}
+
 static void uic_edit_relayout_sle(uic_edit_t* e) {
     // only for single line edit controls that were already initialized 
     // and measured horizontally at least once.
-    if (e->sle && e->ui.layout != null && e->ui.width > 0) {
-        e->ui.measure(&e->ui);
-        e->ui.layout(&e->ui);
-        e->ui.invalidate(&e->ui);
+    if (e->sle && e->ui.layout != null && e->width > 0) {
+        uic_edit_layout_now(e);
     }
 }
 
@@ -396,7 +410,7 @@ static void uic_edit_set_font(uic_edit_t* e, font_t* f) {
     e->scroll.rn = 0;
     e->ui.font = f;
     e->ui.em = gdi.get_em(*f);
-    uic_edit_relayout_sle(e);
+    uic_edit_layout_now(e);
 }
 
 // Paragraph number, glyph number -> run number
@@ -630,7 +644,7 @@ static void uic_edit_scroll_up(uic_edit_t* e, int32_t run_count) {
         }
     }
     uic_edit_relayout_sle(e);
-    e->ui.invalidate(&e->ui);
+    uic_edit_invalidate(e);
 }
 
 // uic_edit_scroll_dw() text moves down (south) in the visible view,
@@ -653,11 +667,10 @@ static void uic_edit_scroll_down(uic_edit_t* e, int32_t run_count) {
         run_count--;
     }
     uic_edit_relayout_sle(e);
-    e->ui.invalidate(&e->ui);
 }
 
 static void uic_edit_scroll_into_view(uic_edit_t* e, const uic_edit_pg_t pg) {
-    if (e->paragraphs > 0) {
+    if (e->paragraphs > 0 && e->bottom > 0) {
         const int32_t rn = uic_edit_pg_to_pr(e, pg).rn;
         const uint64_t scroll = uic_edit_uint64(e->scroll.pn, e->scroll.rn);
         const uint64_t caret  = uic_edit_uint64(pg.pn, rn);
@@ -722,7 +735,7 @@ static void uic_edit_move_caret(uic_edit_t* e, const uic_edit_pg_t pg) {
         if (!app.shift && !e->mouse != 0) {
             e->selection[0] = e->selection[1];
         }
-        e->ui.invalidate(&e->ui);
+        uic_edit_invalidate(e);
     }
 }
 
@@ -904,8 +917,7 @@ static uic_edit_pg_t uic_edit_insert_inline(uic_edit_t* e, uic_edit_pg_t pg,
     e->para[pg.pn].bytes += bytes;
     uic_edit_dispose_paragraphs_layout(e);
     pg.gp = uic_edit_glyphs(s, bp + bytes);
-    // for single line control insert may change vertical centering of text
-    if (e->sle) { uic_edit_layout(&e->ui); }
+    uic_edit_relayout_sle(e);
     return pg;
 }
 
@@ -1236,7 +1248,7 @@ static void uic_edit_character(uic_t* unused(ui), const char* utf8) {
             e->selection[0] = e->selection[1];
             uic_edit_move_caret(e, e->selection[1]);
         }
-        ui->invalidate(ui);
+        uic_edit_invalidate(e);
         if (e->fuzzer != null) { uic_edit_next_fuzz(e); }
     }
     #pragma pop_macro("ctl")
@@ -1280,7 +1292,7 @@ static void uic_edit_select_word(uic_edit_t* e, int32_t x, int32_t y) {
                     }
                 }
                 e->selection[1] = to;
-                e->ui.invalidate(&e->ui);
+                uic_edit_invalidate(e);
                 e->mouse = 0;
             }
         }
@@ -1302,7 +1314,7 @@ static void uic_edit_select_paragraph(uic_edit_t* e, int32_t x, int32_t y) {
             e->selection[1].gp = 0;
             e->selection[1].pn++;
         }
-        e->ui.invalidate(&e->ui);
+        uic_edit_invalidate(e);
         e->mouse = 0;
     }
 }
@@ -1476,7 +1488,7 @@ static void uic_edit_erase(uic_edit_t* e) {
         e->selection[0] = pg;
         e->selection[1] = pg;
         uic_edit_move_caret(e, pg);
-        e->ui.invalidate(&e->ui);
+        uic_edit_invalidate(e);
     }
 }
 
@@ -1504,7 +1516,7 @@ static void uic_edit_cut_copy(uic_edit_t* e, bool cut) {
 static void uic_edit_select_all(uic_edit_t* e) {
     e->selection[0] = (uic_edit_pg_t ){.pn = 0, .gp = 0};
     e->selection[1] = (uic_edit_pg_t ){.pn = e->paragraphs, .gp = 0};
-    e->ui.invalidate(&e->ui);
+    uic_edit_invalidate(e);
 }
 
 static int32_t uic_edit_copy(uic_edit_t* e, char* text, int32_t* bytes) {
@@ -1546,7 +1558,9 @@ static uic_edit_pg_t uic_edit_paste_text(uic_edit_t* e,
         if (b > i) {
             pg = uic_edit_insert_inline(e, pg, text, b - i);
         }
-        if (lf) {
+        if (lf && e->sle) {
+            break;
+        } else if (lf) {
             pg = uic_edit_insert_paragraph_break(e, pg);
         }
         text = s + next;
@@ -1561,7 +1575,7 @@ static void uic_edit_paste(uic_edit_t* e, const char* s, int32_t n) {
         e->erase(e);
         e->selection[1] = uic_edit_paste_text(e, s, n);
         e->selection[0] = e->selection[1];
-        if (e->ui.w > 0) { uic_edit_move_caret(e, e->selection[1]); }
+        if (e->width > 0) { uic_edit_move_caret(e, e->selection[1]); }
     }
 }
 
@@ -1595,10 +1609,15 @@ static void uic_edit_measure(uic_t* ui) { // bottom up
     // and it's hard to edit anything in a smaller area - will result in bad UX
     if (ui->w < ui->em.x * 4) { ui->w = ui->em.x * 4; }
     if (ui->h < ui->em.y) { ui->h = ui->em.y; }
+    e->width  = ui->w;
+    e->height = ui->h;
     if (e->sle) { // for SLE if more than one run resize vertical:
         int32_t runs = max(uic_edit_paragraph_run_count(e, 0), 1);
         if (ui->h < ui->em.y * runs) { ui->h = ui->em.y * runs; }
     }
+    // again:
+    e->width  = ui->w;
+    e->height = ui->h;
 }
 
 static void uic_edit_layout(uic_t* ui) { // top down
@@ -1608,26 +1627,19 @@ static void uic_edit_layout(uic_t* ui) { // top down
     // glyph position in scroll_pn paragraph:
     const uic_edit_pg_t scroll = e->width == 0 ?
         (uic_edit_pg_t){0, 0} : uic_edit_scroll_pg(e);
-    if (ui->w < ui->em.x * 3) { ui->w = ui->em.x * 4; }
-    if (ui->h < ui->em.y) { ui->h = ui->em.y; }
     if (e->width > 0 && ui->w != e->width) {
         uic_edit_dispose_paragraphs_layout(e);
     }
-    // enforce minimum size
+    // reenforce minimum size again
     e->width  = ui->w;
     e->height = ui->h;
     int32_t sle_height = 0;
     if (e->sle) {
-        int32_t runs = uic_edit_paragraph_run_count(e, 0);
-        sle_height = e->ui.em.y * runs;
-        // for mutiple runs single line edit grow down:
-        if (sle_height > ui->h) {
-            ui->h = sle_height;
-            e->height = ui->h;
-        }
+        int32_t runs = max(uic_edit_paragraph_run_count(e, 0), 1);
+        sle_height = min(e->ui.em.y * runs, ui->h);
     }
     e->top    = !e->sle ? 0 : (e->height - sle_height) / 2;
-    e->bottom = !e->sle ? e->height : e->top + sle_height - 1;
+    e->bottom = !e->sle ? e->height : e->top + sle_height;
     e->visible_runs = (e->bottom - e->top) / e->ui.em.y; // fully visible
     // number of runs in e->scroll.pn may have changed with e->width change
     int32_t runs = uic_edit_paragraph_run_count(e, e->scroll.pn);
@@ -1697,9 +1709,6 @@ static bool uic_edit_message(uic_t* ui, int32_t unused(m),
     return false;
 }
 
-void uic_edit_init_with_lorem_ipsum(uic_edit_t* e);
-void uic_edit_fuzz(uic_edit_t* e);
-
 void uic_edit_init(uic_edit_t* e) {
     memset(e, 0, sizeof(*e));
     uic_init(&e->ui);
@@ -1737,8 +1746,7 @@ void uic_edit_init(uic_edit_t* e) {
     e->copy_to_clipboard    = uic_edit_clipboard_copy;
     e->paste_from_clipboard = uic_edit_clipboard_paste;
     e->select_all           = uic_edit_select_all;
-    e->fuzz                 = uic_edit_fuzz;
-    uic_edit_init_with_lorem_ipsum(e);
+    e->fuzz                 = null;
     // Expected manifest.xml containing UTF-8 code page
     // for Translate message and WM_CHAR to deliver UTF-8 characters
     // see: https://learn.microsoft.com/en-us/windows/apps/design/globalizing/use-utf8-code-page
