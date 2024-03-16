@@ -477,7 +477,7 @@ static int32_t uic_edit_first_visible_run(uic_edit_t* e, int32_t pn) {
     return pn == e->scroll.pn ? e->scroll.rn : 0;
 }
 
-// uic_edit::pg_to_xy() paragraph # glyph # -> (x,y) in [0,0  width x heigth]
+// uic_edit::pg_to_xy() paragraph # glyph # -> (x,y) in [0,0  width x height]
 
 static ui_point_t uic_edit_pg_to_xy(uic_edit_t* e, const uic_edit_pg_t pg) {
     ui_point_t pt = { .x = -1, .y = 0 };
@@ -671,6 +671,7 @@ static void uic_edit_scroll_down(uic_edit_t* e, int32_t run_count) {
 
 static void uic_edit_scroll_into_view(uic_edit_t* e, const uic_edit_pg_t pg) {
     if (e->paragraphs > 0 && e->bottom > 0) {
+        if (e->sle) { assert(pg.pn == 0); }
         const int32_t rn = uic_edit_pg_to_pr(e, pg).rn;
         const uint64_t scroll = uic_edit_uint64(e->scroll.pn, e->scroll.rn);
         const uint64_t caret  = uic_edit_uint64(pg.pn, rn);
@@ -963,7 +964,7 @@ static void uic_edit_key_right(uic_edit_t* e) {
         if (to.gp < glyphs) {
             to.gp++;
             uic_edit_scroll_into_view(e, to);
-        } else {
+        } else if (!e->sle) {
             to.pn++;
             to.gp = 0;
             uic_edit_scroll_into_view(e, to);
@@ -1719,7 +1720,6 @@ void uic_edit_init(uic_edit_t* e) {
     e->focused   = false;
     e->sle       = false;
     e->ro        = false;
-    e->wb        = true;
     e->ui.color  = rgb(168, 168, 150); // colors.text;
     e->caret     = (ui_point_t){-1, -1};
     e->ui.message = uic_edit_message;

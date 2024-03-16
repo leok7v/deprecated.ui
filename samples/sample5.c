@@ -31,15 +31,6 @@ uic_button(fuzz, "Fu&zz", 7.5, {
     }
 });
 
-uic_checkbox(wb, "&Word Break", 7.5, {
-    int32_t ix = focused();
-    if (ix >= 0) {
-        edit[ix]->wb = wb->ui.pressed;
-//      traceln("edit[%d].wordbreak: %d", ix, edit[ix]->wb);
-        focus_back_to_edit();
-    }
-});
-
 uic_checkbox(ro, "&Read Only", 7.5, {
     int32_t ix = focused();
     if (ix >= 0) {
@@ -84,7 +75,7 @@ uic_multiline(text, 0.0, "...");
 
 uic_container(right, null,
     &full_screen.ui, &quit.ui, &fuzz.ui,
-    &wb.ui, &mono.ui, &sl.ui, &ro.ui, &edit2.ui);
+    &mono.ui, &sl.ui, &ro.ui, &edit2.ui);
 
 uic_container(left, null, &edit0.ui, &edit1.ui);
 uic_container(bottom, null, &text.ui);
@@ -169,7 +160,6 @@ static void paint(uic_t* ui) {
     if (debug_layout) { paint_frames(ui); }
     if (ix >= 0) {
         ro.ui.pressed = edit[ix]->ro;
-        wb.ui.pressed = edit[ix]->wb;
         sl.ui.pressed = edit[ix]->sle;
         mono.ui.pressed = edit[ix]->ui.font == &app.fonts.mono;
     }
@@ -283,6 +273,9 @@ static void layout(uic_t* ui) {
 static void (*hooked_sle_measure)(uic_t* unused(ui));
 
 static void measure_3_lines_sle(uic_t* ui) {
+    // UX design decision:
+    // 3 vertical visible runs SLE is friendlier in UX term
+    // than not implemented horizontal scroll.
     assert(ui == &edit[2]->ui);
 //  traceln("WxH: %dx%d <- r/o button", ro.ui.w, ro.ui.h);
     ui->w = ro.ui.w; // r/o button
