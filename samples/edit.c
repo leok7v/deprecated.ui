@@ -389,7 +389,7 @@ static void uic_edit_dispose_paragraphs_layout(uic_edit_t* e) {
 }
 
 static void uic_edit_layout_now(uic_edit_t* e) {
-    if (e->ui.measure != null && e->ui.layout != null && e->width > 0) {
+    if (e->ui.measure != null && e->ui.layout != null && e->ui.w > 0) {
         uic_edit_dispose_paragraphs_layout(e);
         e->ui.measure(&e->ui);
         e->ui.layout(&e->ui);
@@ -410,6 +410,8 @@ static void uic_edit_set_font(uic_edit_t* e, font_t* f) {
     e->scroll.rn = 0;
     e->ui.font = f;
     e->ui.em = gdi.get_em(*f);
+    e->width = 0;
+    e->height = 0;
     uic_edit_layout_now(e);
 }
 
@@ -1628,9 +1630,16 @@ static void uic_edit_layout(uic_t* ui) { // top down
     // glyph position in scroll_pn paragraph:
     const uic_edit_pg_t scroll = e->width == 0 ?
         (uic_edit_pg_t){0, 0} : uic_edit_scroll_pg(e);
-    if (e->width > 0 && ui->w != e->width) {
-        uic_edit_dispose_paragraphs_layout(e);
-    }
+    // the optimization of layout disposal with cached
+    // width and height cannot guarantee correct layout
+    // in other changing conditions, e.g. moving UI
+    // between monitors with different DPI or font
+    // changes by the caller (Ctrl +/- 0)...    
+//  if (e->width > 0 && ui->w != e->width) {
+//      uic_edit_dispose_paragraphs_layout(e);
+//  }
+    // always dispose paragraphs layout:
+    uic_edit_dispose_paragraphs_layout(e);
     // reenforce minimum size again
     e->width  = ui->w;
     e->height = ui->h;

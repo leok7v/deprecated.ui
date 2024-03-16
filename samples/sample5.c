@@ -8,6 +8,14 @@ static bool debug_layout; // = true;
 
 const char* title = "Sample5";
 
+// font scale:
+static const double fs[] = {0.5, 0.75, 1.0, 1.25, 1.50, 1.75, 2.0}; 
+// font scale index
+static int32_t fx = 2; // fs[2] == 1.0 
+
+static font_t mf; // mono font
+static font_t pf; // proportional font
+
 static uic_edit_t edit0;
 static uic_edit_t edit1;
 static uic_edit_t edit2;
@@ -15,6 +23,18 @@ static uic_edit_t* edit[3] = { &edit0, &edit1, &edit2 };
 
 static int32_t focused(void);
 static void focus_back_to_edit(void);
+
+static void scaled_fonts() {
+    assert(0 <= fx && fx < countof(fs));
+    if (mf != null) { gdi.delete_font(mf); }
+    mf = gdi.font(app.fonts.mono, 
+                  (int32_t)(gdi.font_height(app.fonts.mono) * fs[fx] + 0.5),
+                  -1);
+    if (pf != null) { gdi.delete_font(pf); }
+    pf = gdi.font(app.fonts.regular, 
+                  (int32_t)(gdi.font_height(app.fonts.regular) * fs[fx] + 0.5),
+                  -1);
+}
 
 uic_button(full_screen, "&Full Screen", 7.5, {
     app.full_screen(!app.is_full_screen);
@@ -42,10 +62,8 @@ uic_checkbox(ro, "&Read Only", 7.5, {
 
 uic_checkbox(mono, "&Mono", 7.5, {
     int32_t ix = focused();
-//  traceln("ix: %d %p %p %p", ix, app.focus, &edit0, &edit1);
     if (ix >= 0) {
-        edit[ix]->set_font(edit[ix],
-            mono->ui.pressed ? &app.fonts.mono : &app.fonts.regular);
+        edit[ix]->set_font(edit[ix], mono->ui.pressed ? &mf : &pf);
         focus_back_to_edit();
     } else {
         mono->ui.pressed = !mono->ui.pressed;
@@ -71,10 +89,37 @@ uic_checkbox(sl, "&Single Line", 7.5, {
     }
 });
 
+static void font_plus(void) {
+    if (fx < countof(fs) - 1) {
+        fx++;
+        scaled_fonts();
+        app.layout();
+    }
+}
+
+static void font_minus(void) {
+    if (fx > 0) {
+        fx--;
+        scaled_fonts();
+        app.layout();
+    }
+}
+
+static void font_reset(void) {
+    fx = 2;
+    scaled_fonts();
+    app.layout();
+}
+
+uic_button(fp, "Font Ctrl+", 7.5, { font_plus(); });
+
+uic_button(fm, "Font Ctrl-", 7.5, { font_minus(); });
+
 uic_multiline(text, 0.0, "...");
 
 uic_container(right, null,
     &full_screen.ui, &quit.ui, &fuzz.ui,
+    &fp.ui, &fm.ui,
     &mono.ui, &sl.ui, &ro.ui, &edit2.ui);
 
 uic_container(left, null, &edit0.ui, &edit1.ui);
@@ -161,7 +206,7 @@ static void paint(uic_t* ui) {
     if (ix >= 0) {
         ro.ui.pressed = edit[ix]->ro;
         sl.ui.pressed = edit[ix]->sle;
-        mono.ui.pressed = edit[ix]->ui.font == &app.fonts.mono;
+        mono.ui.pressed = edit[ix]->ui.font == &mf;
     }
 }
 
@@ -303,6 +348,15 @@ static void key_pressed(uic_t* unused(ui), int32_t key) {
             }
         }
     }
+    if (app.ctrl) {
+        if (key == virtual_keys.minus) {
+            font_minus();
+        } else if (key == virtual_keys.plus) {
+            font_plus();
+        } else if (key == '0') {
+            font_reset();
+        }
+    }
     if (ix >= 0) { set_text(ix); }
 }
 
@@ -324,12 +378,14 @@ static void init(void) {
     app.ui->layout      = layout;
     app.ui->paint       = paint;
     app.ui->key_pressed = key_pressed;
+    scaled_fonts();
     static uic_t* children[] = { &left, &right, &bottom, null };
     app.ui->children = children;
     text.ui.font = &app.fonts.mono;
     strprintf(fuzz.ui.tip, "Ctrl+Shift+F5 to start / F5 to stop Fuzzing");
     for (int32_t i = 0; i < countof(edit); i++) {
         uic_edit_init(edit[i]);
+        edit[i]->ui.font = &pf;
         uic_edit_init_with_lorem_ipsum(edit[i]);
     }
     app.focus = &edit[0]->ui;
@@ -338,11 +394,12 @@ static void init(void) {
     // edit[2] is SLE:
     uic_edit_init(edit[2]);
     hooked_sle_measure = edit[2]->ui.measure;
+    edit[2]->ui.font = &pf;
     edit[2]->fuzz = uic_edit_fuzz;
     edit[2]->ui.measure = measure_3_lines_sle;
     edit[2]->sle = true;
     edit[2]->select_all(edit[2]);
-    edit[2]->paste(edit[2], "Single line edit control", -1);
+    edit[2]->paste(edit[2], "Single line edit", -1);
     edit[2]->enter = edit_enter;
 }
 
