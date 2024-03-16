@@ -339,7 +339,6 @@ static void init(void) {
         uic_edit_init(edit[i]);
         uic_edit_init_with_lorem_ipsum(edit[i]);
     }
-    edit[0]->fuzz = uic_edit_fuzz; // only for first edit control
     app.focus = &edit[0]->ui;
     app.every_100ms = every_100ms;
     set_text(0); // need to be two lines for measure

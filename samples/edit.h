@@ -70,11 +70,11 @@ typedef struct uic_edit_s {
     int32_t bottom;    // '' (ditto) of the bottom
     // number of fully (not partially clipped) visible `runs' from top to bottom:
     int32_t visible_runs;
-    bool focused;    // is focused and created caret
-    bool sle;        // Single Line Edit
-    bool ro;         // Read Only: TODO: replace with edit->ui.enabled
-    bool wb;         // Word Break
-    int32_t shown;   // debug: caret show/hide counter 0|1
+    bool focused;  // is focused and created caret
+    bool ro;       // Read Only
+    bool sle;      // Single Line Edit
+    bool wb;       // Word Break
+    int32_t shown; // debug: caret show/hide counter 0|1
     // https://en.wikipedia.org/wiki/Fuzzing
     volatile thread_t fuzzer;     // fuzzer thread != null when fuzzing
     volatile int32_t  fuzz_count; // fuzzer event count
@@ -97,8 +97,8 @@ typedef struct uic_edit_s {
                  to set font via this function instead which also requests
                  edit UI element re-layout.
 
-    .ro        - readonly edit->ui.enabled used to control readonly mode. 
-                 If edit control is disabled it appearance does not change but it 
+    .ro        - readonly edit->ro is used to control readonly mode. 
+                 If edit control is readonly its appearance does not change but it 
                  refuses to accept any changes to the rendered text.
 
     .wb        - wordbreak this attribute was removed as poor UX human experience 
