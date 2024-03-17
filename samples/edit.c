@@ -255,7 +255,7 @@ fn(uic_edit_glyph_t, glyph_at)(uic_edit_t* e, uic_edit_pg_t p) {
 fn(const uic_edit_run_t*, paragraph_runs)(uic_edit_t* e, int32_t pn,
         int32_t* runs) {
 //  double time = crt.seconds();
-    assert(ui->w > 0);
+    assert(e->ui.w > 0);
     const uic_edit_run_t* r = null;
     if (pn == e->paragraphs) {
         static const uic_edit_run_t eof_run = { 0 };
