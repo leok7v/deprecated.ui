@@ -1,7 +1,6 @@
 /* Copyright (c) Dmitry "Leo" Kuznetsov 2021 see LICENSE for details */
 #include "quick.h"
 #include "edit.h"
-#include <Windows.h>
 
 // TODO: undo/redo
 // TODO: back/forward navigation
@@ -346,14 +345,13 @@ fn(void, create_caret)(uic_edit_t* e) {
     assert(app.has_focus());
     int32_t caret_width = min(2, max(1, app.dpi.monitor_effective / 100));
 //  traceln("%d,%d", caret_width, e->ui.em.y);
-    fatal_if_false(CreateCaret((HWND)app.window, null, caret_width, e->ui.em.y));
-    assert(GetSystemMetrics(SM_CARETBLINKINGENABLED) == true);
+    app.create_caret(caret_width, e->ui.em.y);
     e->focused = true; // means caret was created
 }
 
 fn(void, destroy_caret)(uic_edit_t* e) {
     fatal_if(!e->focused);
-    fatal_if_false(DestroyCaret());
+    app.destroy_caret();
     e->focused = false; // means caret was destroyed
 //  traceln("");
 }
@@ -362,11 +360,11 @@ fn(void, show_caret)(uic_edit_t* e) {
     if (e->focused) {
         assert(app.is_active());
         assert(app.has_focus());
-        fatal_if_false(SetCaretPos(e->ui.x + e->caret.x, e->ui.y + e->caret.y));
+        app.move_caret(e->ui.x + e->caret.x, e->ui.y + e->caret.y);
         // TODO: it is possible to support unblinking caret if desired
         // do not set blink time - use global default
 //      fatal_if_false(SetCaretBlinkTime(500));
-        fatal_if_false(ShowCaret((HWND)app.window));
+        app.show_caret();
         e->shown++;
 //      traceln("shown=%d", e->shown);
         assert(e->shown == 1);
@@ -375,7 +373,7 @@ fn(void, show_caret)(uic_edit_t* e) {
 
 fn(void, hide_caret)(uic_edit_t* e) {
     if (e->focused) {
-        fatal_if_false(HideCaret((HWND)app.window));
+        app.hide_caret();
         e->shown--;
 //      traceln("shown=%d", e->shown);
         assert(e->shown == 0);
@@ -621,7 +619,7 @@ fn(void, paint_paragraph)(uic_edit_t* e, int32_t pn) {
 fn(void, set_caret)(uic_edit_t* e, int32_t x, int32_t y) {
     if (e->caret.x != x || e->caret.y != y) {
         if (e->focused && app.has_focus()) {
-            fatal_if_false(SetCaretPos(e->ui.x + x, e->ui.y + y));
+            app.move_caret(e->ui.x + x, e->ui.y + y);
 //          traceln("%d,%d", e->ui.x + x, e->ui.y + y);
         }
         e->caret.x = x;
@@ -1542,7 +1540,8 @@ fn(int32_t, copy)(uic_edit_t* e, char* text, int32_t* bytes) {
     ns(op)(e, false, from, to, null, &n);
     if (text != null) {
         int32_t m = min(n, *bytes);
-        if (m < n) { r = ERROR_INSUFFICIENT_BUFFER; }
+        enum { error_insufficient_buffer = 122 }; //  ERROR_INSUFFICIENT_BUFFER
+        if (m < n) { r = error_insufficient_buffer; }
         ns(op)(e, false, from, to, text, &m);
     }
     *bytes = n;
@@ -1722,6 +1721,8 @@ fn(bool, message)(uic_t* ui, int32_t unused(m), int64_t unused(wp),
     }
     return false;
 }
+
+__declspec(dllimport) unsigned int __stdcall GetACP(void);
 
 void ns(init)(uic_edit_t* e) {
     memset(e, 0, sizeof(*e));
