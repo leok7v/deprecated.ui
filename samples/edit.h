@@ -56,9 +56,24 @@ typedef struct uic_edit_s {
     void (*paste_from_clipboard)(uic_edit_t* e);
     void (*select_all)(uic_edit_t* e); // select whole text
     void (*erase)(uic_edit_t* e); // delete selected text
-    void (*fuzz)(uic_edit_t* e);  // start/stop fuzzing test
+    // keyboard actions dispatcher:
+    void (*key_down)(uic_edit_t* e);
+    void (*key_up)(uic_edit_t* e);
+    void (*key_left)(uic_edit_t* e);
+    void (*key_right)(uic_edit_t* e);
+    void (*key_pageup)(uic_edit_t* e);
+    void (*key_pagedw)(uic_edit_t* e);
+    void (*key_home)(uic_edit_t* e);
+    void (*key_end)(uic_edit_t* e);
+    void (*key_delete)(uic_edit_t* e);
+    void (*key_backspace)(uic_edit_t* e);
+    void (*key_enter)(uic_edit_t* e);
     // called when ENTER keyboard key is pressed in single line mode
     void (*enter)(uic_edit_t* e);
+    // fuzzer test:
+    void (*fuzz)(uic_edit_t* e);      // start/stop fuzzing test
+    void (*next_fuzz)(uic_edit_t* e); // next fuzz input event(s)
+    // TODO: remove width, height or rename to last_w last_h
     int32_t width;   // last measure() width
     int32_t height;  // and height in pixels to trigger layout on change
     uic_edit_pg_t selection[2]; // from selection[0] to selection[1]

@@ -371,6 +371,7 @@ static void edit_enter(uic_edit_t* e) {
 
 void uic_edit_init_with_lorem_ipsum(uic_edit_t* e); 
 void uic_edit_fuzz(uic_edit_t* e);
+void uic_edit_next_fuzz(uic_edit_t* e);
 
 static void init(void) {
     app.title = title;
@@ -386,6 +387,8 @@ static void init(void) {
     for (int32_t i = 0; i < countof(edit); i++) {
         uic_edit_init(edit[i]);
         edit[i]->ui.font = &pf;
+        edit[i]->fuzz = uic_edit_fuzz;
+        edit[i]->next_fuzz = uic_edit_next_fuzz;
         uic_edit_init_with_lorem_ipsum(edit[i]);
     }
     app.focus = &edit[0]->ui;
@@ -396,6 +399,7 @@ static void init(void) {
     hooked_sle_measure = edit[2]->ui.measure;
     edit[2]->ui.font = &pf;
     edit[2]->fuzz = uic_edit_fuzz;
+    edit[2]->next_fuzz = uic_edit_next_fuzz;
     edit[2]->ui.measure = measure_3_lines_sle;
     edit[2]->sle = true;
     edit[2]->select_all(edit[2]);
