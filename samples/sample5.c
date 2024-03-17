@@ -329,9 +329,9 @@ static void measure_3_lines_sle(uic_t* ui) {
 //          edit[2]->ui.w, edit[2]->ui.h, 
 //          edit[2]->width, edit[2]->height, 
 //          edit[2]->ui.em.y, edit[2]->ui.h / edit[2]->ui.em.y);
-    if (ui->h > ui->em.y * 3) {
-        ui->h = ui->em.y * 3;
-        edit[2]->height = ui->h;
+    int32_t max_lines = edit[2]->focused ? 3 : 1;
+    if (ui->h > ui->em.y * max_lines) {
+        ui->h = ui->em.y * max_lines;
     }
 }
 
