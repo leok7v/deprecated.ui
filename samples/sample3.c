@@ -86,7 +86,7 @@ static void opened(void) {
 
 static void closed(void) {
     events.set(quit);
-    threads.join(thread);
+    threads.join(thread, -1);
     thread = null;
     gdi.image_dispose(&image[0]);
     gdi.image_dispose(&image[1]);

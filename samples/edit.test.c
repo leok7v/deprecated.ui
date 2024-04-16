@@ -248,7 +248,7 @@ void uic_edit_fuzz(uic_edit_t* e) {
         uic_edit_next_fuzz(e);
     } else {
         e->fuzz_quit = true;
-        threads.join(e->fuzzer);
+        threads.join(e->fuzzer, -1);
         e->fuzzer = null;
     }
     traceln("fuzzing %s",e->fuzzer != null ? "started" : "stopped");

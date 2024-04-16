@@ -130,12 +130,31 @@ static void opened(void) {
     fatal_if_null(thread);
 }
 
+static void detached_sleep(void* unused(p)) {
+    crt.sleep(100.0); // seconds
+}
+
+static void detached_loop(void* unused(p)) {
+    uint64_t sum = 0;
+    for (uint64_t i = 0; i < UINT64_MAX; i++) {
+        sum += i;
+    }
+    // making sure that compiler won't get rid of the loop:
+    traceln("%lld", sum);
+}
+
 static void closed(void) {
     app.kill_timer(timer10ms);
     quit = true;
-    threads.join(thread);
+    fatal_if_not_zero(threads.join(thread, -1));
     thread = null;
     quit = false;
+    // just to test that ExitProcess(0) works when there is
+    // are detached threads
+    thread_t detached = threads.start(detached_sleep, null);
+    threads.detach(detached);
+    detached = threads.start(detached_loop, null);
+    threads.detach(detached);
 }
 
 static void do_not_start_minimized(void) {

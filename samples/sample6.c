@@ -323,7 +323,7 @@ static void fini(void) {
     free(gif.pixels);
     free(gif.delays);
     events.set(animation.quit);
-    threads.join(animation.thread);
+    threads.join(animation.thread, -1);
     events.dispose(animation.quit);
     midi_stop();
     midi_close();
