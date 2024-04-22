@@ -1,0 +1,6 @@
+[submodule "stb"]
+	path = stb
+	url = https://github.com/nothings/stb.git
+[submodule "ut"]
+	path = ut
+	url = https://github.com/leok7v/ut

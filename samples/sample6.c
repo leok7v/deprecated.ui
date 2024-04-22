@@ -2,7 +2,7 @@
 #include "quick.h"
 #include <windows.h>
 #include <mmsystem.h>
-#include "stb_image.h"
+#include "stb/stb_image.h"
 
 #pragma comment(lib, "winmm.lib")
 

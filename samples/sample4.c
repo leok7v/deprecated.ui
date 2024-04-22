@@ -1,6 +1,6 @@
 /* Copyright (c) Dmitry "Leo" Kuznetsov 2021 see LICENSE for details */
 #include "quick.h"
-#include "stb_image.h"
+#include "stb/stb_image.h"
 
 begin_c
 
