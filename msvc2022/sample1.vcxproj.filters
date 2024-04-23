@@ -33,6 +33,21 @@
     <ClInclude Include="..\inc\ui\layout.h">
       <Filter>inc\ui</Filter>
     </ClInclude>
+    <ClInclude Include="..\inc\ui\checkbox.h">
+      <Filter>inc\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\inc\ui\label.h">
+      <Filter>inc\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\inc\ui\slider.h">
+      <Filter>inc\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\inc\ui\button.h">
+      <Filter>inc\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\inc\ui\messagebox.h">
+      <Filter>inc\ui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="res">

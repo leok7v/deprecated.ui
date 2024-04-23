@@ -16,8 +16,6 @@ typedef struct region_s__* region_t;
 
 typedef uintptr_t tm_t; // timer not the same as "id" in set_timer()!
 
-
-
 typedef struct image_s {
     int32_t w; // width
     int32_t h; // height
@@ -26,3 +24,14 @@ typedef struct image_s {
     bitmap_t bitmap;
     void* pixels;
 } image_t;
+
+typedef struct dpi_s { // max(dpi_x, dpi_y)
+    int32_t system;  // system dpi
+    int32_t process; // process dpi
+    // 15" diagonal monitor 3840x2160 175% scaled
+    // monitor dpi effective 168, angular 248 raw 284
+    int32_t monitor_effective; // effective with regard of user scaling
+    int32_t monitor_raw;       // with regard of physical screen size
+    int32_t monitor_angular;   // diagonal raw
+    int32_t window;            // main window dpi
+} dpi_t;

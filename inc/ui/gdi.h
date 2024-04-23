@@ -1,6 +1,8 @@
 #pragma once
 #include "ui/ui.h"
 
+begin_c
+
 // Graphic Device Interface (selected parts of Windows GDI)
 
 enum {
@@ -109,3 +111,5 @@ typedef struct gdi_s {
 } gdi_t;
 
 extern gdi_t gdi;
+
+end_c

@@ -1,6 +1,8 @@
 #pragma once
 #include "ui/ui.h"
 
+begin_c
+
 enum {
     uic_tag_container  = 'cnt',
     uic_tag_messagebox = 'mbx',
@@ -83,3 +85,14 @@ typedef struct view_s { // ui element container/control
 // which is OK for buttons and many other UI controls but absolutely not
 // OK for text editing. Thus edit uses raw mouse events to react
 // on clicks and double clicks.
+
+void uic_init(view_t* ui);
+
+#define uic_container(name, ini, ...)                                   \
+static view_t* _ ## name ## _ ## children ## _[] = {__VA_ARGS__, null}; \
+static view_t name = { .tag = uic_tag_container, .init = ini,           \
+                      .children = (_ ## name ## _ ## children ## _),    \
+                      .text = #name                                     \
+}
+
+end_c

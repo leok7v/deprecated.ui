@@ -1,6 +1,8 @@
 #pragma once
 #include "ui/ui.h"
 
+begin_c
+
 /* TODO: make color_t uint64_t RGBA remove pens and brushes
          support upto 16-16-16-15(A)bit per pixel color
          components with 'transparent/hollow' bit
@@ -74,3 +76,5 @@ typedef struct colors_s {
 } colors_t;
 
 extern colors_t colors;
+
+end_c

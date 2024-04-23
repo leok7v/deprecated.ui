@@ -1,6 +1,8 @@
 #pragma once
 #include "ui/ui.h"
 
+begin_c
+
 typedef struct {
     void (*center)(view_t* ui); // exactly one child
     void (*horizontal)(view_t* ui, int32_t gap);
@@ -19,3 +21,4 @@ typedef struct {
 
 extern layouts_if layouts;
 
+end_c

@@ -149,9 +149,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\inc\ui\app.h" />
+    <ClInclude Include="..\inc\ui\button.h" />
+    <ClInclude Include="..\inc\ui\checkbox.h" />
     <ClInclude Include="..\inc\ui\colors.h" />
     <ClInclude Include="..\inc\ui\gdi.h" />
+    <ClInclude Include="..\inc\ui\label.h" />
     <ClInclude Include="..\inc\ui\layout.h" />
+    <ClInclude Include="..\inc\ui\messagebox.h" />
+    <ClInclude Include="..\inc\ui\slider.h" />
     <ClInclude Include="..\inc\ui\types.h" />
     <ClInclude Include="..\inc\ui\ui.h" />
     <ClInclude Include="..\inc\ui\view.h" />
