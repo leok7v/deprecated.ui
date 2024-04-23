@@ -1,6 +1,6 @@
-# Quick
+# UI
 
-Quick recursively stands for "Quick User Interface Controls Kit"
+[![build-on-push](https://github.com/leok7v/ui/actions/workflows/build-on-push.yml/badge.svg)](https://github.com/leok7v/ui/actions/workflows/build-on-push.yml)
 
 Win GDI dpi aware apps skeleton suitable for simple realtime-ish UI.
 
