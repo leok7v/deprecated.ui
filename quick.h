@@ -1,7 +1,7 @@
 /* Copyright (c) Dmitry "Leo" Kuznetsov 2021 see LICENSE at the end of file */
 #ifndef qucik_defintion
 #define qucik_defintion
-#include "crt.h"
+#include "ut.h"
 
 begin_c
 
@@ -555,12 +555,7 @@ typedef struct app_s {
     bool no_clip;  // allows to resize window above hosting monitor size
     bool hide_on_minimize; // like task manager minimize means hide
     bool aero;     // retro Windows 7 decoration (just for the fun of it)
-    // main(argc, argv)
-    int32_t argc;
-    const char** argv;
-    const char** command_line;
-    // application exit code:
-    int32_t exit_code;
+    int32_t exit_code; // application exit code
     int32_t tid; // main thread id
     // drawing context:
     dpi_t dpi;
@@ -571,7 +566,7 @@ typedef struct app_s {
     ui_rect_t work_area; // current monitor work area
     int32_t width;  // client width
     int32_t height; // client height
-    // not to call crt.seconds() too often:
+    // not to call clock.seconds() too often:
     double now;     // ssb "seconds since boot" updated on each message
     uic_t* ui;      // show_window() changes ui.hidden
     uic_t* focus;   // does not affect message routing - free for all
@@ -750,22 +745,34 @@ end_c
 #if defined(quick_implementation) || defined(quick_implementation_console)
 #undef quick_implementation
 
-#if !defined(STRICT)
-#define STRICT
-#endif
+// #if !defined(STRICT)
+// #define STRICT
+// #endif
+//
+// #if !defined(WIN32_LEAN_AND_MEAN)
+// #define WIN32_LEAN_AND_MEAN
+// #endif
+//
+// #if !defined(WIN32_LEAN_AND_MEAN)
+// #define WIN32_LEAN_AND_MEAN
+// #endif
+//
+// #include <Windows.h>
+// #include <WindowsX.h>
+// #include <VersionHelpers.h>
+// #include <timeapi.h>
 
-#if !defined(WIN32_LEAN_AND_MEAN)
-#define WIN32_LEAN_AND_MEAN
-#endif
-
-#if !defined(WIN32_LEAN_AND_MEAN)
-#define WIN32_LEAN_AND_MEAN
-#endif
-
-#include <Windows.h>
-#include <WindowsX.h>
+#pragma warning(push)
+#pragma warning(disable: 4255) //no function prototype given: converting '()' to '(void)'
+#include "win32.h"
+#include <windowsx.h> // useful macros
 #include <VersionHelpers.h>
-#include <timeapi.h>
+#define INIT_GUID
+#include <Shlobj.h>
+#include <ShellScalingApi.h>
+#include <dwmapi.h>
+#include <commdlg.h>
+#pragma warning(pop)
 
 // GDI implementation
 
@@ -789,7 +796,7 @@ static void __gdi_init__(void) {
     gdi.pen_hollow = (pen_t)GetStockPen(NULL_PEN);
 }
 
-static inline_c COLORREF gdi_color_ref(color_t c) {
+static inline COLORREF gdi_color_ref(color_t c) {
     assert(color_is_8bit(c));
     return (COLORREF)(c & 0xFFFFFFFF);
 }
@@ -968,7 +975,7 @@ static void gdi_gradient(int32_t x, int32_t y, int32_t w, int32_t h,
     GradientFill(canvas(), vertex, 2, &gRect, 1, mode);
 }
 
-static BITMAPINFO* gdi_greyscale_bitmap_info() {
+static BITMAPINFO* gdi_greyscale_bitmap_info(void) {
     typedef struct bitmap_rgb_s {
         BITMAPINFO bi;
         RGBQUAD rgb[256];
@@ -1422,13 +1429,13 @@ typedef struct gdi_dtp_s { // draw text params
 static void gdi_text_draw(gdi_dtp_t* p) {
     int32_t n = 1024;
     char* text = (char*)alloca(n);
-    crt.vformat(text, n - 1, p->format, p->vl);
+    str.vformat(text, n - 1, p->format, p->vl);
     int32_t k = (int32_t)strlen(text);
     // Microsoft returns -1 not posix required sizeof buffer
     while (k >= n - 1 || k < 0) {
         n = n * 2;
         text = (char*)alloca(n);
-        crt.vformat(text, n - 1, p->format, p->vl);
+        str.vformat(text, n - 1, p->format, p->vl);
         k = (int)strlen(text);
     }
     assert(k >= 0 && k <= n, "k=%d n=%d fmt=%s", k, n, p->format);
@@ -1735,10 +1742,10 @@ static bool app_has_focus(void) {
 static void window_request_focus(void* w) {
     // https://stackoverflow.com/questions/62649124/pywin32-setfocus-resulting-in-access-is-denied-error
     // https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-attachthreadinput
-    assert(crt.gettid() == app.tid, "cannot be called from background thread");
-    crt.seterr(0);
+    assert(threads.id() == app.tid, "cannot be called from background thread");
+    runtime.seterr(0);
     w = SetFocus((HWND)w); // w previous focused window
-    if (w == null) { fatal_if_not_zero(crt.err()); }
+    if (w == null) { fatal_if_not_zero(runtime.err()); }
 }
 
 static void app_request_focus(void) {
@@ -1882,7 +1889,7 @@ void _uic_text_init_(uic_t* ui) {
 
 void uic_text_vinit(uic_text_t* t, const char* format, va_list vl) {
     static_assert(offsetof(uic_text_t, ui) == 0, "offsetof(.ui)");
-    crt.vformat(t->ui.text, countof(t->ui.text), format, vl);
+    str.vformat(t->ui.text, countof(t->ui.text), format, vl);
     t->ui.tag = uic_tag_text;
     _uic_text_init_(&t->ui);
 }
@@ -2086,7 +2093,7 @@ static int  uic_checkbox_paint_on_off(uic_t* ui) {
 }
 
 static const char*  uic_checkbox_on_off_label(uic_t* ui, char* label, int32_t count)  {
-    crt.sformat(label, count, "%s", uic_nsl(ui));
+    str.sformat(label, count, "%s", uic_nsl(ui));
     char* s = strstr(label, "___");
     if (s != null) {
         memcpy(s, ui->pressed ? "On " : "Off", 3);
@@ -2466,7 +2473,7 @@ void uic_messagebox_init(uic_messagebox_t* mx, const char* opts[],
     mx->cb = cb;
     va_list vl;
     va_start(vl, format);
-    crt.vformat(mx->ui.text, countof(mx->ui.text), format, vl);
+    str.vformat(mx->ui.text, countof(mx->ui.text), format, vl);
     uic_text_init_ml(&mx->text, 0.0, mx->ui.text);
     va_end(vl);
     uic_messagebox_init_(&mx->ui);
@@ -2662,12 +2669,6 @@ end_c
 
 // app implementation
 
-#define INIT_GUID
-#include <Shlobj.h>
-#include <ShellScalingApi.h>
-#include <dwmapi.h>
-#include <commdlg.h>
-
 begin_c
 
 #define WM_ANIMATE  (WM_APP + 0x7FFF)
@@ -2801,12 +2802,12 @@ static void app_alt_ctrl_shift(bool down, int32_t key) {
     if (key == VK_SHIFT)   { app.shift = down; }
 }
 
-static inline_c ui_point_t app_point2ui(const POINT* p) {
+static inline ui_point_t app_point2ui(const POINT* p) {
     ui_point_t u = { p->x, p->y };
     return u;
 }
 
-static inline_c POINT app_ui2point(const ui_point_t* u) {
+static inline POINT app_ui2point(const ui_point_t* u) {
     POINT p = { u->x, u->y };
     return p;
 }
@@ -2840,7 +2841,7 @@ static void app_update_monitor_dpi(HMONITOR monitor, dpi_t* dpi) {
         // The device may need to be manually reset."
         int32_t r = GetDpiForMonitor(monitor, (MONITOR_DPI_TYPE)mtd, &dpi_x, &dpi_y);
         if (r != 0) {
-            crt.sleep(1.0 / 32); // and retry:
+            threads.sleep_for(1.0 / 32); // and retry:
             r = GetDpiForMonitor(monitor, (MONITOR_DPI_TYPE)mtd, &dpi_x, &dpi_y);
         }
         if (r == 0) {
@@ -2953,15 +2954,15 @@ static void app_init_fonts(int32_t dpi) {
 }
 
 static void app_data_save(const char* name, const void* data, int32_t bytes) {
-    crt.data_save(app.class_name, name, data, bytes);
+    config.save(app.class_name, name, data, bytes);
 }
 
 static int32_t app_data_size(const char* name) {
-    return crt.data_size(app.class_name, name);
+    return config.size(app.class_name, name);
 }
 
 static int32_t app_data_load(const char* name, void* data, int32_t bytes) {
-    return crt.data_load(app.class_name, name, data, bytes);
+    return config.load(app.class_name, name, data, bytes);
 }
 
 typedef begin_packed struct app_wiw_s { // "where is window"
@@ -3042,7 +3043,7 @@ static void app_save_window_pos(window_t wnd, const char* name, bool dump) {
     }
 //  traceln("%d,%d %dx%d show=%d", wiw.placement.x, wiw.placement.y,
 //      wiw.placement.w, wiw.placement.h, wiw.show);
-    crt.data_save(app.class_name, name, &wiw, sizeof(wiw));
+    config.save(app.class_name, name, &wiw, sizeof(wiw));
     app_update_mi(&app.wrc, MONITOR_DEFAULTTONEAREST);
 }
 
@@ -3052,11 +3053,11 @@ static void app_save_console_pos(void) {
         app_save_window_pos((window_t)cw, "wic", false);
         HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
         CONSOLE_SCREEN_BUFFER_INFOEX info = { sizeof(CONSOLE_SCREEN_BUFFER_INFOEX) };
-        int32_t r = GetConsoleScreenBufferInfoEx(console, &info) ? 0 : crt.err();
+        int32_t r = GetConsoleScreenBufferInfoEx(console, &info) ? 0 : runtime.err();
         if (r != 0) {
-            traceln("GetConsoleScreenBufferInfoEx() %s", crt.error(r));
+            traceln("GetConsoleScreenBufferInfoEx() %s", str.error(r));
         } else {
-            crt.data_save(app.class_name, "console_screen_buffer_infoex",
+            config.save(app.class_name, "console_screen_buffer_infoex",
                             &info, (int)sizeof(info));
 //          traceln("info: %dx%d", info.dwSize.X, info.dwSize.Y);
 //          traceln("%d,%d %dx%d", info.srWindow.Left, info.srWindow.Top,
@@ -3066,7 +3067,7 @@ static void app_save_console_pos(void) {
     }
     int32_t v = app.is_console_visible();
     // "icv" "is console visible"
-    crt.data_save(app.class_name, "icv", &v, (int)sizeof(v));
+    config.save(app.class_name, "icv", &v, (int)sizeof(v));
 }
 
 static bool app_point_in_rect(const ui_point_t* p, const ui_rect_t* r) {
@@ -3110,7 +3111,7 @@ static void app_bring_window_inside_monitor(const ui_rect_t* mrc, ui_rect_t* wrc
 
 static bool app_load_window_pos(ui_rect_t* rect, int32_t *visibility) {
     app_wiw_t wiw = {0}; // where is window
-    bool loaded = crt.data_load(app.class_name, "wiw", &wiw, sizeof(wiw)) ==
+    bool loaded = config.load(app.class_name, "wiw", &wiw, sizeof(wiw)) ==
                                 sizeof(wiw);
     if (loaded) {
         #ifdef QUICK_DEBUG
@@ -3152,7 +3153,7 @@ static bool app_load_window_pos(ui_rect_t* rect, int32_t *visibility) {
 static bool app_load_console_pos(ui_rect_t* rect, int32_t *visibility) {
     app_wiw_t wiw = {0}; // where is window
     *visibility = 0; // boolean
-    bool loaded = crt.data_load(app.class_name, "wic", &wiw, sizeof(wiw)) ==
+    bool loaded = config.load(app.class_name, "wic", &wiw, sizeof(wiw)) ==
                                 sizeof(wiw);
     if (loaded) {
         ui_rect_t* p = &wiw.placement;
@@ -3714,7 +3715,7 @@ static void app_paint_on_canvas(HDC hdc) {
     canvas_t canvas = app.canvas;
     app.canvas = (canvas_t)hdc;
     gdi.push(0, 0);
-    double time = crt.seconds();
+    double time = clock.seconds();
     gdi.x = 0;
     gdi.y = 0;
     app_update_crc();
@@ -3739,7 +3740,7 @@ static void app_paint_on_canvas(HDC hdc) {
     gdi.set_font(font);
     app.paint_count++;
     if (app.paint_count % 128 == 0) { app.paint_max = 0; }
-    app.paint_time = (crt.seconds() - time);
+    app.paint_time = clock.seconds() - time;
     app.paint_max = max(app.paint_time, app.paint_max);
     if (app.paint_avg == 0) {
         app.paint_avg = app.paint_time;
@@ -3899,7 +3900,7 @@ static void app_click_detector(uint32_t msg, WPARAM wp, LPARAM lp) {
 }
 
 static LRESULT CALLBACK window_proc(HWND window, UINT msg, WPARAM wp, LPARAM lp) {
-    app.now = crt.seconds();
+    app.now = clock.seconds();
     if (app.window == null) {
         app.window = (window_t)window;
     } else {
@@ -4053,9 +4054,9 @@ static LRESULT CALLBACK window_proc(HWND window, UINT msg, WPARAM wp, LPARAM lp)
 }
 
 static long app_set_window_long(int32_t index, long value) {
-    crt.seterr(0);
+    runtime.seterr(0);
     long r = SetWindowLongA(window(), index, value); // r previous value
-    fatal_if_not_zero(crt.err());
+    fatal_if_not_zero(runtime.err());
     return r;
 }
 
@@ -4317,10 +4318,10 @@ static void app_console_disable_close(void) {
 }
 
 static int app_console_attach(void) {
-    int r = AttachConsole(ATTACH_PARENT_PROCESS) ? 0 : crt.err();
+    int r = AttachConsole(ATTACH_PARENT_PROCESS) ? 0 : runtime.err();
     if (r == 0) {
         app_console_disable_close();
-        crt.sleep(0.1); // give cmd.exe a chance to print prompt again
+        threads.sleep_for(0.1); // give cmd.exe a chance to print prompt again
         printf("\n");
     }
     return r;
@@ -4344,9 +4345,9 @@ static int app_set_console_size(int16_t w, int16_t h) {
     // width/height in characters
     HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
     CONSOLE_SCREEN_BUFFER_INFOEX info = { sizeof(CONSOLE_SCREEN_BUFFER_INFOEX) };
-    int r = GetConsoleScreenBufferInfoEx(console, &info) ? 0 : crt.err();
+    int r = GetConsoleScreenBufferInfoEx(console, &info) ? 0 : runtime.err();
     if (r != 0) {
-        traceln("GetConsoleScreenBufferInfoEx() %s", crt.error(r));
+        traceln("GetConsoleScreenBufferInfoEx() %s", str.error(r));
     } else {
         // tricky because correct order of the calls
         // SetConsoleWindowInfo() SetConsoleScreenBufferSize() depends on
@@ -4357,15 +4358,15 @@ static int app_set_console_size(int16_t w, int16_t h) {
         COORD c = {w, h};
         SMALL_RECT const minwin = { 0, 0, c.X - 1, c.Y - 1 };
         c.Y = 9001; // maximum buffer number of rows at the moment of implementation
-        int r0 = SetConsoleWindowInfo(console, true, &minwin) ? 0 : crt.err();
-//      if (r0 != 0) { traceln("SetConsoleWindowInfo() %s", crt.error(r0)); }
-        int r1 = SetConsoleScreenBufferSize(console, c) ? 0 : crt.err();
-//      if (r1 != 0) { traceln("SetConsoleScreenBufferSize() %s", crt.error(r1)); }
+        int r0 = SetConsoleWindowInfo(console, true, &minwin) ? 0 : runtime.err();
+//      if (r0 != 0) { traceln("SetConsoleWindowInfo() %s", str.error(r0)); }
+        int r1 = SetConsoleScreenBufferSize(console, c) ? 0 : runtime.err();
+//      if (r1 != 0) { traceln("SetConsoleScreenBufferSize() %s", str.error(r1)); }
         if (r0 != 0 || r1 != 0) { // try in reverse order (which expected to work):
-            r0 = SetConsoleScreenBufferSize(console, c) ? 0 : crt.err();
-            if (r0 != 0) { traceln("SetConsoleScreenBufferSize() %s", crt.error(r0)); }
-            r1 = SetConsoleWindowInfo(console, true, &minwin) ? 0 : crt.err();
-            if (r1 != 0) { traceln("SetConsoleWindowInfo() %s", crt.error(r1)); }
+            r0 = SetConsoleScreenBufferSize(console, c) ? 0 : runtime.err();
+            if (r0 != 0) { traceln("SetConsoleScreenBufferSize() %s", str.error(r0)); }
+            r1 = SetConsoleWindowInfo(console, true, &minwin) ? 0 : runtime.err();
+            if (r1 != 0) { traceln("SetConsoleWindowInfo() %s", str.error(r1)); }
 	    }
         r = r0 == 0 ? r1 : r0; // first of two errors
     }
@@ -4382,26 +4383,26 @@ static void app_console_largest(void) {
     // and: https://learn.microsoft.com/en-us/windows/console/setconsolemode
     /* DOES NOT WORK:
     DWORD mode = 0;
-    r = GetConsoleMode(console, &mode) ? 0 : crt.err();
-    fatal_if_not_zero(r, "GetConsoleMode() %s", crt.error(r));
+    r = GetConsoleMode(console, &mode) ? 0 : runtime.err();
+    fatal_if_not_zero(r, "GetConsoleMode() %s", str.error(r));
     mode &= ~ENABLE_AUTO_POSITION;
-    r = SetConsoleMode(console, &mode) ? 0 : crt.err();
-    fatal_if_not_zero(r, "SetConsoleMode() %s", crt.error(r));
+    r = SetConsoleMode(console, &mode) ? 0 : runtime.err();
+    fatal_if_not_zero(r, "SetConsoleMode() %s", str.error(r));
     */
     CONSOLE_SCREEN_BUFFER_INFOEX info = { sizeof(CONSOLE_SCREEN_BUFFER_INFOEX) };
-    int r = GetConsoleScreenBufferInfoEx(console, &info) ? 0 : crt.err();
-    fatal_if_not_zero(r, "GetConsoleScreenBufferInfoEx() %s", crt.error(r));
+    int r = GetConsoleScreenBufferInfoEx(console, &info) ? 0 : runtime.err();
+    fatal_if_not_zero(r, "GetConsoleScreenBufferInfoEx() %s", str.error(r));
     COORD c = GetLargestConsoleWindowSize(console);
     if (c.X > 80) { c.X &= ~0x7; }
     if (c.Y > 24) { c.Y &= ~0x3; }
     if (c.X > 80) { c.X -= 8; }
     if (c.Y > 24) { c.Y -= 4; }
     app_set_console_size(c.X, c.Y);
-    r = GetConsoleScreenBufferInfoEx(console, &info) ? 0 : crt.err();
-    fatal_if_not_zero(r, "GetConsoleScreenBufferInfoEx() %s", crt.error(r));
+    r = GetConsoleScreenBufferInfoEx(console, &info) ? 0 : runtime.err();
+    fatal_if_not_zero(r, "GetConsoleScreenBufferInfoEx() %s", str.error(r));
     info.dwSize.Y = 9999; // maximum value at the moment of implementation
-    r = SetConsoleScreenBufferInfoEx(console, &info) ? 0 : crt.err();
-    fatal_if_not_zero(r, "SetConsoleScreenBufferInfoEx() %s", crt.error(r));
+    r = SetConsoleScreenBufferInfoEx(console, &info) ? 0 : runtime.err();
+    fatal_if_not_zero(r, "SetConsoleScreenBufferInfoEx() %s", str.error(r));
     app_save_console_pos();
 }
 
@@ -4411,9 +4412,9 @@ static void window_foreground(void* w) {
 }
 
 static void window_activate(void* w) {
-    crt.seterr(0);
+    runtime.seterr(0);
     w = SetActiveWindow((HWND)w); // w previous active window
-    if (w == null) { fatal_if_not_zero(crt.err()); }
+    if (w == null) { fatal_if_not_zero(runtime.err()); }
 }
 
 static void window_make_topmost(void* w) {
@@ -4466,7 +4467,7 @@ static void app_restore_console(int32_t *visibility) {
             CONSOLE_SCREEN_BUFFER_INFOEX info = {
                 sizeof(CONSOLE_SCREEN_BUFFER_INFOEX)
             };
-            int32_t r = crt.data_load(app.class_name,
+            int32_t r = config.load(app.class_name,
                 "console_screen_buffer_infoex", &info, (int)sizeof(info));
             if (r == sizeof(info)) { // 24x80
                 SMALL_RECT sr = info.srWindow;
@@ -4505,7 +4506,7 @@ static void app_console_show(bool b) {
 }
 
 static int app_console_create(void) {
-    int r = AllocConsole() ? 0 : crt.err();
+    int r = AllocConsole() ? 0 : runtime.err();
     if (r == 0) {
         app_console_disable_close();
         int32_t visibility = 0;
@@ -4555,16 +4556,17 @@ static void app_show_window(int32_t show) {
     }
 }
 
-static const char* app_open_filename(const char* folder, const char* pairs[], int32_t n) {
+static const char* app_open_filename(const char* folder,
+        const char* pairs[], int32_t n) {
     assert(pairs == null && n == 0 ||
            n >= 2 && n % 2 == 0);
-    wchar_t mem[32 * 1024];
-    wchar_t* filter = mem;
+    wchar_t memory[32 * 1024];
+    wchar_t* filter = memory;
     if (pairs == null || n == 0) {
         filter = L"All Files\0*\0\0";
     } else {
-        int32_t left = countof(mem) - 2;
-        wchar_t* s = mem;
+        int32_t left = countof(memory) - 2;
+        wchar_t* s = memory;
         for (int32_t i = 0; i < n; i+= 2) {
             wchar_t* s0 = utf8to16(pairs[i + 0]);
             wchar_t* s1 = utf8to16(pairs[i + 1]);
@@ -4602,26 +4604,26 @@ static const char* app_open_filename(const char* folder, const char* pairs[], in
 
 static int32_t clipboard_copy_text(const char* utf8) {
     int r = 0;
-    int32_t chars = crt.utf16_chars(utf8);
+    int32_t chars = str.utf16_chars(utf8);
     int32_t bytes = (chars + 1) * 2;
     wchar_t* utf16 = (wchar_t*)malloc(bytes);
     if (utf16 == null) {
         r = ERROR_OUTOFMEMORY;
     } else {
-        crt.utf8_utf16(utf16, utf8);
+        str.utf8_utf16(utf16, utf8);
         assert(utf16[chars - 1] == 0);
         const int32_t n = (int)wcslen(utf16) + 1;
         r = OpenClipboard(GetDesktopWindow()) ? 0 : GetLastError();
-        if (r != 0) { traceln("OpenClipboard() failed %s", crt.error(r)); }
+        if (r != 0) { traceln("OpenClipboard() failed %s", str.error(r)); }
         if (r == 0) {
             r = EmptyClipboard() ? 0 : GetLastError();
-            if (r != 0) { traceln("EmptyClipboard() failed %s", crt.error(r)); }
+            if (r != 0) { traceln("EmptyClipboard() failed %s", str.error(r)); }
         }
         void* global = null;
         if (r == 0) {
             global = GlobalAlloc(GMEM_MOVEABLE, n * 2);
             r = global != null ? 0 : GetLastError();
-            if (r != 0) { traceln("GlobalAlloc() failed %s", crt.error(r)); }
+            if (r != 0) { traceln("GlobalAlloc() failed %s", str.error(r)); }
         }
         if (r == 0) {
             char* d = (char*)GlobalLock(global);
@@ -4630,7 +4632,7 @@ static int32_t clipboard_copy_text(const char* utf8) {
             r = SetClipboardData(CF_UNICODETEXT, global) ? 0 : GetLastError();
             GlobalUnlock(global);
             if (r != 0) {
-                traceln("SetClipboardData() failed %s", crt.error(r));
+                traceln("SetClipboardData() failed %s", str.error(r));
                 GlobalFree(global);
             } else {
                 // do not free global memory. It's owned by system clipboard now
@@ -4639,7 +4641,7 @@ static int32_t clipboard_copy_text(const char* utf8) {
         if (r == 0) {
             r = CloseClipboard() ? 0 : GetLastError();
             if (r != 0) {
-                traceln("CloseClipboard() failed %s", crt.error(r));
+                traceln("CloseClipboard() failed %s", str.error(r));
             }
         }
         free(utf16);
@@ -4650,7 +4652,7 @@ static int32_t clipboard_copy_text(const char* utf8) {
 static int clipboard_text(char* utf8, int32_t* bytes) {
     not_null(bytes);
     int r = OpenClipboard(GetDesktopWindow()) ? 0 : GetLastError();
-    if (r != 0) { traceln("OpenClipboard() failed %s", crt.error(r)); }
+    if (r != 0) { traceln("OpenClipboard() failed %s", str.error(r)); }
     if (r == 0) {
         HANDLE global = GetClipboardData(CF_UNICODETEXT);
         if (global == null) {
@@ -4658,13 +4660,13 @@ static int clipboard_text(char* utf8, int32_t* bytes) {
         } else {
             wchar_t* utf16 = (wchar_t*)GlobalLock(global);
             if (utf16 != null) {
-                int32_t utf8_bytes = crt.utf8_bytes(utf16);
+                int32_t utf8_bytes = str.utf8_bytes(utf16);
                 if (utf8 != null) {
                     char* decoded = (char*)malloc(utf8_bytes);
                     if (decoded == null) {
                         r = ERROR_OUTOFMEMORY;
                     } else {
-                        crt.utf16_utf8(decoded, utf16);
+                        str.utf16_utf8(decoded, utf16);
                         int32_t n = min(*bytes, utf8_bytes);
                         memcpy(utf8, decoded, n);
                         free(decoded);
@@ -4699,21 +4701,21 @@ static int clipboard_copy_bitmap(image_t* im) {
     fatal_if_false(StretchBlt(dst, 0, 0, im->w, im->h, src, 0, 0,
         im->w, im->h, SRCCOPY));
     int r = OpenClipboard(GetDesktopWindow()) ? 0 : GetLastError();
-    if (r != 0) { traceln("OpenClipboard() failed %s", crt.error(r)); }
+    if (r != 0) { traceln("OpenClipboard() failed %s", str.error(r)); }
     if (r == 0) {
         r = EmptyClipboard() ? 0 : GetLastError();
-        if (r != 0) { traceln("EmptyClipboard() failed %s", crt.error(r)); }
+        if (r != 0) { traceln("EmptyClipboard() failed %s", str.error(r)); }
     }
     if (r == 0) {
         r = SetClipboardData(CF_BITMAP, bitmap) ? 0 : GetLastError();
         if (r != 0) {
-            traceln("SetClipboardData() failed %s", crt.error(r));
+            traceln("SetClipboardData() failed %s", str.error(r));
         }
     }
     if (r == 0) {
         r = CloseClipboard() ? 0 : GetLastError();
         if (r != 0) {
-            traceln("CloseClipboard() failed %s", crt.error(r));
+            traceln("CloseClipboard() failed %s", str.error(r));
         }
     }
     not_null(SelectBitmap(dst, d));
@@ -4904,8 +4906,8 @@ wchar_t* winnls_load_string(int32_t strid, LANGID langid) {
     HRSRC res = FindResourceExA(((HMODULE)null), RT_STRING,
         MAKEINTRESOURCE(block), langid);
 //  traceln("FindResourceExA(block=%d langid=%04X)=%p", block, langid, res);
-    uint8_t* mem = res == null ? null : (uint8_t*)LoadResource(null, res);
-    wchar_t* ws = mem == null ? null : (wchar_t*)LockResource(mem);
+    uint8_t* memory = res == null ? null : (uint8_t*)LoadResource(null, res);
+    wchar_t* ws = memory == null ? null : (wchar_t*)LockResource(memory);
 //  traceln("LockResource(block=%d langid=%04X)=%p", block, langid, ws);
     if (ws != null) {
         for (int32_t i = 0; i < 16 && r == null; i++) {
@@ -4926,8 +4928,8 @@ wchar_t* winnls_load_string(int32_t strid, LANGID langid) {
     return r;
 }
 
-static const char* winnls_save_string(wchar_t* mem) {
-    const char* utf8 = utf16to8(mem);
+static const char* winnls_save_string(wchar_t* memory) {
+    const char* utf8 = utf16to8(memory);
     uintptr_t n = strlen(utf8) + 1;
     assert(n > 1);
     uintptr_t left = countof(winnls_strings_memory) - (
@@ -5024,8 +5026,8 @@ static void winnls_init(void) {
         int32_t block = strid / 16 + 1;
         HRSRC res = FindResourceExA(((HMODULE)null), RT_STRING,
             MAKEINTRESOURCE(block), langid);
-        uint8_t* mem = res == null ? null : (uint8_t*)LoadResource(null, res);
-        wchar_t* ws = mem == null ? null : (wchar_t*)LockResource(mem);
+        uint8_t* memory = res == null ? null : (uint8_t*)LoadResource(null, res);
+        wchar_t* ws = memory == null ? null : (wchar_t*)LockResource(memory);
         if (ws == null) { break; }
         for (int32_t i = 0; i < 16; i++) {
             int32_t ix = strid + i;
@@ -5061,7 +5063,7 @@ static void __winnls_init__(void) {
 
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, char* command,
         int show_command) {
-    app.tid = crt.gettid();
+    app.tid = threads.id();
     fatal_if_not_zero(CoInitializeEx(0, COINIT_MULTITHREADED | COINIT_SPEED_OVER_MEMORY));
     // https://learn.microsoft.com/en-us/windows/win32/api/imm/nf-imm-immdisablelegacyime
     ImmDisableLegacyIME();
@@ -5072,15 +5074,11 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, char* command,
     app.visibility = show_command;
     (void)command; // ASCII unused
     const char* cl = utf16to8(GetCommandLineW());
-    const int32_t len = (int)strlen(cl);
-    const int32_t k = ((len + 2) / 2) * (int)sizeof(void*) + (int)sizeof(void*);
-    const int32_t n = k + (len + 2) * (int)sizeof(char);
-    app.argv = (const char**)alloca(n);
-    memset(app.argv, 0, n);
-    char* buff = (char*)(((char*)app.argv) + k);
-    app.argc = args.parse(cl, app.argv, buff);
+    args.WinMain(cl);
     (void)instance; (void)previous; // unused
-    return app_win_main();
+    int32_t r = app_win_main();
+    args.fini();
+    return r;
 }
 
 #else
@@ -5092,7 +5090,7 @@ int main(int argc, const char* argv[]) {
     __winnls_init__();
     app.argc = argc;
     app.argv = argv;
-    app.tid = crt.gettid();
+    app.tid = threads.id();
     return app.main();
 }
 

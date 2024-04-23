@@ -43,7 +43,7 @@ static void request_rendering(void) {
 static void stop_rendering(void) {
     if (rendering) {
         stop = true;
-        while (rendering || stop) { crt.sleep(0.01); }
+        while (rendering || stop) { threads.sleep_for(0.01); }
     }
 }
 
@@ -136,7 +136,7 @@ static double scale(int x, int n, double low, double hi) {
 }
 
 static void mandelbrot(image_t* im) {
-    double time = crt.seconds();
+    double time = clock.seconds();
     for (int r = 0; r < im->h && !stop; r++) {
         double y0 = scale(r, im->h, -1.12, 1.12);
         for (int c = 0; c < im->w && !stop; c++) {
@@ -169,7 +169,7 @@ static void mandelbrot(image_t* im) {
             px[2] = (color >>  0) & 0xFF;
         }
     }
-    render_time = crt.seconds() - time;
+    render_time = clock.seconds() - time;
 }
 
 static void renderer(void* unused) {

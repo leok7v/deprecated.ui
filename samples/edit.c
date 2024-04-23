@@ -18,9 +18,9 @@
 
 begin_c
 
-// When implementation and header are amalgamated 
-// into a single file header library name_space is 
-// used to separate different modules namespaces. 
+// When implementation and header are amalgamated
+// into a single file header library name_space is
+// used to separate different modules namespaces.
 
 #pragma push_macro("fn") // function
 #pragma push_macro("ns") // name space
@@ -90,12 +90,12 @@ fn(void, invalidate)(uic_edit_t* e) {
 }
 
 fn(int32_t, text_width)(uic_edit_t* e, const char* s, int32_t n) {
-//  double time = crt.seconds();
+//  double time = clock.seconds();
     // average measure_text() performance per character:
     // "app.fonts.mono"    ~500us (microseconds)
     // "app.fonts.regular" ~250us (microseconds)
     int32_t x = n == 0 ? 0 : gdi.measure_text(*e->ui.font, "%.*s", n, s).x;
-//  time = (crt.seconds() - time) * 1000.0;
+//  time = (clock.seconds() - time) * 1000.0;
 //  static double time_sum;
 //  static double length_sum;
 //  time_sum += time;
@@ -254,7 +254,7 @@ fn(uic_edit_glyph_t, glyph_at)(uic_edit_t* e, uic_edit_pg_t p) {
 
 fn(const uic_edit_run_t*, paragraph_runs)(uic_edit_t* e, int32_t pn,
         int32_t* runs) {
-//  double time = crt.seconds();
+//  double time = clock.seconds();
     assert(e->ui.w > 0);
     const uic_edit_run_t* r = null;
     if (pn == e->paragraphs) {
@@ -323,7 +323,7 @@ fn(const uic_edit_run_t*, paragraph_runs)(uic_edit_t* e, int32_t pn,
         r = p->run;
     }
     assert(r != null && *runs >= 1);
-//  time = crt.seconds() - time;
+//  time = clock.seconds() - time;
 //  traceln("%.3fms", time * 1000.0);
     return r;
 }
@@ -405,7 +405,7 @@ fn(void, layout_now)(uic_edit_t* e) {
 }
 
 fn(void, if_sle_layout)(uic_edit_t* e) {
-    // only for single line edit controls that were already initialized 
+    // only for single line edit controls that were already initialized
     // and measured horizontally at least once.
     if (e->sle && e->ui.layout != null && e->ui.w > 0) {
         ns(layout_now)(e);
@@ -694,7 +694,7 @@ fn(void, scroll_into_view)(uic_edit_t* e, const uic_edit_pg_t pg) {
                 py += e->ui.em.y;
             }
         }
-        int32_t sle_runs = e->sle && e->ui.w > 0 ? 
+        int32_t sle_runs = e->sle && e->ui.w > 0 ?
             ns(paragraph_run_count)(e, 0) : 0;
         ns(paragraph_g2b)(e, e->paragraphs - 1);
         uic_edit_pg_t last_paragraph = {.pn = e->paragraphs - 1,
@@ -769,7 +769,7 @@ fn(char*, ensure)(uic_edit_t* e, int32_t pn, int32_t bytes,
 }
 
 fn(uic_edit_pg_t, op)(uic_edit_t* e, bool cut,
-        uic_edit_pg_t from, uic_edit_pg_t to, 
+        uic_edit_pg_t from, uic_edit_pg_t to,
         char* text, int32_t* bytes) {
     #pragma push_macro("clip_append")
     #define clip_append(a, ab, mx, text, bytes) do {  \
@@ -1466,7 +1466,7 @@ fn(void, mousewheel)(uic_t* ui, int32_t unused(dx), int32_t dy) {
 fn(bool, set_focus)(uic_t* ui) {
     assert(ui->tag == uic_tag_edit);
     uic_edit_t* e = (uic_edit_t*)ui;
-//  traceln("active=%d has_focus=%d focused=%d", 
+//  traceln("active=%d has_focus=%d focused=%d",
 //           app.is_active(), app.has_focus(), e->focused);
     assert(app.focus == ui || app.focus == null);
     assert(ui->focusable);
@@ -1482,7 +1482,7 @@ fn(bool, set_focus)(uic_t* ui) {
 fn(void, kill_focus)(uic_t* ui) {
     assert(ui->tag == uic_tag_edit);
     uic_edit_t* e = (uic_edit_t*)ui;
-//  traceln("active=%d has_focus=%d focused=%d", 
+//  traceln("active=%d has_focus=%d focused=%d",
 //           app.is_active(), app.has_focus(), e->focused);
     if (e->focused) {
         ns(hide_caret)(e);
@@ -1519,7 +1519,7 @@ fn(void, cut_copy)(uic_edit_t* e, bool cut) {
         }
         text[n] = 0; // make it zero terminated
         clipboard.copy_text(text);
-        assert(n == strlen(text), "n=%d strlen(cb)=%d cb=\"%s\"",
+        assert(n == (int32_t)strlen(text), "n=%d strlen(cb)=%d cb=\"%s\"",
                n, strlen(text), text);
         ns(free)(&text);
     }
@@ -1639,7 +1639,7 @@ fn(void, layout)(uic_t* ui) { // top down
     // width and height cannot guarantee correct layout
     // in other changing conditions, e.g. moving UI
     // between monitors with different DPI or font
-    // changes by the caller (Ctrl +/- 0)...    
+    // changes by the caller (Ctrl +/- 0)...
 //  if (ui->w > 0 && ui->w != ui->w) {
 //      ns(dispose_paragraphs_layout)(e);
 //  }
@@ -1703,7 +1703,7 @@ fn(void, move)(uic_edit_t* e, uic_edit_pg_t pg) {
     e->selection[0] = e->selection[1];
 }
 
-fn(bool, message)(uic_t* ui, int32_t unused(m), int64_t unused(wp), 
+fn(bool, message)(uic_t* ui, int32_t unused(m), int64_t unused(wp),
         int64_t unused(lp), int64_t* unused(rt)) {
     uic_edit_t* e = (uic_edit_t*)ui;
     if (app.is_active() && app.has_focus() && !ui->hidden) {
@@ -1729,7 +1729,7 @@ void ns(init)(uic_edit_t* e) {
     uic_init(&e->ui);
     e->ui.tag = uic_tag_edit;
     e->ui.focusable = true;
-    e->fuzz_seed = 1; // client can seed it with (crt.nanoseconds() | 1)
+    e->fuzz_seed = 1; // client can seed it with (clock.nanoseconds() | 1)
     e->last_x    = -1;
     e->focused   = false;
     e->sle       = false;

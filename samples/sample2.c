@@ -81,8 +81,8 @@ static void timer_thread(void* p) {
     threads.name("r/t timer");
     threads.realtime();
     while (!*done) {
-        crt.sleep(0.0094);
-        ts[1].time[ts[1].pos] = crt.seconds();
+        threads.sleep_for(0.0094);
+        ts[1].time[ts[1].pos] = clock.seconds();
         ts[1].pos = (ts[1].pos + 1) % N;
         (ts[1].samples)++;
         app.redraw();
@@ -131,7 +131,7 @@ static void opened(void) {
 }
 
 static void detached_sleep(void* unused(p)) {
-    crt.sleep(100.0); // seconds
+    threads.sleep_for(100.0); // seconds
 }
 
 static void detached_loop(void* unused(p)) {

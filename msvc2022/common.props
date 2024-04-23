@@ -3,44 +3,94 @@
   <ImportGroup Label="PropertySheets" />
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionDir)..;</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>STRICT;WIN32_LEAN_AND_MEAN;VC_EXTRALEAN;_CRT_NONSTDC_NO_WARNINGS;CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_DEPRECATE;_SCL_SECURE_NO_WARNINGS;_CRT_SECURE_NO_WARNINGS=1;WIN32;%(PreprocessorDefinitions);</PreprocessorDefinitions>
-      <WarningLevel>Level4</WarningLevel>
+      <AdditionalIncludeDirectories>$(SolutionDir)..;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\ut\single_file_lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>STRICT;%(PreprocessorDefinitions);</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>VC_EXTRALEAN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NONSTDC_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NONSTDC_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_SCL_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
+      <DisableSpecificWarnings>4710;%(DisableSpecificWarnings)</DisableSpecificWarnings> <!-- function not inlined -->
+      <DisableSpecificWarnings>4711;%(DisableSpecificWarnings)</DisableSpecificWarnings> <!-- automatic inline expansion -->
+      <DisableSpecificWarnings>4820;%(DisableSpecificWarnings)</DisableSpecificWarnings> <!-- '?' bytes padding added after data member -->
+      <DisableSpecificWarnings>5045;%(DisableSpecificWarnings)</DisableSpecificWarnings> <!-- Spectre mitigation -->
+      <DisableSpecificWarnings>6262;%(DisableSpecificWarnings)</DisableSpecificWarnings> <!-- EXCESSIVESTACKUSAGE -->
+      <TreatSpecificWarningsAsErrors>4133;%(TreatSpecificWarningsAsErrors)</TreatSpecificWarningsAsErrors> <!-- incompatible types -->
+      <TreatSpecificWarningsAsErrors>4020;%(TreatSpecificWarningsAsErrors)</TreatSpecificWarningsAsErrors> <!-- too many actual parameters -->
+      <TreatSpecificWarningsAsErrors>4716;%(TreatSpecificWarningsAsErrors)</TreatSpecificWarningsAsErrors> <!-- function must return a value -->
       <DebugInformationFormat>OldStyle</DebugInformationFormat>
+      <AdditionalOptions>/experimental:c11atomics %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
 	<Link>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
-      <LinkIncremental>false</LinkIncremental>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
 	</Link>
     <ResourceCompile>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\inc</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\inc;$(SolutionDir)..\build;$(SolutionDir)..\src;$(SolutionDir)..\samples</AdditionalIncludeDirectories>
 	  <PreprocessorDefinitions>NDEBUG;$(DefineConstants);%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='debug|x64'">
+    <OutDir>$(SolutionDir)..\bin\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)..\build\$(Configuration)\$(ProjectName)\</IntDir>
+    <GenerateManifest>false</GenerateManifest>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <Optimization>Disabled</Optimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='release|x64'">
+    <OutDir>$(SolutionDir)..\bin\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)..\build\$(Configuration)\$(ProjectName)\</IntDir>
+    <GenerateManifest>false</GenerateManifest>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <Optimization>Full</Optimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='debug|x64'">
     <ClCompile>
       <PreprocessorDefinitions>_DEBUG;DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
       <Optimization>Disabled</Optimization>
-      <LinkIncremental>false</LinkIncremental>
+      <AdditionalOptions>/experimental:c11atomics %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;DEBUG;$(DefineConstants);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <NullTerminateStrings>true</NullTerminateStrings>
     </ResourceCompile>
+	<Link>
+      <OptimizeReferences>false</OptimizeReferences>
+      <LinkIncremental>false</LinkIncremental>
+	</Link>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='release|x64'">
     <ClCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <LinkIncremental>false</LinkIncremental>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <Optimization>Full</Optimization>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
+      <AdditionalOptions>/experimental:c11atomics %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG</PreprocessorDefinitions>
       <NullTerminateStrings>true</NullTerminateStrings>
     </ResourceCompile>
 	<Link>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalOptions>/LTCG %(AdditionalOptions)</AdditionalOptions>
+      <LinkIncremental>false</LinkIncremental>
 	</Link>
   </ItemDefinitionGroup>
 </Project>

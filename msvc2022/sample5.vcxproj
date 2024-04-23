@@ -148,11 +148,11 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\crt.h" />
     <ClInclude Include="..\quick.h" />
     <ClInclude Include="..\samples\edit.h" />
     <ClInclude Include="..\samples\i18n.h" />
     <ClInclude Include="..\samples\version.h" />
+    <ClInclude Include="..\ut\single_file_lib\ut.h" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\samples\sample.ico" />
@@ -165,11 +165,11 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\samples\crt.c" />
     <ClCompile Include="..\samples\edit.c" />
     <ClCompile Include="..\samples\edit.test.c" />
     <ClCompile Include="..\samples\quick.c" />
     <ClCompile Include="..\samples\sample5.c" />
+    <ClCompile Include="..\samples\ut.c" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="prebuild.vcxproj">

@@ -33,11 +33,11 @@ Using UTF-8 instead of UTF-16 on application level whereever possible.
 
 ```
 
-    int32_t crt.err(); // errno or GetLastError()
-    uint32_t crt.random32(uint32_t *state);
-    uint64_t crt.random64(uint64_t *state);
-    void crt.sleep(double seconds);
-    double crt.seconds(); // since boot
+    int32_t runtime.err(); // errno or GetLastError()
+    uint32_t num.random32(uint32_t *state);
+    uint64_t num.random64(uint64_t *state);
+    void threads.sleep_for(double seconds);
+    double clock.seconds(); // since boot
 
     ...
 

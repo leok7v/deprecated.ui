@@ -8,7 +8,7 @@
       <Filter>res</Filter>
     </ClInclude>
     <ClInclude Include="..\quick.h" />
-    <ClInclude Include="..\crt.h" />
+    <ClInclude Include="..\ut\single_file_lib\ut.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="res">
@@ -30,7 +30,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\samples\sample2.c" />
-    <ClCompile Include="..\samples\crt.c" />
     <ClCompile Include="..\samples\quick.c" />
+    <ClCompile Include="..\samples\ut.c" />
   </ItemGroup>
 </Project>

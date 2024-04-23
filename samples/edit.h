@@ -91,7 +91,7 @@ typedef struct uic_edit_s {
     volatile int32_t  fuzz_count; // fuzzer event count
     volatile int32_t  fuzz_last;  // last processed fuzz
     volatile bool     fuzz_quit;  // last processed fuzz
-    // random32 starts with 1 but client can seed it with (crt.nanoseconds() | 1)
+    // random32 starts with 1 but client can seed it with (clock.nanoseconds() | 1)
     uint32_t fuzz_seed;    // fuzzer random32 seed (must start with odd number)
     // paragraphs memory:
     int32_t capacity;      // number of bytes allocated for `para` array below

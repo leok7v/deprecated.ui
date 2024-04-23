@@ -99,23 +99,23 @@ static void uic_edit_lorem_ipsum_generator(uic_edit_lorem_ipsum_generator_params
     char* end = p.text + p.count - 64;
     uint32_t paragraphs = p.min_paragraphs +
         (p.min_paragraphs == p.max_paragraphs ? 0 :
-         crt.random32(&p.seed) % (p.max_paragraphs - p.min_paragraphs + 1));
+         num.random32(&p.seed) % (p.max_paragraphs - p.min_paragraphs + 1));
     while (paragraphs > 0 && s < end) {
         uint32_t sentences_in_paragraph = p.min_sentences +
             (p.min_sentences == p.max_sentences ? 0 :
-             crt.random32(&p.seed) % (p.max_sentences - p.min_sentences + 1));
+             num.random32(&p.seed) % (p.max_sentences - p.min_sentences + 1));
         while (sentences_in_paragraph > 0 && s < end) {
             const uint32_t words_in_sentence = p.min_words +
                 (p.min_words == p.max_words ? 0 :
-                 crt.random32(&p.seed) % (p.max_words - p.min_words + 1));
+                 num.random32(&p.seed) % (p.max_words - p.min_words + 1));
             for (uint32_t i = 0; i < words_in_sentence && s < end; i++) {
-                const char* word = words[crt.random32(&p.seed) % countof(words)];
+                const char* word = words[num.random32(&p.seed) % countof(words)];
                 memcpy(s, word, strlen(word));
                 if (i == 0) { *s = (char)toupper(*s); }
                 s += strlen(word);
                 if (i < words_in_sentence - 1 && s < end) {
                     const char* delimiter = "\x20";
-                    int32_t punctuation = crt.random32(&p.seed) % 128;
+                    int32_t punctuation = num.random32(&p.seed) % 128;
                     switch (punctuation) {
                         case 0:
                         case 1:
@@ -168,7 +168,7 @@ void uic_edit_init_with_lorem_ipsum(uic_edit_t* e) {
     #ifdef DEBUG
         p.seed = 1; // repeatable sequence of pseudo random numbers
     #else
-        p.seed = (int32_t)crt.nanoseconds() | 0x1; // must be odd
+        p.seed = (int32_t)clock.nanoseconds() | 0x1; // must be odd
     #endif
     uic_edit_lorem_ipsum_generator(p);
     e->paste(e, test_content, (int32_t)strlen(test_content));
@@ -185,11 +185,11 @@ static void uic_edit_fuzzer(void* p) {
     uic_edit_t* e = (uic_edit_t*)p;
     for (;;) {
         while (!e->fuzz_quit && e->fuzz_count == e->fuzz_last) {
-            crt.sleep(1.0 / 1024.0); // ~1ms
+            threads.sleep_for(1.0 / 1024.0); // ~1ms
         }
         if (e->fuzz_quit) { e->fuzz_quit = false; break; }
         e->fuzz_last = e->fuzz_count;
-        uint32_t rnd = crt.random32(&e->fuzz_seed);
+        uint32_t rnd = num.random32(&e->fuzz_seed);
         switch (rnd % 8) {
             case 0: app.alt = 0; app.ctrl = 0; app.shift = 0; break;
             case 1: app.alt = 1; app.ctrl = 0; app.shift = 0; break;
@@ -219,21 +219,21 @@ static void uic_edit_fuzzer(void* p) {
             0
         };
 // TODO: Alt+Q should be filtered out as well as ESC
-        rnd = crt.random32(&e->fuzz_seed);
+        rnd = num.random32(&e->fuzz_seed);
         int key = keys[rnd % countof(keys)];
         if (key == 0) {
-            rnd = crt.random32(&e->fuzz_seed);
+            rnd = num.random32(&e->fuzz_seed);
             int ch = rnd % 128;
             if (ch == 033) { ch = 'a'; } // don't send ESC
             app.post(messages.character, ch, 0);
         } else {
             app.post(messages.key_pressed, key, 0);
         }
-        if (crt.random32(&e->fuzz_seed) % 32 == 0) {
+        if (num.random32(&e->fuzz_seed) % 32 == 0) {
             // mouse events only inside edit control otherwise
             // they will start clicking buttons around
-            int32_t x = crt.random32(&e->fuzz_seed) % e->ui.w;
-            int32_t y = crt.random32(&e->fuzz_seed) % e->ui.h;
+            int32_t x = num.random32(&e->fuzz_seed) % e->ui.w;
+            int32_t y = num.random32(&e->fuzz_seed) % e->ui.h;
             app.post(messages.mouse_move,   0, (int64_t)(x | (y << 16)));
             app.post(messages.left_button_pressed,  0, (int64_t)(x | (y << 16)));
             app.post(messages.left_button_released, 0, (int64_t)(x | (y << 16)));

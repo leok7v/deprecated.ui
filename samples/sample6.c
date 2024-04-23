@@ -25,7 +25,7 @@ static struct {
     int32_t  index; // animation index 0..gif.frames - 1
     event_t  quit;
     thread_t thread;
-    uint32_t seed; // for crt.random32()
+    uint32_t seed; // for num.random32()
     int32_t  x;
     int32_t  y;
     int32_t  speed_x;
@@ -53,7 +53,7 @@ static void midi_stop(void);
 static void midi_close(void);
 
 static int  console(void) {
-    fatal_if(true, "%s only SUBSYSTEM:WINDOWS", app.argv[0]);
+    fatal_if(true, "%s only SUBSYSTEM:WINDOWS", args.basename());
     return 1;
 }
 
@@ -129,7 +129,7 @@ static void mouse(uic_t* unused(ui), int32_t m, int32_t unused(f)) {
 }
 
 static void opened(void) {
-    midi.tid = crt.gettid();
+    midi.tid = threads.id();
     midi_open();
     midi_play();
 }
@@ -157,7 +157,7 @@ static const char* midi_file(void) {
     if (midi.filename[0] == 0) {
         void* data = null;
         int64_t bytes = 0;
-        int r = crt.memmap_res("mr_blue_sky_midi", &data, &bytes);
+        int r = mem.map_resource("mr_blue_sky_midi", &data, &bytes);
         fatal_if_not_zero(r);
         GetTempPathA(countof(path), path);
         assert(path[0] != 0);
@@ -197,7 +197,7 @@ static void midi_warn_if_error_(int r, const char* call, const char* func, int l
 } while (0)
 
 static void midi_play(void) {
-    assert(midi.tid == crt.gettid());
+    assert(midi.tid == threads.id());
     MCI_PLAY_PARMS pp = {0};
     pp.dwCallback = (uintptr_t)app.window;
     midi_warn_if_error(mciSendCommandA(midi.mop.wDeviceID,
@@ -205,13 +205,13 @@ static void midi_play(void) {
 }
 
 static void midi_stop(void) {
-    assert(midi.tid == crt.gettid());
+    assert(midi.tid == threads.id());
     midi_warn_if_error(mciSendCommandA(midi.mop.wDeviceID,
         MCI_STOP, 0, 0));
 }
 
 static void midi_open(void) {
-    assert(midi.tid == crt.gettid());
+    assert(midi.tid == threads.id());
     midi.mop.dwCallback = (uintptr_t)app.window;
     midi.mop.wDeviceID = (WORD)-1;
     midi.mop.lpstrDeviceType = (const char*)MCI_DEVTYPE_SEQUENCER;
@@ -232,12 +232,12 @@ static void midi_close(void) {
 static void load_gif(void) {
     void* data = null;
     int64_t bytes = 0;
-    int r = crt.memmap_res("groot_gif", &data, &bytes);
+    int r = mem.map_resource("groot_gif", &data, &bytes);
     fatal_if_not_zero(r);
     gif.pixels = load_animated_gif(data, bytes, &gif.delays,
         &gif.w, &gif.h, &gif.frames, &gif.bpp, 4);
     fatal_if(gif.pixels == null || gif.bpp != 4 || gif.frames < 1);
-    // resources cannot be unmapped do not call crt.memunmap()
+    // resources cannot be unmapped do not call mem.unmap()
 }
 
 static void animate(void) {
@@ -251,10 +251,10 @@ static void animate(void) {
 //          traceln("%d %d speed: %d %d", animation.x, animation.y, animation.speed_x, animation.speed_y);
             animation.index = (animation.index + 1) % gif.frames;
             while (animation.speed_x == 0) {
-                animation.speed_x = crt.random32(&animation.seed) % (max_speed * 2 + 1) - max_speed;
+                animation.speed_x = num.random32(&animation.seed) % (max_speed * 2 + 1) - max_speed;
             }
             while (animation.speed_y == 0) {
-                animation.speed_y = crt.random32(&animation.seed) % (max_speed * 2 + 1) - max_speed;
+                animation.speed_y = num.random32(&animation.seed) % (max_speed * 2 + 1) - max_speed;
             }
             animation.x += animation.speed_x;
             animation.y += animation.speed_y;
@@ -272,8 +272,8 @@ static void animate(void) {
                 animation.y = app.crc.h - gif.h / 2 - 1;
                 animation.speed_y = -animation.speed_y;
             }
-            int inc = crt.random32(&animation.seed) % 2 == 0 ? -1 : +1;
-            if (crt.random32(&animation.seed) % 2 == 0) {
+            int inc = num.random32(&animation.seed) % 2 == 0 ? -1 : +1;
+            if (num.random32(&animation.seed) % 2 == 0) {
                 if (1 <= animation.speed_x + inc && animation.speed_x + inc < max_speed) {
                     animation.speed_x += inc;
                 }
@@ -301,14 +301,14 @@ static void init(void) {
     app.ui->message   = message;
     app.ui->mouse     = mouse;
     app.opened        = opened;
-    animation.seed = (uint32_t)crt.nanoseconds();
+    animation.seed = (uint32_t)clock.nanoseconds();
     animation.x = -1;
     animation.y = -1;
     animation.quit = events.create();
     animation.thread = threads.start(startup, null);
     void* data = null;
     int64_t bytes = 0;
-    fatal_if_not_zero(crt.memmap_res("sample_png", &data, &bytes));
+    fatal_if_not_zero(mem.map_resource("sample_png", &data, &bytes));
     int w = 0;
     int h = 0;
     int bpp = 0; // bytes (!) per pixel

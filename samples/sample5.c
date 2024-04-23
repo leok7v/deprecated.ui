@@ -9,9 +9,9 @@ static bool debug_layout; // = true;
 const char* title = "Sample5";
 
 // font scale:
-static const double fs[] = {0.5, 0.75, 1.0, 1.25, 1.50, 1.75, 2.0}; 
+static const double fs[] = {0.5, 0.75, 1.0, 1.25, 1.50, 1.75, 2.0};
 // font scale index
-static int32_t fx = 2; // fs[2] == 1.0 
+static int32_t fx = 2; // fs[2] == 1.0
 
 static font_t mf; // mono font
 static font_t pf; // proportional font
@@ -24,14 +24,14 @@ static uic_edit_t* edit[3] = { &edit0, &edit1, &edit2 };
 static int32_t focused(void);
 static void focus_back_to_edit(void);
 
-static void scaled_fonts() {
+static void scaled_fonts(void) {
     assert(0 <= fx && fx < countof(fs));
     if (mf != null) { gdi.delete_font(mf); }
-    mf = gdi.font(app.fonts.mono, 
+    mf = gdi.font(app.fonts.mono,
                   (int32_t)(gdi.font_height(app.fonts.mono) * fs[fx] + 0.5),
                   -1);
     if (pf != null) { gdi.delete_font(pf); }
-    pf = gdi.font(app.fonts.regular, 
+    pf = gdi.font(app.fonts.regular,
                   (int32_t)(gdi.font_height(app.fonts.regular) * fs[fx] + 0.5),
                   -1);
 }
@@ -213,24 +213,22 @@ static void paint(uic_t* ui) {
 static void open_file(const char* pathname) {
     char* file = null;
     int64_t bytes = 0;
-    if (crt.memmap_read(pathname, &file, &bytes) == 0) {
+    if (mem.map_ro(pathname, &file, &bytes) == 0) {
         if (0 < bytes && bytes <= INT_MAX) {
             edit[0]->select_all(edit[0]);
             edit[0]->paste(edit[0], file, (int32_t)bytes);
             uic_edit_pg_t start = { .pn = 0, .gp = 0 };
             edit[0]->move(edit[0], start);
         }
-        crt.memunmap(file, bytes);
+        mem.unmap(file, bytes);
     } else {
         app.toast(5.3, "\nFailed to open file \"%s\".\n%s\n",
-                  pathname, crt.error(crt.err()));
+                  pathname, str.error(runtime.err()));
     }
 }
 
 static void opened(void) {
-    if (app.argc > 1) {
-        open_file(app.argv[1]);
-    }
+    if (args.c > 1) { open_file(args.v[1]); }
 }
 
 static int32_t focused(void) {
@@ -325,9 +323,9 @@ static void measure_3_lines_sle(uic_t* ui) {
 //  traceln("WxH: %dx%d <- r/o button", ro.ui.w, ro.ui.h);
     ui->w = ro.ui.w; // r/o button
     hooked_sle_measure(ui);
-//  traceln("WxH: %dx%d (%dx%d) em: %d lines: %d", 
-//          edit[2]->ui.w, edit[2]->ui.h, 
-//          edit[2]->width, edit[2]->height, 
+//  traceln("WxH: %dx%d (%dx%d) em: %d lines: %d",
+//          edit[2]->ui.w, edit[2]->ui.h,
+//          edit[2]->width, edit[2]->height,
 //          edit[2]->ui.em.y, edit[2]->ui.h / edit[2]->ui.em.y);
     int32_t max_lines = edit[2]->focused ? 3 : 1;
     if (ui->h > ui->em.y * max_lines) {
@@ -369,7 +367,7 @@ static void edit_enter(uic_edit_t* e) {
 
 // see edit.test.c
 
-void uic_edit_init_with_lorem_ipsum(uic_edit_t* e); 
+void uic_edit_init_with_lorem_ipsum(uic_edit_t* e);
 void uic_edit_fuzz(uic_edit_t* e);
 void uic_edit_next_fuzz(uic_edit_t* e);
 

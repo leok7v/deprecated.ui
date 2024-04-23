@@ -13,7 +13,7 @@ static char filename[260]; // c:\Users\user\Pictures\mandrill-4.2.03.png
 static void init(void);
 
 static int  console(void) {
-    fatal_if(true, "%s only SUBSYSTEM:WINDOWS", app.argv[0]);
+    fatal_if(true, "%s only SUBSYSTEM:WINDOWS", args.basename());
     return 1;
 }
 
@@ -34,9 +34,9 @@ static void load_images(void) {
     int64_t bytes = 0;
     for (int i = 0; i < countof(image); i++) {
         if (i == 0) {
-            r = crt.memmap_read(filename, &data, &bytes);
+            r = mem.map_ro(filename, &data, &bytes);
         } else {
-            r = crt.memmap_res("sample_png", &data, &bytes);
+            r = mem.map_resource("sample_png", &data, &bytes);
         }
         fatal_if_not_zero(r);
         int w = 0;
@@ -47,7 +47,7 @@ static void load_images(void) {
         gdi.image_init(&image[i], w, h, bpp, pixels);
         free(pixels);
         // do not unmap resources:
-        if (i == 0) { crt.memunmap(data, bytes); }
+        if (i == 0) { mem.unmap(data, bytes); }
     }
 }
 
