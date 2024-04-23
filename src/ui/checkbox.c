@@ -21,7 +21,7 @@ static int  uic_checkbox_paint_on_off(view_t* ui) {
 }
 
 static const char*  uic_checkbox_on_off_label(view_t* ui, char* label, int32_t count)  {
-    str.sformat(label, count, "%s", uic_nsl(ui));
+    str.sformat(label, count, "%s", view_nls(ui));
     char* s = strstr(label, "___");
     if (s != null) {
         memcpy(s, ui->pressed ? "On " : "Off", 3);
@@ -31,7 +31,7 @@ static const char*  uic_checkbox_on_off_label(view_t* ui, char* label, int32_t c
 
 static void  uic_checkbox_measure(view_t* ui) {
     assert(ui->tag == uic_tag_checkbox);
-    uic_measure(ui);
+    view_measure(ui);
     ui->w += ui->em.x * 2;
 }
 
@@ -88,8 +88,8 @@ static void  uic_checkbox_mouse(view_t* ui, int32_t message, int32_t flags) {
 
 void _uic_checkbox_init_(view_t* ui) {
     assert(ui->tag == uic_tag_checkbox);
-    uic_init(ui);
-    uic_set_label(ui, ui->text);
+    view_init(ui);
+    view_set_text(ui, ui->text);
     ui->mouse       =  uic_checkbox_mouse;
     ui->measure     = uic_checkbox_measure;
     ui->paint       = uic_checkbox_paint;
@@ -102,7 +102,7 @@ void _uic_checkbox_init_(view_t* ui) {
 void uic_checkbox_init(uic_checkbox_t* c, const char* label, double ems,
        void (*cb)( uic_checkbox_t* b)) {
     static_assert(offsetof( uic_checkbox_t, ui) == 0, "offsetof(.ui)");
-    uic_init(&c->ui);
+    view_init(&c->ui);
     strprintf(c->ui.text, "%s", label);
     c->ui.width = ems;
     c->cb = cb;

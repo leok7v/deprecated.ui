@@ -1726,7 +1726,7 @@ __declspec(dllimport) unsigned int __stdcall GetACP(void);
 
 void ns(init)(uic_edit_t* e) {
     memset(e, 0, sizeof(*e));
-    uic_init(&e->ui);
+    view_init(&e->ui);
     e->ui.tag = uic_tag_edit;
     e->ui.focusable = true;
     e->fuzz_seed = 1; // client can seed it with (clock.nanoseconds() | 1)

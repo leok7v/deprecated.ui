@@ -1,5 +1,5 @@
 
-static void uic_invalidate(const view_t* ui) {
+static void view_invalidate(const view_t* ui) {
     ui_rect_t rc = { ui->x, ui->y, ui->w, ui->h};
     rc.x -= ui->em.x;
     rc.y -= ui->em.y;
@@ -8,11 +8,11 @@ static void uic_invalidate(const view_t* ui) {
     app.invalidate(&rc);
 }
 
-static const char* uic_nsl(view_t* ui) {
+static const char* view_nls(view_t* ui) {
     return ui->strid != 0 ? app.string(ui->strid, ui->text) : ui->text;
 }
 
-static void uic_measure(view_t* ui) {
+static void view_measure(view_t* ui) {
     font_t f = ui->font != null ? *ui->font : app.fonts.regular;
     ui->em = gdi.get_em(f);
     assert(ui->em.x > 0 && ui->em.y > 0);
@@ -20,9 +20,9 @@ static void uic_measure(view_t* ui) {
     ui_point_t mt = { 0 };
     if (ui->tag == uic_tag_text && ((uic_text_t*)ui)->multiline) {
         int32_t w = (int)(ui->width * ui->em.x + 0.5);
-        mt = gdi.measure_multiline(f, w == 0 ? -1 : w, uic_nsl(ui));
+        mt = gdi.measure_multiline(f, w == 0 ? -1 : w, view_nls(ui));
     } else {
-        mt = gdi.measure_text(f, uic_nsl(ui));
+        mt = gdi.measure_text(f, view_nls(ui));
     }
     ui->h = mt.y;
     ui->w = max(ui->w, mt.x);
@@ -30,7 +30,7 @@ static void uic_measure(view_t* ui) {
     ui->descent  = gdi.descent(f);
 }
 
-static void uic_set_label(view_t* ui, const char* label) {
+static void view_set_text(view_t* ui, const char* label) {
     int32_t n = (int32_t)strlen(label);
     strprintf(ui->text, "%s", label);
     for (int32_t i = 0; i < n; i++) {
@@ -41,17 +41,17 @@ static void uic_set_label(view_t* ui, const char* label) {
     }
 }
 
-static void uic_localize(view_t* ui) {
+static void view_localize(view_t* ui) {
     if (ui->text[0] != 0) {
         ui->strid = app.strid(ui->text);
     }
 }
 
-static bool uic_hidden_or_disabled(view_t* ui) {
+static bool view_hidden_or_disabled(view_t* ui) {
     return app.is_hidden(ui) || app.is_disabled(ui);
 }
 
-static void uic_hovering(view_t* ui, bool start) {
+static void view_hovering(view_t* ui, bool start) {
     static uic_text(btn_tooltip,  "");
     if (start && app_toast.ui == null && ui->tip[0] != 0 &&
        !app.is_hidden(ui)) {
@@ -67,10 +67,10 @@ static void uic_hovering(view_t* ui, bool start) {
     }
 }
 
-void uic_init(view_t* ui) {
-    ui->invalidate = uic_invalidate;
-    ui->localize = uic_localize;
-    ui->measure  = uic_measure;
-    ui->hovering = uic_hovering;
+void view_init(view_t* ui) {
+    ui->invalidate = view_invalidate;
+    ui->localize = view_localize;
+    ui->measure  = view_measure;
+    ui->hovering = view_hovering;
     ui->hover_delay = 1.5;
 }

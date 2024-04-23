@@ -86,7 +86,7 @@ typedef struct view_s { // ui element container/control
 // OK for text editing. Thus edit uses raw mouse events to react
 // on clicks and double clicks.
 
-void uic_init(view_t* ui);
+void view_init(view_t* ui);
 
 #define uic_container(name, ini, ...)                                   \
 static view_t* _ ## name ## _ ## children ## _[] = {__VA_ARGS__, null}; \

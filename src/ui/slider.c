@@ -1,12 +1,12 @@
 static void uic_slider_measure(view_t* ui) {
     assert(ui->tag == uic_tag_slider);
-    uic_measure(ui);
+    view_measure(ui);
     uic_slider_t* r = (uic_slider_t*)ui;
     assert(r->inc.ui.w == r->dec.ui.w && r->inc.ui.h == r->dec.ui.h);
     const int32_t em = ui->em.x;
     font_t f = ui->font != null ? *ui->font : app.fonts.regular;
     const int32_t w = (int)(ui->width * ui->em.x);
-    r->tm = gdi.measure_text(f, uic_nsl(ui), r->vmax);
+    r->tm = gdi.measure_text(f, view_nls(ui), r->vmax);
     if (w > r->tm.x) { r->tm.x = w; }
     ui->w = r->dec.ui.w + r->tm.x + r->inc.ui.w + em * 2;
     ui->h = r->inc.ui.h;
@@ -139,8 +139,8 @@ static void uic_slider_every_100ms(view_t* ui) { // 100ms
 
 void _uic_slider_init_(view_t* ui) {
     assert(ui->tag == uic_tag_slider);
-    uic_init(ui);
-    uic_set_label(ui, ui->text);
+    view_init(ui);
+    view_set_text(ui, ui->text);
     ui->mouse        = uic_slider_mouse;
     ui->measure      = uic_slider_measure;
     ui->layout       = uic_slider_layout;

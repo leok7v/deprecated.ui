@@ -26,12 +26,12 @@ static void uic_button_paint(view_t* ui) {
     if (b->ui.hover && !ui->armed) { c = colors.btn_hover_highlight; }
     if (ui->disabled) { c = colors.btn_disabled; }
     font_t f = ui->font != null ? *ui->font : app.fonts.regular;
-    ui_point_t m = gdi.measure_text(f, uic_nsl(ui));
+    ui_point_t m = gdi.measure_text(f, view_nls(ui));
     gdi.set_text_color(c);
     gdi.x = ui->x + (ui->w - m.x) / 2;
     gdi.y = ui->y + (ui->h - m.y) / 2;
     f = gdi.set_font(f);
-    gdi.text("%s", uic_nsl(ui));
+    gdi.text("%s", view_nls(ui));
     gdi.set_font(f);
     const int32_t pw = max(1, ui->em.y / 32); // pen width
     color_t color = ui->armed ? colors.dkgray4 : colors.gray;
@@ -123,7 +123,7 @@ static void uic_button_mouse(view_t* ui, int32_t message, int32_t flags) {
 
 static void uic_button_measure(view_t* ui) {
     assert(ui->tag == uic_tag_button || ui->tag == uic_tag_text);
-    uic_measure(ui);
+    view_measure(ui);
     const int32_t em2  = max(1, ui->em.x / 2);
     ui->w = ui->w;
     ui->h = ui->h + em2;
@@ -132,14 +132,14 @@ static void uic_button_measure(view_t* ui) {
 
 void _uic_button_init_(view_t* ui) {
     assert(ui->tag == uic_tag_button);
-    uic_init(ui);
+    view_init(ui);
     ui->mouse       = uic_button_mouse;
     ui->measure     = uic_button_measure;
     ui->paint       = uic_button_paint;
     ui->character   = uic_button_character;
     ui->every_100ms = uic_button_every_100ms;
     ui->key_pressed = uic_button_key_pressed;
-    uic_set_label(ui, ui->text);
+    view_set_text(ui, ui->text);
     ui->localize(ui);
     ui->color = colors.btn_text;
 }

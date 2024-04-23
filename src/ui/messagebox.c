@@ -68,7 +68,7 @@ static void uic_messagebox_layout(view_t* ui) {
 void uic_messagebox_init_(view_t* ui) {
     assert(ui->tag == uic_tag_messagebox);
     uic_messagebox_t* mx = (uic_messagebox_t*)ui;
-    uic_init(ui);
+    view_init(ui);
     ui->measure = uic_messagebox_measure;
     ui->layout = uic_messagebox_layout;
     mx->ui.font = &app.fonts.H3;

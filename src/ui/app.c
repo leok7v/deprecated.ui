@@ -531,7 +531,7 @@ static void init_children(view_t* ui) {
         if ((*c)->init != null) { (*c)->init(*c); (*c)->init = null; }
         if ((*c)->font == null) { (*c)->font = &app.fonts.regular; }
         if ((*c)->em.x == 0 || (*c)->em.y == 0) { (*c)->em = gdi.get_em(*ui->font); }
-        uic_localize(*c);
+        view_localize(*c);
         init_children(*c);
     }
 }
@@ -655,7 +655,7 @@ static void app_get_min_max_info(MINMAXINFO* mmi) {
 
 #define app_method_int32(name)                                  \
 static void app_##name(view_t* ui, int32_t p) {                  \
-    if (ui->name != null && !uic_hidden_or_disabled(ui)) {      \
+    if (ui->name != null && !view_hidden_or_disabled(ui)) {      \
         ui->name(ui, p);                                        \
     }                                                           \
     view_t** c = ui->children;                                   \
@@ -666,7 +666,7 @@ app_method_int32(key_pressed)
 app_method_int32(key_released)
 
 static void app_character(view_t* ui, const char* utf8) {
-    if (!uic_hidden_or_disabled(ui)) {
+    if (!view_hidden_or_disabled(ui)) {
         if (ui->character != null) { ui->character(ui, utf8); }
         view_t** c = ui->children;
         while (c != null && *c != null) { app_character(*c, utf8); c++; }
@@ -702,7 +702,7 @@ static void app_kill_focus(view_t* ui) {
 }
 
 static void app_mousewheel(view_t* ui, int32_t dx, int32_t dy) {
-    if (!uic_hidden_or_disabled(ui)) {
+    if (!view_hidden_or_disabled(ui)) {
         if (ui->mousewheel != null) { ui->mousewheel(ui, dx, dy); }
         view_t** c = ui->children;
         while (c != null && *c != null) { app_mousewheel(*c, dx, dy); c++; }
@@ -813,7 +813,7 @@ static void app_ui_mouse(view_t* ui, int32_t m, int32_t f) {
             app_hover_changed(ui);
         }
     }
-    if (!uic_hidden_or_disabled(ui)) {
+    if (!view_hidden_or_disabled(ui)) {
         if (ui->mouse != null) { ui->mouse(ui, m, f); }
         for (view_t** c = ui->children; c != null && *c != null; c++) {
             app_ui_mouse(*c, m, f);
@@ -822,7 +822,7 @@ static void app_ui_mouse(view_t* ui, int32_t m, int32_t f) {
 }
 
 static bool app_context_menu(view_t* ui) {
-    if (!uic_hidden_or_disabled(ui)) {
+    if (!view_hidden_or_disabled(ui)) {
         for (view_t** c = ui->children; c != null && *c != null; c++) {
             if (app_context_menu(*c)) { return true; }
         }
@@ -845,7 +845,7 @@ static bool app_inside(view_t* ui) {
 
 static bool app_tap(view_t* ui, int32_t ix) { // 0: left 1: middle 2: right
     bool done = false; // consumed
-    if (!uic_hidden_or_disabled(ui) && app_inside(ui)) {
+    if (!view_hidden_or_disabled(ui) && app_inside(ui)) {
         for (view_t** c = ui->children; c != null && *c != null && !done; c++) {
             done = app_tap(*c, ix);
         }
@@ -856,7 +856,7 @@ static bool app_tap(view_t* ui, int32_t ix) { // 0: left 1: middle 2: right
 
 static bool app_press(view_t* ui, int32_t ix) { // 0: left 1: middle 2: right
     bool done = false; // consumed
-    if (!uic_hidden_or_disabled(ui) && app_inside(ui)) {
+    if (!view_hidden_or_disabled(ui) && app_inside(ui)) {
         for (view_t** c = ui->children; c != null && *c != null && !done; c++) {
             done = app_press(*c, ix);
         }
@@ -2220,7 +2220,7 @@ static int app_win_main(void) {
         wr.y = app.work_area.y + (app.work_area.h - wr.h) / 2;
         app_bring_window_inside_monitor(&app.mrc, &wr);
     }
-    app.ui->invalidate  = uic_invalidate;
+    app.ui->invalidate  = view_invalidate;
     app.ui->hidden = true; // start with ui hidden
     app.ui->font = &app.fonts.regular;
     app.ui->w = wr.w - size_frame * 2;
