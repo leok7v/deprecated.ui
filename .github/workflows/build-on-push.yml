@@ -15,9 +15,9 @@ jobs:
       - name: setup msbuild
         uses: microsoft/setup-msbuild@v1.1
       - name: build debug
-        run:  msbuild msvc2022\quick.samples.sln -t:rebuild -verbosity:quiet -property:Configuration=Debug
+        run:  msbuild msvc2022\ui.sln -t:rebuild -verbosity:quiet -property:Configuration=Debug
       - name: build release
-        run:  msbuild msvc2022\quick.samples.sln -t:rebuild -verbosity:quiet -property:Configuration=Release
+        run:  msbuild msvc2022\ui.sln -t:rebuild -verbosity:quiet -property:Configuration=Release
       - name: short sha
         id: vars
         run: echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
@@ -26,7 +26,7 @@ jobs:
       - name: upload release artifact
         uses: actions/upload-artifact@v2
         with:
-          name: quick.samples.release.zip
+          name: ui.release.zip
           path: |
             bin\Release\sample1.exe
             bin\Release\sample2.exe
@@ -37,7 +37,7 @@ jobs:
       - name: upload debug artifact
         uses: actions/upload-artifact@v2
         with:
-          name: quick.samples.debug.zip
+          name: ui.debug.zip
           path: |
             bin\Debug\sample1.exe
             bin\Debug\sample2.exe
