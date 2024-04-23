@@ -22,7 +22,7 @@ uic_button(full_screen, "\xE2\xA7\x89", 1.0, {
     app.full_screen(full_screen->ui.pressed);
 });
 
-static void paint(uic_t* ui) {
+static void paint(view_t* ui) {
     int k = index;
     gdi.draw_image(0, 0, ui->w, ui->h, &image[k]);
     gdi.x = ui->em.x;
@@ -47,7 +47,7 @@ static void stop_rendering(void) {
     }
 }
 
-static void measure(uic_t* ui) {
+static void measure(view_t* ui) {
     // called on window resize
     ui->w = app.crc.w;
     ui->h = app.crc.h;
@@ -65,7 +65,7 @@ static void measure(uic_t* ui) {
     }
 }
 
-static void layout(uic_t* ui) {
+static void layout(view_t* ui) {
     full_screen.ui.x = ui->w - full_screen.ui.w - ui->em.x / 4;
     full_screen.ui.y = ui->em.y / 4;
 }
@@ -92,7 +92,7 @@ static void closed(void) {
     gdi.image_dispose(&image[1]);
 }
 
-static void character(uic_t* unused, const char* utf8) {
+static void character(view_t* unused, const char* utf8) {
     (void)unused;
     char ch = utf8[0];
     if (ch == 'q' || ch == 'Q') { app.close(); }
@@ -114,7 +114,7 @@ static void init(void) {
     app.fini = fini;
     app.closed = closed;
     app.opened = opened;
-    static uic_t* children[] = { &full_screen.ui, null};
+    static view_t* children[] = { &full_screen.ui, null};
     app.ui->children = children;
     app.ui->layout    = layout;
     app.ui->measure   = measure;

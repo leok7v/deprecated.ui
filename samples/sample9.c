@@ -128,7 +128,7 @@ uic_container(panel_right, null,
     null
 );
 
-static void panel_paint(uic_t* ui) {
+static void panel_paint(view_t* ui) {
     gdi.push(ui->x, ui->y);
     gdi.set_clip(ui->x, ui->y, ui->w, ui->h);
     gdi.set_brush(gdi.brush_color);
@@ -167,12 +167,12 @@ static void panel_paint(uic_t* ui) {
     gdi.pop();
 }
 
-static void right_layout(uic_t* ui) {
+static void right_layout(view_t* ui) {
     if ( ui->children != null) {
         int x = ui->x + em.x;
         int y = ui->y + em.y * 2;
-        for (uic_t** it = ui->children; *it != null; it++) {
-            uic_t* ch = *it;
+        for (view_t** it = ui->children; *it != null; it++) {
+            view_t* ch = *it;
             ch->x = x;
             ch->y = y;
             y += ch->h + max(1, em.y / 2);
@@ -180,7 +180,7 @@ static void right_layout(uic_t* ui) {
     }
 }
 
-static void text_after(uic_t* ui, const char* format, ...) {
+static void text_after(view_t* ui, const char* format, ...) {
     gdi.x = ui->x + ui->w + ui->em.x;
     gdi.y = ui->y;
     va_list va;
@@ -189,7 +189,7 @@ static void text_after(uic_t* ui, const char* format, ...) {
     va_end(va);
 }
 
-static void right_paint(uic_t* ui) {
+static void right_paint(view_t* ui) {
     panel_paint(ui);
     gdi.push(ui->x, ui->y);
     gdi.set_clip(ui->x, ui->y, ui->w, ui->h);
@@ -224,7 +224,7 @@ static void right_paint(uic_t* ui) {
     gdi.pop();
 }
 
-static void center_paint(uic_t* ui) {
+static void center_paint(view_t* ui) {
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(colors.black);
     gdi.fill(ui->x, ui->y, ui->w, ui->h);
@@ -257,7 +257,7 @@ static void center_paint(uic_t* ui) {
 
 }
 
-static void measure(uic_t* ui) {
+static void measure(view_t* ui) {
     ui_point_t em_mono = gdi.get_em(app.fonts.mono);
     em = gdi.get_em(app.fonts.regular);
     ui->em = em;
@@ -277,7 +277,7 @@ static void measure(uic_t* ui) {
     panel_center.h = h - panel_bottom.h - panel_top.h;
 }
 
-static void layout(uic_t* ui) {
+static void layout(view_t* ui) {
     assert(ui->em.x > 0 && ui->em.y > 0); (void)ui;
     const int32_t h = app.height;
     panel_top.x = 0;
@@ -290,7 +290,7 @@ static void layout(uic_t* ui) {
     panel_center.y = panel_top.h;
 }
 
-static void refresh();
+static void refresh(void);
 
 static void zoom_out(void) {
     assert(top > 0);
@@ -310,7 +310,7 @@ static void zoom_in(int x, int y) {
     sy += zoom * y / image.h;
 }
 
-static void mouse(uic_t* ui, int32_t m, int32_t flags) {
+static void mouse(view_t* ui, int32_t m, int32_t flags) {
     (void)ui; (void)m; (void)flags;
     int x = app.mouse.x - (panel_center.w - image.w) / 2 - panel_center.x;
     int y = app.mouse.y - (panel_center.h - image.h) / 2 - panel_center.y;
@@ -332,7 +332,7 @@ static void zoomer_callback(uic_slider_t* slider) {
     refresh();
 }
 
-static void mousewheel(uic_t* unused, int32_t dx, int32_t dy) {
+static void mousewheel(view_t* unused, int32_t dx, int32_t dy) {
     (void)unused;
     if (!scroll.ui.pressed) { dy = -dy; }
     if (!scroll.ui.pressed) { dx = -dx; }
@@ -341,7 +341,7 @@ static void mousewheel(uic_t* unused, int32_t dx, int32_t dy) {
     refresh();
 }
 
-static void character(uic_t* ui, const char* utf8) {
+static void character(view_t* ui, const char* utf8) {
     char ch = utf8[0];
     if (ch == 'q' || ch == 'Q') {
         app.close();
@@ -360,7 +360,7 @@ static void character(uic_t* ui, const char* utf8) {
     }
 }
 
-static void keyboard(uic_t* ui, int32_t vk) {
+static void keyboard(view_t* ui, int32_t vk) {
     if (vk == virtual_keys.up) {
         mousewheel(ui, 0, +image.h / 8);
     } else if (vk == virtual_keys.down) {
@@ -372,8 +372,8 @@ static void keyboard(uic_t* ui, int32_t vk) {
     }
 }
 
-static void init_panel(uic_t* panel, const char* text, color_t color,
-        void (*paint)(uic_t*)) {
+static void init_panel(view_t* panel, const char* text, color_t color,
+        void (*paint)(view_t*)) {
     strprintf(panel->text, "%s", text);
     panel->color = color;
     panel->paint = paint;
@@ -413,7 +413,7 @@ static void init(void) {
     app.ui->key_pressed = keyboard; // virtual_keys
     app.ui->mousewheel = mousewheel;
     app.opened = opened;
-    static uic_t* root_children[] = { &panel_top, &panel_center,
+    static view_t* root_children[] = { &panel_top, &panel_center,
         &panel_right, &panel_bottom, null };
     app.ui->children = root_children;
     panel_center.mouse = mouse;

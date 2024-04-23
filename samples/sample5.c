@@ -160,8 +160,8 @@ static void after_paint(void) {
     }
 }
 
-static void paint_frames(uic_t* ui) {
-    for (uic_t** c = ui->children; c != null && *c != null; c++) {
+static void paint_frames(view_t* ui) {
+    for (view_t** c = ui->children; c != null && *c != null; c++) {
         paint_frames(*c);
     }
     color_t fc[] = {
@@ -178,8 +178,8 @@ static void paint_frames(uic_t* ui) {
     color = (color + 1) % countof(fc);
 }
 
-static void null_paint(uic_t* ui) {
-    for (uic_t** c = ui->children; c != null && *c != null; c++) {
+static void null_paint(view_t* ui) {
+    for (view_t** c = ui->children; c != null && *c != null; c++) {
         null_paint(*c);
     }
     if (ui != app.ui) {
@@ -187,7 +187,7 @@ static void null_paint(uic_t* ui) {
     }
 }
 
-static void paint(uic_t* ui) {
+static void paint(view_t* ui) {
 //  traceln("");
     if (debug_layout) { null_paint(ui); }
     gdi.set_brush(gdi.brush_color);
@@ -195,7 +195,7 @@ static void paint(uic_t* ui) {
     gdi.fill(0, 0, ui->w, ui->h);
     int32_t ix = focused();
     for (int32_t i = 0; i < countof(edit); i++) {
-        uic_t* e = &edit[i]->ui;
+        view_t* e = &edit[i]->ui;
         color_t c = edit[i]->ro ?
             colors.tone_red : colors.btn_hover_highlight;
         gdi.frame_with(e->x - 1, e->y - 1, e->w + 2, e->h + 2,
@@ -254,12 +254,12 @@ static void focus_back_to_edit(void) {
 
 static void every_100ms(void) {
 //  traceln("");
-    static uic_t* last;
+    static view_t* last;
     if (last != app.focus) { app.redraw(); }
     last = app.focus;
 }
 
-static void measure(uic_t* ui) {
+static void measure(view_t* ui) {
 //  traceln("");
     // gaps:
     const int32_t gx = ui->em.x;
@@ -282,7 +282,7 @@ static void measure(uic_t* ui) {
     if (debug_layout) {
         traceln("%d,%d %dx%d", ui->x, ui->y, ui->w, ui->h);
         traceln("right %d,%d %dx%d", right.x, right.y, right.w, right.h);
-        for (uic_t** c = right.children; c != null && *c != null; c++) {
+        for (view_t** c = right.children; c != null && *c != null; c++) {
             traceln("  %s %d,%d %dx%d", (*c)->text, (*c)->x, (*c)->y, (*c)->w, (*c)->h);
         }
         for (int32_t i = 0; i < countof(edit); i++) {
@@ -294,7 +294,7 @@ static void measure(uic_t* ui) {
     }
 }
 
-static void layout(uic_t* ui) {
+static void layout(view_t* ui) {
 //  traceln("");
     // gaps:
     const int32_t gx2 = ui->em.x / 2;
@@ -313,9 +313,9 @@ static void layout(uic_t* ui) {
 
 // limiting vertical height of SLE to 3 lines of text:
 
-static void (*hooked_sle_measure)(uic_t* unused(ui));
+static void (*hooked_sle_measure)(view_t* unused(ui));
 
-static void measure_3_lines_sle(uic_t* ui) {
+static void measure_3_lines_sle(view_t* ui) {
     // UX design decision:
     // 3 vertical visible runs SLE is friendlier in UX term
     // than not implemented horizontal scroll.
@@ -333,7 +333,7 @@ static void measure_3_lines_sle(uic_t* ui) {
     }
 }
 
-static void key_pressed(uic_t* unused(ui), int32_t key) {
+static void key_pressed(view_t* unused(ui), int32_t key) {
     if (app.has_focus() && key == virtual_keys.escape) { app.close(); }
     int32_t ix = focused();
     if (key == virtual_keys.f5) {
@@ -378,7 +378,7 @@ static void init(void) {
     app.ui->paint       = paint;
     app.ui->key_pressed = key_pressed;
     scaled_fonts();
-    static uic_t* children[] = { &left, &right, &bottom, null };
+    static view_t* children[] = { &left, &right, &bottom, null };
     app.ui->children = children;
     text.ui.font = &app.fonts.mono;
     strprintf(fuzz.ui.tip, "Ctrl+Shift+F5 to start / F5 to stop Fuzzing");

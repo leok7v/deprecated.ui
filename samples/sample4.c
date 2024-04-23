@@ -51,7 +51,7 @@ static void load_images(void) {
     }
 }
 
-static void paint(uic_t* ui) {
+static void paint(view_t* ui) {
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(colors.black);
     gdi.fill(0, 0, ui->w, ui->h);

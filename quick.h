@@ -1,331 +1,23 @@
 /* Copyright (c) Dmitry "Leo" Kuznetsov 2021 see LICENSE at the end of file */
 #ifndef qucik_defintion
 #define qucik_defintion
-#include "ut.h"
+#include "ut/ut.h"
+#include "ui/ui.h"
 
 begin_c
 
-// Graphic Device Interface (selected parts of Windows GDI)
 
-typedef struct ui_point_s { int32_t x, y; } ui_point_t;
-typedef struct ui_rect_s { int32_t x, y, w, h; } ui_rect_t;
-typedef uint64_t color_t; // top 2 bits determine color format
-
-typedef struct window_s__* window_t;
-typedef struct canvas_s__* canvas_t;
-typedef struct bitmap_s__* bitmap_t;
-typedef struct font_s__*   font_t;
-typedef struct brush_s__*  brush_t;
-typedef struct pen_s__*    pen_t;
-typedef struct cursor_s__* cursor_t;
-typedef struct region_s__* region_t;
-
-typedef uintptr_t tm_t; // timer not the same as "id" in set_timer()!
-
-#define color_mask        ((color_t)0xC000000000000000ULL)
-
-#define color_mask        ((color_t)0xC000000000000000ULL)
-#define color_undefined   ((color_t)0x8000000000000000ULL)
-#define color_transparent ((color_t)0x4000000000000000ULL)
-#define color_hdr         ((color_t)0xC000000000000000ULL)
-
-#define color_is_8bit(c)         (((c) & color_mask) == 0)
-#define color_is_hdr(c)          (((c) & color_mask) == color_hdr)
-#define color_is_undefined(c)    (((c) & color_mask) == color_undefined)
-#define color_is_transparent(c) ((((c) & color_mask) == color_transparent) && \
-                                 (((c) & ~color_mask) == 0))
-// if any other special colors or formats need to be introduced
-// (c) & ~color_mask) has 2^62 possible extensions bits
-
-// color_hdr A - 14 bit, R,G,B - 16 bit, all in range [0..0xFFFF]
-#define color_hdr_a(c)    ((((c) >> 48) & 0x3FFF) << 2)
-#define color_hdr_r(c)    (((c) >>  0) & 0xFFFF)
-#define color_hdr_g(c)    (((c) >> 16) & 0xFFFF)
-#define color_hdr_b(c)    (((c) >> 32) & 0xFFFF)
-
-#define rgb(r,g,b) ((color_t)(((uint8_t)(r) | ((uint16_t)((uint8_t)(g))<<8)) | \
-    (((uint32_t)(uint8_t)(b))<<16)))
-#define rgba(r, g, b, a) (color_t)((rgb(r, g, b)) | (((uint8_t)a) << 24))
-
-enum {
-    gdi_font_quality_default = 0,
-    gdi_font_quality_draft = 1,
-    gdi_font_quality_proof = 2, // antialiased w/o ClrearType rainbows
-    gdi_font_quality_nonantialiased = 3,
-    gdi_font_quality_antialiased = 4,
-    gdi_font_quality_cleartype = 5,
-    gdi_font_quality_cleartype_natural = 6
-};
-
-typedef struct image_s {
-    int32_t w; // width
-    int32_t h; // height
-    int32_t bpp;    // "components" bytes per pixel
-    int32_t stride; // bytes per scanline rounded up to: (w * bpp + 3) & ~3
-    bitmap_t bitmap;
-    void* pixels;
-} image_t;
-
-typedef struct gdi_s {
-    brush_t  brush_color;
-    brush_t  brush_hollow;
-    pen_t pen_hollow;
-    region_t clip;
-    // bpp bytes (not bits!) per pixel. bpp = -3 or -4 does not swap RGB to BRG:
-    void (*image_init)(image_t* image, int32_t w, int32_t h, int32_t bpp,
-        const uint8_t* pixels);
-    void (*image_init_rgbx)(image_t* image, int32_t w, int32_t h,
-        int32_t bpp, const uint8_t* pixels); // sets all alphas to 0xFF
-    void (*image_dispose)(image_t* image);
-    color_t (*set_text_color)(color_t c);
-    brush_t (*create_brush)(color_t c);
-    void    (*delete_brush)(brush_t b);
-    color_t (*set_brush_color)(color_t c);
-    brush_t (*set_brush)(brush_t b); // color or hollow
-    pen_t (*set_colored_pen)(color_t c); // always 1px wide
-    pen_t (*create_pen)(color_t c, int32_t pixels); // pixels wide pen
-    pen_t (*set_pen)(pen_t p);
-    void  (*delete_pen)(pen_t p);
-    void (*set_clip)(int32_t x, int32_t y, int32_t w, int32_t h);
-    // use set_clip(0, 0, 0, 0) to clear clip region
-    void (*push)(int32_t x, int32_t y); // also calls SaveDC(app.canvas)
-    void (*pop)(void); // also calls RestoreDC(-1, app.canvas)
-    void (*pixel)(int32_t x, int32_t y, color_t c);
-    ui_point_t (*move_to)(int32_t x, int32_t y); // returns previous (x, y)
-    void (*line)(int32_t x, int32_t y); // line to x, y with gdi.pen moves x, y
-    void (*frame)(int32_t x, int32_t y, int32_t w, int32_t h); // gdi.pen only
-    void (*rect)(int32_t x, int32_t y, int32_t w, int32_t h);  // gdi.pen & brush
-    void (*fill)(int32_t x, int32_t y, int32_t w, int32_t h);  // gdi.brush only
-    void (*frame_with)(int32_t x, int32_t y, int32_t w, int32_t h, color_t c);
-    void (*rect_with)(int32_t x, int32_t y, int32_t w, int32_t h,
-                      color_t border, color_t fill);
-    void (*fill_with)(int32_t x, int32_t y, int32_t w, int32_t h, color_t c);
-    void (*poly)(ui_point_t* points, int32_t count);
-    void (*rounded)(int32_t x, int32_t y, int32_t w, int32_t h,
-        int32_t rx, int32_t ry); // see RoundRect, pen, brush
-    void (*gradient)(int32_t x, int32_t y, int32_t w, int32_t h,
-        color_t rgba_from, color_t rgba_to, bool vertical);
-    // draw images: (x,y remains untouched after drawing)
-    // draw_greyscale() sx, sy, sw, sh screen rectangle
-    // x, y, w, h rectangle inside pixels[ih][iw] byte array
-    void (*draw_greyscale)(int32_t sx, int32_t sy, int32_t sw, int32_t sh,
-        int32_t x, int32_t y, int32_t w, int32_t h,
-        int32_t iw, int32_t ih, int32_t stride, const uint8_t* pixels);
-    void (*draw_bgr)(int32_t sx, int32_t sy, int32_t sw, int32_t sh,
-        int32_t x, int32_t y, int32_t w, int32_t h,
-        int32_t iw, int32_t ih, int32_t stride, const uint8_t* pixels);
-    void (*draw_bgrx)(int32_t sx, int32_t sy, int32_t sw, int32_t sh,
-        int32_t x, int32_t y, int32_t w, int32_t h,
-        int32_t iw, int32_t ih, int32_t stride, const uint8_t* pixels);
-    void (*alpha_blend)(int32_t x, int32_t y, int32_t w, int32_t h,
-        image_t* image, double alpha);
-    void (*draw_image)(int32_t x, int32_t y, int32_t w, int32_t h,
-        image_t* image);
-    // text:
-    void (*cleartype)(bool on);
-    void (*font_smoothing_contrast)(int32_t c); // [1000..2202] or -1 for 1400 default
-    font_t (*font)(font_t f, int32_t height, int32_t quality); // custom font, quality: -1 as is
-    void   (*delete_font)(font_t f);
-    font_t (*set_font)(font_t f);
-    // IMPORTANT: relationship between font_height(), baseline(), descent()
-    // E.g. for monospaced font on dpi=96 (monitor_raw=101) and font_height=15
-    // the get_em() is: 9 20 font_height(): 15 baseline: 16 descent: 4
-    // Monospaced fonts are not `em` "M" square!
-    int32_t (*font_height)(font_t f); // font height in pixels
-    int32_t (*descent)(font_t f);     // font descent (glyphs below baseline)
-    int32_t (*baseline)(font_t f);    // height - baseline (aka ascent) = descent
-    bool    (*is_mono)(font_t f);     // is font monospaced?
-    // https://en.wikipedia.org/wiki/Em_(typography)
-    ui_point_t (*get_em)(font_t f);  // pixel size of glyph "M"
-    ui_point_t (*measure_text)(font_t f, const char* format, ...);
-    // width can be -1 which measures text with "\n" or
-    // positive number of pixels
-    ui_point_t (*measure_multiline)(font_t f, int32_t w, const char* format, ...);
-    double height_multiplier; // see line_spacing()
-    double (*line_spacing)(double height_multiplier); // default 1.0
-    int32_t x; // incremented by text, print
-    int32_t y; // incremented by textln, println
-    // proportional:
-    void (*vtext)(const char* format, va_list vl); // x += width
-    void (*text)(const char* format, ...);         // x += width
-    // gdi.y += height * line_spacing
-    void (*vtextln)(const char* format, va_list vl);
-    void (*textln)(const char* format, ...);
-    // mono:
-    void (*vprint)(const char* format,va_list vl); // x += width
-    void (*print)(const char* format, ...);        // x += width
-    // gdi.y += height * line_spacing
-    void (*vprintln)(const char* format, va_list vl);
-    void (*println)(const char* format, ...);
-    // multiline(null, format, ...) only increments gdi.y
-    ui_point_t (*multiline)(int32_t width, const char* format, ...);
-} gdi_t;
-
-extern gdi_t gdi;
-
-/* TODO: make color_t uint64_t RGBA remove pens and brushes
-         support upto 16-16-16-15(A)bit per pixel color
-         components with 'transparent/hollow' bit
-*/
-
-typedef struct colors_s {
-    const int32_t none; // aka CLR_INVALID in wingdi
-    const int32_t text;
-    const int32_t white;
-    const int32_t black;
-    const int32_t red;
-    const int32_t green;
-    const int32_t blue;
-    const int32_t yellow;
-    const int32_t cyan;
-    const int32_t magenta;
-    const int32_t gray;
-    // darker shades of grey:
-    const int32_t dkgray1; // 30 / 255 = 11.7%
-    const int32_t dkgray2; // 38 / 255 = 15%
-    const int32_t dkgray3; // 45 / 255 = 17.6%
-    const int32_t dkgray4; // 63 / 255 = 24.0%
-    // tone down RGB colors:
-    const int32_t tone_white;
-    const int32_t tone_red;
-    const int32_t tone_green;
-    const int32_t tone_blue;
-    const int32_t tone_yellow;
-    const int32_t tone_cyan;
-    const int32_t tone_magenta;
-    // misc:
-    const int32_t orange;
-    const int32_t dkgreen;
-    // highlights:
-    const int32_t text_highlight; // bluish off-white
-    const int32_t blue_highlight;
-    const int32_t off_white;
-
-    const int32_t btn_gradient_darker;
-    const int32_t btn_gradient_dark;
-    const int32_t btn_hover_highlight;
-    const int32_t btn_disabled;
-    const int32_t btn_armed;
-    const int32_t btn_text;
-    const int32_t toast; // toast background
-} colors_t;
-
-extern colors_t colors;
-
-// UIC User Interface Controls
-
-enum {
-    uic_tag_container  = 'cnt',
-    uic_tag_messagebox = 'mbx',
-    uic_tag_button     = 'btn',
-    uic_tag_checkbox   = 'cbx',
-    uic_tag_slider     = 'sld',
-    uic_tag_text       = 'txt',
-    uic_tag_edit       = 'edt'
-};
-
-typedef struct uic_s uic_t;
-
-typedef struct uic_s { // ui element container/control
-    int32_t tag;
-    void (*init)(uic_t* ui); // called once before first layout
-    uic_t** children; // null terminated array[] of children
-    double width;    // > 0 width of UI element in "em"s
-    char text[2048];
-    uic_t* parent;
-    int32_t x;
-    int32_t y;
-    int32_t w;
-    int32_t h;
-    // updated on layout() call
-    ui_point_t em; // cached pixel dimensions of "M"
-    int32_t shortcut; // keyboard shortcut
-    int32_t strid; // 0 for not localized ui
-    void* that;  // for the application use
-    void (*notify)(uic_t* ui, void* p); // for the application use
-    // two pass layout: measure() .w, .h layout() .x .y
-    // first  measure() bottom up - children.layout before parent.layout
-    // second layout() top down - parent.layout before children.layout
-    void (*measure)(uic_t* ui); // determine w, h (bottom up)
-    void (*layout)(uic_t* ui);  // set x, y possibly adjust w, h (top down)
-    void (*localize)(uic_t* ui); // set strid based ui .text field
-    void (*paint)(uic_t* ui);
-    bool (*message)(uic_t* ui, int32_t message, int64_t wp, int64_t lp,
-        int64_t* rt); // return true and value in rt to stop processing
-    void (*click)(uic_t* ui); // interpretation depends on ui element
-    void (*mouse)(uic_t* ui, int32_t message, int32_t flags);
-    void (*mousewheel)(uic_t* ui, int32_t dx, int32_t dy); // touchpad scroll
-    // tap(ui, button_index) press(ui, button_index) see note below
-    // button index 0: left, 1: middle, 2: right
-    // bottom up (leaves to root or children to parent)
-    // return true if consumed (halts further calls up the tree)
-    bool (*tap)(uic_t* ui, int32_t ix);   // single click/tap inside ui
-    bool (*press)(uic_t* ui, int32_t ix); // two finger click/tap or long press
-    void (*context_menu)(uic_t* ui); // right mouse click or long press
-    bool (*set_focus)(uic_t* ui); // returns true if focus is set
-    void (*kill_focus)(uic_t* ui);
-    // translated from key pressed/released to utf8:
-    void (*character)(uic_t* ui, const char* utf8);
-    void (*key_pressed)(uic_t* ui, int32_t key);
-    void (*key_released)(uic_t* ui, int32_t key);
-    void (*hovering)(uic_t* ui, bool start);
-    void (*invalidate)(const uic_t* ui); // more prone to delays than app.redraw()
-    // timer() every_100ms() and every_sec() called
-    // even for hidden and disabled ui elements
-    void (*timer)(uic_t* ui, tm_t id);
-    void (*every_100ms)(uic_t* ui); // ~10 x times per second
-    void (*every_sec)(uic_t* ui); // ~once a second
-    bool hidden; // paint() is not called on hidden
-    bool armed;
-    bool hover;
-    bool pressed;   // for uic_button_t and  uic_checkbox_t
-    bool disabled;  // mouse, keyboard, key_up/down not called on disabled
-    bool focusable; // can be target for keyboard focus
-    double  hover_delay; // delta time in seconds before hovered(true)
-    double  hover_at;    // time in seconds when to call hovered()
-    color_t color;      // interpretation depends on ui element type
-    color_t background; // interpretation depends on ui element type
-    font_t* font;
-    int32_t baseline; // font ascent; descent = height - baseline
-    int32_t descent;  // font descent
-    char    tip[256]; // tooltip text
-} uic_t;
-
-// tap() / press() APIs guarantee that single tap() is not coming
-// before double tap/click in expense of double click delay (0.5 seconds)
-// which is OK for buttons and many other UI controls but absolutely not
-// OK for text editing. Thus edit uses raw mouse events to react
-// on clicks and double clicks.
-
-typedef struct {
-    void (*center)(uic_t* ui); // exactly one child
-    void (*horizontal)(uic_t* ui, int32_t gap);
-    void (*vertical)(uic_t* ui, int32_t gap);
-    void (*grid)(uic_t* ui, int32_t gap_h, int32_t gap_v);
-} measurements_if;
-
-extern measurements_if measurements;
-
-typedef struct {
-    void (*center)(uic_t* ui); // exactly one child
-    void (*horizontal)(uic_t* ui, int32_t x, int32_t y, int32_t gap);
-    void (*vertical)(uic_t* ui, int32_t x, int32_t y, int32_t gap);
-    void (*grid)(uic_t* ui, int32_t gap_h, int32_t gap_v);
-} layouts_if;
-
-extern layouts_if layouts;
-
-void uic_init(uic_t* ui);
+void uic_init(view_t* ui);
 
 #define uic_container(name, ini, ...)                                  \
-static uic_t* _ ## name ## _ ## children ## _[] = {__VA_ARGS__, null}; \
-static uic_t name = { .tag = uic_tag_container, .init = ini,           \
+static view_t* _ ## name ## _ ## children ## _[] = {__VA_ARGS__, null}; \
+static view_t name = { .tag = uic_tag_container, .init = ini,           \
                       .children = (_ ## name ## _ ## children ## _),   \
                       .text = #name                                    \
 }
 
 typedef struct uic_text_s {
-    uic_t ui;
+    view_t ui;
     bool multiline;
     bool editable;  // can be edited
     bool highlight; // paint with highlight color
@@ -334,7 +26,7 @@ typedef struct uic_text_s {
     int32_t dy; // vertical shift down (to line up baselines of diff fonts)
 } uic_text_t;
 
-void _uic_text_init_(uic_t* ui); // do not call use ui_text() and ui_multiline()
+void _uic_text_init_(view_t* ui); // do not call use ui_text() and ui_multiline()
 
 #define uic_text(t, s) \
     uic_text_t t = { .ui = {.tag = uic_tag_text, .init = _uic_text_init_, \
@@ -352,7 +44,7 @@ void uic_text_init_ml(uic_text_t* t, double width, const char* format, ...);
 typedef struct uic_button_s uic_button_t;
 
 typedef struct uic_button_s {
-    uic_t ui;
+    view_t ui;
     void (*cb)(uic_button_t* b); // callback
     double armed_until;   // seconds - when to release
 } uic_button_t;
@@ -360,7 +52,7 @@ typedef struct uic_button_s {
 void uic_button_init(uic_button_t* b, const char* label, double ems,
     void (*cb)(uic_button_t* b));
 
-void _uic_button_init_(uic_t* ui); // do not call use uic_button() macro
+void _uic_button_init_(view_t* ui); // do not call use uic_button() macro
 
 #define uic_button(name, s, w, code)                         \
     static void name ## _callback(uic_button_t* name) {      \
@@ -378,7 +70,7 @@ void _uic_button_init_(uic_t* ui); // do not call use uic_button() macro
 typedef struct  uic_checkbox_s  uic_checkbox_t; // checkbox
 
 typedef struct  uic_checkbox_s {
-    uic_t ui;
+    view_t ui;
     void (*cb)( uic_checkbox_t* b); // callback
 }  uic_checkbox_t;
 
@@ -386,7 +78,7 @@ typedef struct  uic_checkbox_s {
 void  uic_checkbox_init( uic_checkbox_t* b, const char* label, double ems,
     void (*cb)( uic_checkbox_t* b));
 
-void _uic_checkbox_init_(uic_t* ui); // do not call use uic_checkbox() macro
+void _uic_checkbox_init_(view_t* ui); // do not call use uic_checkbox() macro
 
 #define uic_checkbox(name, s, w, code)                           \
     static void name ## _callback(uic_checkbox_t* name) {        \
@@ -401,20 +93,20 @@ void _uic_checkbox_init_(uic_t* ui); // do not call use uic_checkbox() macro
 typedef struct uic_slider_s uic_slider_t;
 
 typedef struct uic_slider_s {
-    uic_t ui;
+    view_t ui;
     void (*cb)(uic_slider_t* b); // callback
     int32_t step;
     double time;   // time last button was pressed
     ui_point_t tm; // text measurement (special case for %0*d)
     uic_button_t inc;
     uic_button_t dec;
-    uic_t* buttons[3]; // = { dec, inc, null }
+    view_t* buttons[3]; // = { dec, inc, null }
     int32_t value;  // for uic_slider_t range slider control
     int32_t vmin;
     int32_t vmax;
 } uic_slider_t;
 
-void _uic_slider_init_(uic_t* ui);
+void _uic_slider_init_(view_t* ui);
 
 void uic_slider_init(uic_slider_t* r, const char* label, double ems,
     int32_t vmin, int32_t vmax, void (*cb)(uic_slider_t* r));
@@ -434,16 +126,16 @@ void uic_slider_init(uic_slider_t* r, const char* label, double ems,
 typedef struct uic_messagebox_s uic_messagebox_t;
 
 typedef struct uic_messagebox_s {
-    uic_t  ui;
+    view_t  ui;
     void (*cb)(uic_messagebox_t* m, int32_t option); // callback -1 on cancel
     uic_text_t text;
     uic_button_t button[16];
-    uic_t* children[17];
+    view_t* children[17];
     int32_t option; // -1 or option chosen by user
     const char** opts;
 } uic_messagebox_t;
 
-void uic_messagebox_init_(uic_t* ui);
+void uic_messagebox_init_(view_t* ui);
 
 void uic_messagebox_init(uic_messagebox_t* mx, const char* option[],
     void (*cb)(uic_messagebox_t* m, int32_t option), const char* format, ...);
@@ -514,7 +206,6 @@ enum {
     known_folder_data      = 9  // c:\ProgramData
 };
 
-typedef struct uic_s uic_t;
 
 // every_sec() and every_100ms() also called on all UICs
 
@@ -568,8 +259,8 @@ typedef struct app_s {
     int32_t height; // client height
     // not to call clock.seconds() too often:
     double now;     // ssb "seconds since boot" updated on each message
-    uic_t* ui;      // show_window() changes ui.hidden
-    uic_t* focus;   // does not affect message routing - free for all
+    view_t* ui;      // show_window() changes ui.hidden
+    view_t* focus;   // does not affect message routing - free for all
     fonts_t fonts;
     cursor_t cursor; // current cursor
     cursor_t cursor_arrow;
@@ -600,8 +291,8 @@ typedef struct app_s {
     bool    (*intersect_rect)(ui_rect_t* r, const ui_rect_t* r0,
                                             const ui_rect_t* r1);
     // layout:
-    bool (*is_hidden)(const uic_t* ui);   // control or any parent is hidden
-    bool (*is_disabled)(const uic_t* ui); // control or any parent is disabled
+    bool (*is_hidden)(const view_t* ui);   // control or any parent is hidden
+    bool (*is_disabled)(const view_t* ui); // control or any parent is disabled
     bool (*is_active)(void); // is application window active
     bool (*has_focus)(void); // application window has keyboard focus
     void (*activate)(void); // request application window activation
@@ -610,7 +301,7 @@ typedef struct app_s {
     void (*request_focus)(void);   // request application window keyboard focus
     void (*bring_to_front)(void);  // activate() + bring_to_foreground() +
                                    // make_topmost() + request_focus()
-    void (*measure)(uic_t* ui);    // measure all children
+    void (*measure)(view_t* ui);    // measure all children
     void (*layout)(void); // requests layout on UI tree before paint()
     void (*invalidate)(const ui_rect_t* rc);
     void (*full_screen)(bool on);
@@ -624,8 +315,8 @@ typedef struct app_s {
     void (*kill_timer)(tm_t id);
     void (*post)(int32_t message, int64_t wp, int64_t lp);
     void (*show_window)(int32_t show); // see show_window enum
-    void (*show_toast)(uic_t* toast, double seconds); // toast(null) to cancel
-    void (*show_tooltip)(uic_t* tooltip, int32_t x, int32_t y, double seconds);
+    void (*show_toast)(view_t* toast, double seconds); // toast(null) to cancel
+    void (*show_tooltip)(view_t* tooltip, int32_t x, int32_t y, double seconds);
     void (*vtoast)(double seconds, const char* format, va_list vl);
     void (*toast)(double seconds, const char* format, ...);
     // caret calls must be balanced by caller
@@ -745,34 +436,13 @@ end_c
 #if defined(quick_implementation) || defined(quick_implementation_console)
 #undef quick_implementation
 
-// #if !defined(STRICT)
-// #define STRICT
-// #endif
-//
-// #if !defined(WIN32_LEAN_AND_MEAN)
-// #define WIN32_LEAN_AND_MEAN
-// #endif
-//
-// #if !defined(WIN32_LEAN_AND_MEAN)
-// #define WIN32_LEAN_AND_MEAN
-// #endif
 //
 // #include <Windows.h>
 // #include <WindowsX.h>
 // #include <VersionHelpers.h>
 // #include <timeapi.h>
 
-#pragma warning(push)
-#pragma warning(disable: 4255) //no function prototype given: converting '()' to '(void)'
-#include "win32.h"
-#include <windowsx.h> // useful macros
-#include <VersionHelpers.h>
-#define INIT_GUID
-#include <Shlobj.h>
-#include <ShellScalingApi.h>
-#include <dwmapi.h>
-#include <commdlg.h>
-#pragma warning(pop)
+#include "ui/win32.h"
 
 // GDI implementation
 
@@ -1697,14 +1367,14 @@ begin_c
 enum { toast_steps = 15 }; // number of animation steps
 
 static struct {
-    uic_t* ui;
+    view_t* ui;
     int32_t step;
     double time; // closing time or zero
     int32_t x; // -1 for toast
     int32_t y; // screen coordinates for tooltip
 } app_toast;
 
-static void uic_invalidate(const uic_t* ui) {
+static void uic_invalidate(const view_t* ui) {
     ui_rect_t rc = { ui->x, ui->y, ui->w, ui->h};
     rc.x -= ui->em.x;
     rc.y -= ui->em.y;
@@ -1713,7 +1383,7 @@ static void uic_invalidate(const uic_t* ui) {
     app.invalidate(&rc);
 }
 
-static bool app_is_hidden(const uic_t* ui) {
+static bool app_is_hidden(const view_t* ui) {
     bool hidden = ui->hidden;
     while (!hidden && ui->parent != null) {
         ui = ui->parent;
@@ -1722,7 +1392,7 @@ static bool app_is_hidden(const uic_t* ui) {
     return hidden;
 }
 
-static bool app_is_disabled(const uic_t* ui) {
+static bool app_is_disabled(const view_t* ui) {
     bool disabled = ui->disabled;
     while (!disabled && ui->parent != null) {
         ui = ui->parent;
@@ -1752,11 +1422,11 @@ static void app_request_focus(void) {
     window_request_focus(app.window);
 }
 
-static const char* uic_nsl(uic_t* ui) {
+static const char* uic_nsl(view_t* ui) {
     return ui->strid != 0 ? app.string(ui->strid, ui->text) : ui->text;
 }
 
-static void uic_measure(uic_t* ui) {
+static void uic_measure(view_t* ui) {
     font_t f = ui->font != null ? *ui->font : app.fonts.regular;
     ui->em = gdi.get_em(f);
     assert(ui->em.x > 0 && ui->em.y > 0);
@@ -1774,7 +1444,7 @@ static void uic_measure(uic_t* ui) {
     ui->descent  = gdi.descent(f);
 }
 
-static void uic_set_label(uic_t* ui, const char* label) {
+static void uic_set_label(view_t* ui, const char* label) {
     int32_t n = (int32_t)strlen(label);
     strprintf(ui->text, "%s", label);
     for (int32_t i = 0; i < n; i++) {
@@ -1785,17 +1455,17 @@ static void uic_set_label(uic_t* ui, const char* label) {
     }
 }
 
-static void uic_localize(uic_t* ui) {
+static void uic_localize(view_t* ui) {
     if (ui->text[0] != 0) {
         ui->strid = app.strid(ui->text);
     }
 }
 
-static bool uic_hidden_or_disabled(uic_t* ui) {
+static bool uic_hidden_or_disabled(view_t* ui) {
     return app.is_hidden(ui) || app.is_disabled(ui);
 }
 
-static void uic_hovering(uic_t* ui, bool start) {
+static void uic_hovering(view_t* ui, bool start) {
     static uic_text(btn_tooltip,  "");
     if (start && app_toast.ui == null && ui->tip[0] != 0 &&
        !app.is_hidden(ui)) {
@@ -1811,7 +1481,7 @@ static void uic_hovering(uic_t* ui, bool start) {
     }
 }
 
-void uic_init(uic_t* ui) {
+void uic_init(view_t* ui) {
     ui->invalidate = uic_invalidate;
     ui->localize = uic_localize;
     ui->measure  = uic_measure;
@@ -1821,7 +1491,7 @@ void uic_init(uic_t* ui) {
 
 // text
 
-static void uic_text_paint(uic_t* ui) {
+static void uic_text_paint(view_t* ui) {
     assert(ui->tag == uic_tag_text);
     assert(!ui->hidden);
     uic_text_t* t = (uic_text_t*)ui;
@@ -1852,7 +1522,7 @@ static void uic_text_paint(uic_t* ui) {
     gdi.pop();
 }
 
-static void uic_text_context_menu(uic_t* ui) {
+static void uic_text_context_menu(view_t* ui) {
     assert(ui->tag == uic_tag_text);
     uic_text_t* t = (uic_text_t*)ui;
     if (!t->label && !uic_hidden_or_disabled(ui)) {
@@ -1864,7 +1534,7 @@ static void uic_text_context_menu(uic_t* ui) {
     }
 }
 
-static void uic_text_character(uic_t* ui, const char* utf8) {
+static void uic_text_character(view_t* ui, const char* utf8) {
     assert(ui->tag == uic_tag_text);
     uic_text_t* t = (uic_text_t*)ui;
     if (ui->hover && !uic_hidden_or_disabled(ui) && !t->label) {
@@ -1876,7 +1546,7 @@ static void uic_text_character(uic_t* ui, const char* utf8) {
     }
 }
 
-void _uic_text_init_(uic_t* ui) {
+void _uic_text_init_(view_t* ui) {
     static_assert(offsetof(uic_text_t, ui) == 0, "offsetof(.ui)");
     assert(ui->tag == uic_tag_text);
     uic_init(ui);
@@ -1912,7 +1582,7 @@ void uic_text_init_ml(uic_text_t* t, double width, const char* format, ...) {
 
 // button
 
-static void uic_button_every_100ms(uic_t* ui) { // every 100ms
+static void uic_button_every_100ms(view_t* ui) { // every 100ms
     assert(ui->tag == uic_tag_button);
     uic_button_t* b = (uic_button_t*)ui;
     if (b->armed_until != 0 && app.now > b->armed_until) {
@@ -1922,7 +1592,7 @@ static void uic_button_every_100ms(uic_t* ui) { // every 100ms
     }
 }
 
-static void uic_button_paint(uic_t* ui) {
+static void uic_button_paint(view_t* ui) {
     assert(ui->tag == uic_tag_button);
     assert(!ui->hidden);
     uic_button_t* b = (uic_button_t*)ui;
@@ -1972,7 +1642,7 @@ static void uic_button_callback(uic_button_t* b) {
     if (b->cb != null) { b->cb(b); }
 }
 
-static bool uic_is_keyboard_shortcut(uic_t* ui, int32_t key) {
+static bool uic_is_keyboard_shortcut(view_t* ui, int32_t key) {
     // Supported keyboard shortcuts are ASCII characters only for now
     // If there is not focused UI control in Alt+key [Alt] is optional.
     // If there is focused control only Alt+Key is accepted as shortcut
@@ -1983,7 +1653,7 @@ static bool uic_is_keyboard_shortcut(uic_t* ui, int32_t key) {
     return keyboard_shortcut;
 }
 
-static void uic_button_trigger(uic_t* ui) {
+static void uic_button_trigger(view_t* ui) {
     assert(ui->tag == uic_tag_button);
     assert(!ui->hidden && !ui->disabled);
     uic_button_t* b = (uic_button_t*)ui;
@@ -1995,7 +1665,7 @@ static void uic_button_trigger(uic_t* ui) {
     ui->invalidate(ui);
 }
 
-static void uic_button_character(uic_t* ui, const char* utf8) {
+static void uic_button_character(view_t* ui, const char* utf8) {
     assert(ui->tag == uic_tag_button);
     assert(!ui->hidden && !ui->disabled);
     char ch = utf8[0]; // TODO: multibyte shortcuts?
@@ -2004,7 +1674,7 @@ static void uic_button_character(uic_t* ui, const char* utf8) {
     }
 }
 
-static void uic_button_key_pressed(uic_t* ui, int32_t key) {
+static void uic_button_key_pressed(view_t* ui, int32_t key) {
     if (app.alt && uic_is_keyboard_shortcut(ui, key)) {
 //      traceln("key: 0x%02X shortcut: %d", key, uic_is_keyboard_shortcut(ui, key));
         uic_button_trigger(ui);
@@ -2013,7 +1683,7 @@ static void uic_button_key_pressed(uic_t* ui, int32_t key) {
 
 /* processes mouse clicks and invokes callback  */
 
-static void uic_button_mouse(uic_t* ui, int32_t message, int32_t flags) {
+static void uic_button_mouse(view_t* ui, int32_t message, int32_t flags) {
     assert(ui->tag == uic_tag_button);
     (void)flags; // unused
     assert(!ui->hidden && !ui->disabled);
@@ -2035,7 +1705,7 @@ static void uic_button_mouse(uic_t* ui, int32_t message, int32_t flags) {
     if (a != ui->armed) { ui->invalidate(ui); }
 }
 
-static void uic_button_measure(uic_t* ui) {
+static void uic_button_measure(view_t* ui) {
     assert(ui->tag == uic_tag_button || ui->tag == uic_tag_text);
     uic_measure(ui);
     const int32_t em2  = max(1, ui->em.x / 2);
@@ -2044,7 +1714,7 @@ static void uic_button_measure(uic_t* ui) {
     if (ui->w < ui->h) { ui->w = ui->h; }
 }
 
-void _uic_button_init_(uic_t* ui) {
+void _uic_button_init_(view_t* ui) {
     assert(ui->tag == uic_tag_button);
     uic_init(ui);
     ui->mouse       = uic_button_mouse;
@@ -2070,7 +1740,7 @@ void uic_button_init(uic_button_t* b, const char* label, double ems,
 
 // checkbox
 
-static int  uic_checkbox_paint_on_off(uic_t* ui) {
+static int  uic_checkbox_paint_on_off(view_t* ui) {
     // https://www.compart.com/en/unicode/U+2B24
     static const char* circle = "\xE2\xAC\xA4"; // Black Large Circle
     gdi.push(ui->x, ui->y);
@@ -2092,7 +1762,7 @@ static int  uic_checkbox_paint_on_off(uic_t* ui) {
     return rx;
 }
 
-static const char*  uic_checkbox_on_off_label(uic_t* ui, char* label, int32_t count)  {
+static const char*  uic_checkbox_on_off_label(view_t* ui, char* label, int32_t count)  {
     str.sformat(label, count, "%s", uic_nsl(ui));
     char* s = strstr(label, "___");
     if (s != null) {
@@ -2101,13 +1771,13 @@ static const char*  uic_checkbox_on_off_label(uic_t* ui, char* label, int32_t co
     return app.nls(label);
 }
 
-static void  uic_checkbox_measure(uic_t* ui) {
+static void  uic_checkbox_measure(view_t* ui) {
     assert(ui->tag == uic_tag_checkbox);
     uic_measure(ui);
     ui->w += ui->em.x * 2;
 }
 
-static void  uic_checkbox_paint(uic_t* ui) {
+static void  uic_checkbox_paint(view_t* ui) {
     assert(ui->tag == uic_tag_checkbox);
     char text[countof(ui->text)];
     const char* label =  uic_checkbox_on_off_label(ui, text, countof(text));
@@ -2127,7 +1797,7 @@ static void  uic_checkbox_flip( uic_checkbox_t* c) {
     if (c->cb != null) { c->cb(c); }
 }
 
-static void  uic_checkbox_character(uic_t* ui, const char* utf8) {
+static void  uic_checkbox_character(view_t* ui, const char* utf8) {
     assert(ui->tag == uic_tag_checkbox);
     assert(!ui->hidden && !ui->disabled);
     char ch = utf8[0];
@@ -2136,14 +1806,14 @@ static void  uic_checkbox_character(uic_t* ui, const char* utf8) {
     }
 }
 
-static void uic_checkbox_key_pressed(uic_t* ui, int32_t key) {
+static void uic_checkbox_key_pressed(view_t* ui, int32_t key) {
     if (app.alt && uic_is_keyboard_shortcut(ui, key)) {
 //      traceln("key: 0x%02X shortcut: %d", key, uic_is_keyboard_shortcut(ui, key));
         uic_checkbox_flip((uic_checkbox_t*)ui);
     }
 }
 
-static void  uic_checkbox_mouse(uic_t* ui, int32_t message, int32_t flags) {
+static void  uic_checkbox_mouse(view_t* ui, int32_t message, int32_t flags) {
     assert(ui->tag == uic_tag_checkbox);
     (void)flags; // unused
     assert(!ui->hidden && !ui->disabled);
@@ -2158,7 +1828,7 @@ static void  uic_checkbox_mouse(uic_t* ui, int32_t message, int32_t flags) {
     }
 }
 
-void _uic_checkbox_init_(uic_t* ui) {
+void _uic_checkbox_init_(view_t* ui) {
     assert(ui->tag == uic_tag_checkbox);
     uic_init(ui);
     uic_set_label(ui, ui->text);
@@ -2184,7 +1854,7 @@ void uic_checkbox_init(uic_checkbox_t* c, const char* label, double ems,
 
 // slider control
 
-static void uic_slider_measure(uic_t* ui) {
+static void uic_slider_measure(view_t* ui) {
     assert(ui->tag == uic_tag_slider);
     uic_measure(ui);
     uic_slider_t* r = (uic_slider_t*)ui;
@@ -2198,7 +1868,7 @@ static void uic_slider_measure(uic_t* ui) {
     ui->h = r->inc.ui.h;
 }
 
-static void uic_slider_layout(uic_t* ui) {
+static void uic_slider_layout(view_t* ui) {
     assert(ui->tag == uic_tag_slider);
     uic_slider_t* r = (uic_slider_t*)ui;
     assert(r->inc.ui.w == r->dec.ui.w && r->inc.ui.h == r->dec.ui.h);
@@ -2209,7 +1879,7 @@ static void uic_slider_layout(uic_t* ui) {
     r->inc.ui.y = ui->y;
 }
 
-static void uic_slider_paint(uic_t* ui) {
+static void uic_slider_paint(view_t* ui) {
     assert(ui->tag == uic_tag_slider);
     uic_slider_t* r = (uic_slider_t*)ui;
     gdi.push(ui->x, ui->y);
@@ -2247,7 +1917,7 @@ static void uic_slider_paint(uic_t* ui) {
     gdi.pop();
 }
 
-static void uic_slider_mouse(uic_t* ui, int32_t message, int32_t f) {
+static void uic_slider_mouse(view_t* ui, int32_t message, int32_t f) {
     if (!ui->hidden && !ui->disabled) {
         assert(ui->tag == uic_tag_slider);
         uic_slider_t* r = (uic_slider_t*)ui;
@@ -2302,7 +1972,7 @@ static void uic_slider_inc_dec(uic_button_t* b) {
     }
 }
 
-static void uic_slider_every_100ms(uic_t* ui) { // 100ms
+static void uic_slider_every_100ms(view_t* ui) { // 100ms
     assert(ui->tag == uic_tag_slider);
     uic_slider_t* r = (uic_slider_t*)ui;
     if (r->ui.hidden || r->ui.disabled) {
@@ -2323,7 +1993,7 @@ static void uic_slider_every_100ms(uic_t* ui) { // 100ms
     }
 }
 
-void _uic_slider_init_(uic_t* ui) {
+void _uic_slider_init_(view_t* ui) {
     assert(ui->tag == uic_tag_slider);
     uic_init(ui);
     uic_set_label(ui, ui->text);
@@ -2379,11 +2049,11 @@ static void uic_messagebox_button(uic_button_t* b) {
     app.show_toast(null, 0);
 }
 
-static void uic_messagebox_measure(uic_t* ui) {
+static void uic_messagebox_measure(view_t* ui) {
     uic_messagebox_t* mx = (uic_messagebox_t*)ui;
     assert(ui->tag == uic_tag_messagebox);
     int32_t n = 0;
-    for (uic_t** c = ui->children; c != null && *c != null; c++) { n++; }
+    for (view_t** c = ui->children; c != null && *c != null; c++) { n++; }
     n--; // number of buttons
     mx->text.ui.measure(&mx->text.ui);
     const int32_t em_x = mx->text.ui.em.x;
@@ -2403,12 +2073,12 @@ static void uic_messagebox_measure(uic_t* ui) {
     }
 }
 
-static void uic_messagebox_layout(uic_t* ui) {
+static void uic_messagebox_layout(view_t* ui) {
     uic_messagebox_t* mx = (uic_messagebox_t*)ui;
     assert(ui->tag == uic_tag_messagebox);
 //  traceln("ui.y=%d", ui->y);
     int32_t n = 0;
-    for (uic_t** c = ui->children; c != null && *c != null; c++) { n++; }
+    for (view_t** c = ui->children; c != null && *c != null; c++) { n++; }
     n--; // number of buttons
     const int32_t em_y = mx->text.ui.em.y;
     mx->text.ui.x = ui->x;
@@ -2433,7 +2103,7 @@ static void uic_messagebox_layout(uic_t* ui) {
     }
 }
 
-void uic_messagebox_init_(uic_t* ui) {
+void uic_messagebox_init_(view_t* ui) {
     assert(ui->tag == uic_tag_messagebox);
     uic_messagebox_t* mx = (uic_messagebox_t*)ui;
     uic_init(ui);
@@ -2481,22 +2151,22 @@ void uic_messagebox_init(uic_messagebox_t* mx, const char* opts[],
 
 // measurements:
 
-static void measurements_center(uic_t* ui) {
+static void measurements_center(view_t* ui) {
     assert(ui->children != null && ui->children[0] != null, "no children?");
     assert(ui->children[1] == null, "must be single child");
-    uic_t* c = ui->children[0]; // even if hidden measure it
+    view_t* c = ui->children[0]; // even if hidden measure it
     c->w = ui->w;
     c->h = ui->h;
 }
 
-static void measurements_horizontal(uic_t* ui, int32_t gap) {
+static void measurements_horizontal(view_t* ui, int32_t gap) {
     assert(ui->children != null && ui->children[0] != null, "no children?");
-    uic_t** c = ui->children;
+    view_t** c = ui->children;
     ui->w = 0;
     ui->h = 0;
     bool seen = false;
     while (*c != null) {
-        uic_t* u = *c;
+        view_t* u = *c;
         if (!u->hidden) {
             if (seen) { ui->w += gap; }
             ui->w += u->w;
@@ -2507,13 +2177,13 @@ static void measurements_horizontal(uic_t* ui, int32_t gap) {
     }
 }
 
-static void measurements_vertical(uic_t* ui, int32_t gap) {
+static void measurements_vertical(view_t* ui, int32_t gap) {
     assert(ui->children != null && ui->children[0] != null, "no children?");
-    uic_t** c = ui->children;
+    view_t** c = ui->children;
     ui->h = 0;
     bool seen = false;
     while (*c != null) {
-        uic_t* u = *c;
+        view_t* u = *c;
         if (!u->hidden) {
             if (seen) { ui->h += gap; }
             ui->h += u->h;
@@ -2524,23 +2194,23 @@ static void measurements_vertical(uic_t* ui, int32_t gap) {
     }
 }
 
-static void measurements_grid(uic_t* ui, int32_t gap_h, int32_t gap_v) {
+static void measurements_grid(view_t* ui, int32_t gap_h, int32_t gap_v) {
     int32_t cols = 0;
-    for (uic_t** row = ui->children; *row != null; row++) {
-        uic_t* r = *row;
+    for (view_t** row = ui->children; *row != null; row++) {
+        view_t* r = *row;
         int32_t n = 0;
-        for (uic_t** col = r->children; *col != null; col++) { n++; }
+        for (view_t** col = r->children; *col != null; col++) { n++; }
         if (cols == 0) { cols = n; }
         assert(n > 0 && cols == n);
     }
     int32_t* mxw = (int32_t*)alloca(cols * sizeof(int32_t));
     memset(mxw, 0, cols * sizeof(int32_t));
-    for (uic_t** row = ui->children; *row != null; row++) {
+    for (view_t** row = ui->children; *row != null; row++) {
         if (!(*row)->hidden) {
             (*row)->h = 0;
             (*row)->baseline = 0;
             int32_t i = 0;
-            for (uic_t** col = (*row)->children; *col != null; col++) {
+            for (view_t** col = (*row)->children; *col != null; col++) {
                 if (!(*col)->hidden) {
                     mxw[i] = max(mxw[i], (*col)->w);
                     (*row)->h = max((*row)->h, (*col)->h);
@@ -2554,14 +2224,14 @@ static void measurements_grid(uic_t* ui, int32_t gap_h, int32_t gap_v) {
     ui->h = 0;
     ui->w = 0;
     int32_t rows_seen = 0; // number of visible rows so far
-    for (uic_t** row = ui->children; *row != null; row++) {
-        uic_t* r = *row;
+    for (view_t** row = ui->children; *row != null; row++) {
+        view_t* r = *row;
         if (!r->hidden) {
             r->w = 0;
             int32_t i = 0;
             int32_t cols_seen = 0; // number of visible columns so far
-            for (uic_t** col = r->children; *col != null; col++) {
-                uic_t* c = *col;
+            for (view_t** col = r->children; *col != null; col++) {
+                view_t* c = *col;
                 if (!c->hidden) {
                     c->h = r->h; // all cells are same height
                     if (c->tag == uic_tag_text) { // lineup text baselines
@@ -2591,20 +2261,20 @@ measurements_if measurements = {
 
 // layouts
 
-static void layouts_center(uic_t* ui) {
+static void layouts_center(view_t* ui) {
     assert(ui->children != null && ui->children[0] != null, "no children?");
     assert(ui->children[1] == null, "must be single child");
-    uic_t* c = ui->children[0];
+    view_t* c = ui->children[0];
     c->x = (ui->w - c->w) / 2;
     c->y = (ui->h - c->h) / 2;
 }
 
-static void layouts_horizontal(uic_t* ui, int32_t x, int32_t y, int32_t gap) {
+static void layouts_horizontal(view_t* ui, int32_t x, int32_t y, int32_t gap) {
     assert(ui->children != null && ui->children[0] != null, "no children?");
-    uic_t** c = ui->children;
+    view_t** c = ui->children;
     bool seen = false;
     while (*c != null) {
-        uic_t* u = *c;
+        view_t* u = *c;
         if (!u->hidden) {
             if (seen) { x += gap; }
             u->x = x;
@@ -2616,12 +2286,12 @@ static void layouts_horizontal(uic_t* ui, int32_t x, int32_t y, int32_t gap) {
     }
 }
 
-static void layouts_vertical(uic_t* ui, int32_t x, int32_t y, int32_t gap) {
+static void layouts_vertical(view_t* ui, int32_t x, int32_t y, int32_t gap) {
     assert(ui->children != null && ui->children[0] != null, "no children?");
-    uic_t** c = ui->children;
+    view_t** c = ui->children;
     bool seen = false;
     while (*c != null) {
-        uic_t* u = *c;
+        view_t* u = *c;
         if (!u->hidden) {
             if (seen) { y += gap; }
             u->x = x;
@@ -2633,17 +2303,17 @@ static void layouts_vertical(uic_t* ui, int32_t x, int32_t y, int32_t gap) {
     }
 }
 
-static void layouts_grid(uic_t* ui, int32_t gap_h, int32_t gap_v) {
+static void layouts_grid(view_t* ui, int32_t gap_h, int32_t gap_v) {
     assert(ui->children != null, "layout_grid() with no children?");
     int32_t x = ui->x;
     int32_t y = ui->y;
     bool row_seen = false;
-    for (uic_t** row = ui->children; *row != null; row++) {
+    for (view_t** row = ui->children; *row != null; row++) {
         if (!(*row)->hidden) {
             if (row_seen) { y += gap_v; }
             int32_t xc = x;
             bool col_seen = false;
-            for (uic_t** col = (*row)->children; *col != null; col++) {
+            for (view_t** col = (*row)->children; *col != null; col++) {
                 if (!(*col)->hidden) {
                     if (col_seen) { xc += gap_h; }
                     (*col)->x = xc;
@@ -2791,7 +2461,7 @@ static struct {
 // messages are far from isochronous and more likely to arrive at 16 or
 // 32ms intervals and can be delayed.
 
-static void app_on_every_message(uic_t* ui);
+static void app_on_every_message(view_t* ui);
 
 // https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
 // https://docs.microsoft.com/en-us/windows/win32/inputdev/wm-keydown
@@ -3191,8 +2861,8 @@ static tm_t app_timer_set(uintptr_t id, int32_t ms) {
     return tid;
 }
 
-static void set_parents(uic_t* ui) {
-    for (uic_t** c = ui->children; c != null && *c != null; c++) {
+static void set_parents(view_t* ui) {
+    for (view_t** c = ui->children; c != null && *c != null; c++) {
         if ((*c)->parent == null) {
             (*c)->parent = ui;
             set_parents(*c);
@@ -3202,8 +2872,8 @@ static void set_parents(uic_t* ui) {
     }
 }
 
-static void init_children(uic_t* ui) {
-    for (uic_t** c = ui->children; c != null && *c != null; c++) {
+static void init_children(view_t* ui) {
+    for (view_t** c = ui->children; c != null && *c != null; c++) {
         if ((*c)->init != null) { (*c)->init(*c); (*c)->init = null; }
         if ((*c)->font == null) { (*c)->font = &app.fonts.regular; }
         if ((*c)->em.x == 0 || (*c)->em.y == 0) { (*c)->em = gdi.get_em(*ui->font); }
@@ -3216,7 +2886,7 @@ static void app_post_message(int32_t m, int64_t wp, int64_t lp) {
     fatal_if_false(PostMessageA(window(), m, wp, lp));
 }
 
-static void app_timer(uic_t* ui, tm_t id) {
+static void app_timer(view_t* ui, tm_t id) {
     if (ui->timer != null) {
         ui->timer(ui, id);
     }
@@ -3226,7 +2896,7 @@ static void app_timer(uic_t* ui, tm_t id) {
     if (id == app_timer_100ms_id && ui->every_100ms != null) {
         ui->every_100ms(ui);
     }
-    uic_t** c = ui->children;
+    view_t** c = ui->children;
     while (c != null && *c != null) { app_timer(*c, id); c++; }
 }
 
@@ -3330,37 +3000,37 @@ static void app_get_min_max_info(MINMAXINFO* mmi) {
 }
 
 #define app_method_int32(name)                                  \
-static void app_##name(uic_t* ui, int32_t p) {                  \
+static void app_##name(view_t* ui, int32_t p) {                  \
     if (ui->name != null && !uic_hidden_or_disabled(ui)) {      \
         ui->name(ui, p);                                        \
     }                                                           \
-    uic_t** c = ui->children;                                   \
+    view_t** c = ui->children;                                   \
     while (c != null && *c != null) { app_##name(*c, p); c++; } \
 }
 
 app_method_int32(key_pressed)
 app_method_int32(key_released)
 
-static void app_character(uic_t* ui, const char* utf8) {
+static void app_character(view_t* ui, const char* utf8) {
     if (!uic_hidden_or_disabled(ui)) {
         if (ui->character != null) { ui->character(ui, utf8); }
-        uic_t** c = ui->children;
+        view_t** c = ui->children;
         while (c != null && *c != null) { app_character(*c, utf8); c++; }
     }
 }
 
-static void app_paint(uic_t* ui) {
+static void app_paint(view_t* ui) {
     if (!ui->hidden && app.crc.w > 0 && app.crc.h > 0) {
         if (ui->paint != null) { ui->paint(ui); }
-        uic_t** c = ui->children;
+        view_t** c = ui->children;
         while (c != null && *c != null) { app_paint(*c); c++; }
     }
 }
 
-static bool app_set_focus(uic_t* ui) {
+static bool app_set_focus(view_t* ui) {
     bool set = false;
     assert(GetActiveWindow() == window());
-    uic_t** c = ui->children;
+    view_t** c = ui->children;
     while (c != null && *c != null && !set) { set = app_set_focus(*c); c++; }
     if (ui->focusable && ui->set_focus != null &&
        (app.focus == ui || app.focus == null)) {
@@ -3369,44 +3039,44 @@ static bool app_set_focus(uic_t* ui) {
     return set;
 }
 
-static void app_kill_focus(uic_t* ui) {
-    uic_t** c = ui->children;
+static void app_kill_focus(view_t* ui) {
+    view_t** c = ui->children;
     while (c != null && *c != null) { app_kill_focus(*c); c++; }
     if (ui->set_focus != null && ui->focusable) {
         ui->kill_focus(ui);
     }
 }
 
-static void app_mousewheel(uic_t* ui, int32_t dx, int32_t dy) {
+static void app_mousewheel(view_t* ui, int32_t dx, int32_t dy) {
     if (!uic_hidden_or_disabled(ui)) {
         if (ui->mousewheel != null) { ui->mousewheel(ui, dx, dy); }
-        uic_t** c = ui->children;
+        view_t** c = ui->children;
         while (c != null && *c != null) { app_mousewheel(*c, dx, dy); c++; }
     }
 }
 
-static void app_measure_children(uic_t* ui) {
+static void app_measure_children(view_t* ui) {
     if (!ui->hidden && app.crc.w > 0 && app.crc.h > 0) {
-        uic_t** c = ui->children;
+        view_t** c = ui->children;
         while (c != null && *c != null) { app_measure_children(*c); c++; }
         if (ui->measure != null) { ui->measure(ui); }
     }
 }
 
-static void app_layout_children(uic_t* ui) {
+static void app_layout_children(view_t* ui) {
     if (!ui->hidden && app.crc.w > 0 && app.crc.h > 0) {
         if (ui->layout != null) { ui->layout(ui); }
-        uic_t** c = ui->children;
+        view_t** c = ui->children;
         while (c != null && *c != null) { app_layout_children(*c); c++; }
     }
 }
 
-static void app_layout_ui(uic_t* ui) {
+static void app_layout_ui(view_t* ui) {
     app_measure_children(ui);
     app_layout_children(ui);
 }
 
-static bool app_message(uic_t* ui, int32_t m, int64_t wp, int64_t lp,
+static bool app_message(view_t* ui, int32_t m, int64_t wp, int64_t lp,
         int64_t* ret) {
     // message() callback is called even for hidden and disabled ui-elements
     // consider timers, and other useful messages
@@ -3414,7 +3084,7 @@ static bool app_message(uic_t* ui, int32_t m, int64_t wp, int64_t lp,
     if (ui->message != null) {
         if (ui->message(ui, m, wp, lp, ret)) { return true; }
     }
-    uic_t** c = ui->children;
+    view_t** c = ui->children;
     while (c != null && *c != null) {
         if (app_message(*c, m, wp, lp, ret)) { return true; }
         c++;
@@ -3422,12 +3092,12 @@ static bool app_message(uic_t* ui, int32_t m, int64_t wp, int64_t lp,
     return false;
 }
 
-static void app_killfocus(uic_t* ui) {
+static void app_killfocus(view_t* ui) {
     // removes focus from hidden or disabled ui controls
     if (app.focus == ui && (ui->disabled || ui->hidden)) {
         app.focus = null;
     } else {
-        uic_t** c = ui->children;
+        view_t** c = ui->children;
         while (c != null && *c != null) {
             app_killfocus(*c);
             c++;
@@ -3438,7 +3108,7 @@ static void app_killfocus(uic_t* ui) {
 static void app_toast_mouse(int32_t m, int32_t f);
 static void app_toast_character(const char* utf8);
 
-static void app_wm_char(uic_t* ui, const char* utf8) {
+static void app_wm_char(view_t* ui, const char* utf8) {
     if (app_toast.ui != null) {
         app_toast_character(utf8);
     } else {
@@ -3446,7 +3116,7 @@ static void app_wm_char(uic_t* ui, const char* utf8) {
     }
 }
 
-static void app_hover_changed(uic_t* ui) {
+static void app_hover_changed(view_t* ui) {
     if (ui->hovering != null && !ui->hidden) {
         if (!ui->hover) {
             ui->hover_at = 0;
@@ -3466,7 +3136,7 @@ static void app_hover_changed(uic_t* ui) {
 // app_on_every_message() is called on every message including timers
 // allowing ui elements to do scheduled actions like e.g. hovering()
 
-static void app_on_every_message(uic_t* ui) {
+static void app_on_every_message(view_t* ui) {
     if (ui->hovering != null && !ui->hidden) {
         if (ui->hover_at > 0 && app.now > ui->hover_at) {
             ui->hover_at = -1; // "already called"
@@ -3475,7 +3145,7 @@ static void app_on_every_message(uic_t* ui) {
     }
 }
 
-static void app_ui_mouse(uic_t* ui, int32_t m, int32_t f) {
+static void app_ui_mouse(view_t* ui, int32_t m, int32_t f) {
     if (!app.is_hidden(ui) &&
        (m == WM_MOUSEHOVER || m == messages.mouse_move)) {
         RECT rc = { ui->x, ui->y, ui->x + ui->w, ui->y + ui->h};
@@ -3491,15 +3161,15 @@ static void app_ui_mouse(uic_t* ui, int32_t m, int32_t f) {
     }
     if (!uic_hidden_or_disabled(ui)) {
         if (ui->mouse != null) { ui->mouse(ui, m, f); }
-        for (uic_t** c = ui->children; c != null && *c != null; c++) {
+        for (view_t** c = ui->children; c != null && *c != null; c++) {
             app_ui_mouse(*c, m, f);
         }
     }
 }
 
-static bool app_context_menu(uic_t* ui) {
+static bool app_context_menu(view_t* ui) {
     if (!uic_hidden_or_disabled(ui)) {
-        for (uic_t** c = ui->children; c != null && *c != null; c++) {
+        for (view_t** c = ui->children; c != null && *c != null; c++) {
             if (app_context_menu(*c)) { return true; }
         }
         RECT rc = { ui->x, ui->y, ui->x + ui->w, ui->y + ui->h};
@@ -3513,16 +3183,16 @@ static bool app_context_menu(uic_t* ui) {
     return false;
 }
 
-static bool app_inside(uic_t* ui) {
+static bool app_inside(view_t* ui) {
     const int32_t x = app.mouse.x - ui->x;
     const int32_t y = app.mouse.y - ui->y;
     return 0 <= x && x < ui->w && 0 <= y && y < ui->h;
 }
 
-static bool app_tap(uic_t* ui, int32_t ix) { // 0: left 1: middle 2: right
+static bool app_tap(view_t* ui, int32_t ix) { // 0: left 1: middle 2: right
     bool done = false; // consumed
     if (!uic_hidden_or_disabled(ui) && app_inside(ui)) {
-        for (uic_t** c = ui->children; c != null && *c != null && !done; c++) {
+        for (view_t** c = ui->children; c != null && *c != null && !done; c++) {
             done = app_tap(*c, ix);
         }
         if (ui->tap != null && !done) { done = ui->tap(ui, ix); }
@@ -3530,10 +3200,10 @@ static bool app_tap(uic_t* ui, int32_t ix) { // 0: left 1: middle 2: right
     return done;
 }
 
-static bool app_press(uic_t* ui, int32_t ix) { // 0: left 1: middle 2: right
+static bool app_press(view_t* ui, int32_t ix) { // 0: left 1: middle 2: right
     bool done = false; // consumed
     if (!uic_hidden_or_disabled(ui) && app_inside(ui)) {
-        for (uic_t** c = ui->children; c != null && *c != null && !done; c++) {
+        for (view_t** c = ui->children; c != null && *c != null && !done; c++) {
             done = app_press(*c, ix);
         }
         if (ui->press != null && !done) { done = ui->press(ui, ix); }
@@ -3541,7 +3211,7 @@ static bool app_press(uic_t* ui, int32_t ix) { // 0: left 1: middle 2: right
     return done;
 }
 
-static void app_mouse(uic_t* ui, int32_t m, int32_t f) {
+static void app_mouse(view_t* ui, int32_t m, int32_t f) {
     if (app_toast.ui != null && app_toast.ui->mouse != null) {
         app_ui_mouse(app_toast.ui, m, f);
     } else if (app_toast.ui != null && app_toast.ui->mouse == null) {
@@ -4237,7 +3907,7 @@ static void app_quit(int32_t exit_code) {
     app.close(); // close and destroy app only window
 }
 
-static void app_show_tooltip_or_toast(uic_t* ui, int32_t x, int32_t y, double timeout) {
+static void app_show_tooltip_or_toast(view_t* ui, int32_t x, int32_t y, double timeout) {
     if (ui != null) {
         app_toast.x = x;
         app_toast.y = y;
@@ -4256,11 +3926,11 @@ static void app_show_tooltip_or_toast(uic_t* ui, int32_t x, int32_t y, double ti
     }
 }
 
-static void app_show_toast(uic_t* ui, double timeout) {
+static void app_show_toast(view_t* ui, double timeout) {
     app_show_tooltip_or_toast(ui, -1, -1, timeout);
 }
 
-static void app_show_tooltip(uic_t* ui, int32_t x, int32_t y, double timeout) {
+static void app_show_tooltip(view_t* ui, int32_t x, int32_t y, double timeout) {
     if (ui != null) {
         app_show_tooltip_or_toast(ui, x, y, timeout);
     } else if (app_toast.ui != null && app_toast.x >= 0 && app_toast.y >= 0) {
@@ -4758,7 +4428,7 @@ clipboard_t clipboard = {
     .text = clipboard_text
 };
 
-static uic_t app_ui;
+static view_t app_ui;
 
 static void app_init(void) {
     app.ui = &app_ui;

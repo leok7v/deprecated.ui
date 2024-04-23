@@ -33,7 +33,7 @@ typedef  struct uic_edit_glyph_s {
     int32_t bytes;
 } uic_edit_glyph_t;
 
-fn(void, layout)(uic_t* ui);
+fn(void, layout)(view_t* ui);
 
 // Glyphs in monospaced Windows fonts may have different width for non-ASCII
 // characters. Thus even if edit is monospaced glyph measurements are used
@@ -1199,7 +1199,7 @@ fn(void, key_enter)(uic_edit_t* e) {
     }
 }
 
-fn(void, key_pressed)(uic_t* ui, int32_t key) {
+fn(void, key_pressed)(view_t* ui, int32_t key) {
     assert(ui->tag == uic_tag_edit);
     uic_edit_t* e = (uic_edit_t*)ui;
     if (e->focused) {
@@ -1232,7 +1232,7 @@ fn(void, key_pressed)(uic_t* ui, int32_t key) {
     if (e->fuzzer != null) { e->next_fuzz(e); }
 }
 
-fn(void, character)(uic_t* unused(ui), const char* utf8) {
+fn(void, character)(view_t* unused(ui), const char* utf8) {
     assert(ui->tag == uic_tag_edit);
     assert(!ui->hidden && !ui->disabled);
     #pragma push_macro("ctl")
@@ -1378,7 +1378,7 @@ fn(void, mouse_button_up)(uic_edit_t* e, int32_t m) {
 
 #ifdef EDIT_USE_TAP
 
-fn(bool, tap)(uic_t* ui, int32_t ix) {
+fn(bool, tap)(view_t* ui, int32_t ix) {
     traceln("ix: %d", ix);
     if (ix == 0) {
         uic_edit_t* e = (uic_edit_t*)ui;
@@ -1398,7 +1398,7 @@ fn(bool, tap)(uic_t* ui, int32_t ix) {
 
 #endif // EDIT_USE_TAP
 
-fn(bool, press)(uic_t* ui, int32_t ix) {
+fn(bool, press)(view_t* ui, int32_t ix) {
 //  traceln("ix: %d", ix);
     if (ix == 0) {
         uic_edit_t* e = (uic_edit_t*)ui;
@@ -1417,7 +1417,7 @@ fn(bool, press)(uic_t* ui, int32_t ix) {
     }
 }
 
-fn(void, mouse)(uic_t* ui, int32_t m, int32_t unused(flags)) {
+fn(void, mouse)(view_t* ui, int32_t m, int32_t unused(flags)) {
 //  if (m == messages.left_button_pressed) { traceln("%p", ui); }
     assert(ui->tag == uic_tag_edit);
     assert(!ui->hidden);
@@ -1440,7 +1440,7 @@ fn(void, mouse)(uic_t* ui, int32_t m, int32_t unused(flags)) {
     }
 }
 
-fn(void, mousewheel)(uic_t* ui, int32_t unused(dx), int32_t dy) {
+fn(void, mousewheel)(view_t* ui, int32_t unused(dx), int32_t dy) {
     // TODO: may make a use of dx in single line not-word-breaked edit control
     if (app.focus == ui) {
         assert(ui->tag == uic_tag_edit);
@@ -1463,7 +1463,7 @@ fn(void, mousewheel)(uic_t* ui, int32_t unused(dx), int32_t dy) {
     }
 }
 
-fn(bool, set_focus)(uic_t* ui) {
+fn(bool, set_focus)(view_t* ui) {
     assert(ui->tag == uic_tag_edit);
     uic_edit_t* e = (uic_edit_t*)ui;
 //  traceln("active=%d has_focus=%d focused=%d",
@@ -1479,7 +1479,7 @@ fn(bool, set_focus)(uic_t* ui) {
     return true;
 }
 
-fn(void, kill_focus)(uic_t* ui) {
+fn(void, kill_focus)(view_t* ui) {
     assert(ui->tag == uic_tag_edit);
     uic_edit_t* e = (uic_edit_t*)ui;
 //  traceln("active=%d has_focus=%d focused=%d",
@@ -1614,7 +1614,7 @@ fn(void, clipboard_paste)(uic_edit_t* e) {
     }
 }
 
-fn(void, measure)(uic_t* ui) { // bottom up
+fn(void, measure)(view_t* ui) { // bottom up
     assert(ui->tag == uic_tag_edit);
     uic_edit_t* e = (uic_edit_t*)ui;
     ui->em = gdi.get_em(ui->font == null ? app.fonts.regular : *ui->font);
@@ -1628,7 +1628,7 @@ fn(void, measure)(uic_t* ui) { // bottom up
     }
 }
 
-fn(void, layout)(uic_t* ui) { // top down
+fn(void, layout)(view_t* ui) { // top down
     assert(ui->tag == uic_tag_edit);
     assert(ui->w > 0 && ui->h > 0); // could be `if'
     uic_edit_t* e = (uic_edit_t*)ui;
@@ -1671,7 +1671,7 @@ fn(void, layout)(uic_t* ui) { // top down
     }
 }
 
-fn(void, paint)(uic_t* ui) {
+fn(void, paint)(view_t* ui) {
     assert(ui->tag == uic_tag_edit);
     assert(!ui->hidden);
     uic_edit_t* e = (uic_edit_t*)ui;
@@ -1703,7 +1703,7 @@ fn(void, move)(uic_edit_t* e, uic_edit_pg_t pg) {
     e->selection[0] = e->selection[1];
 }
 
-fn(bool, message)(uic_t* ui, int32_t unused(m), int64_t unused(wp),
+fn(bool, message)(view_t* ui, int32_t unused(m), int64_t unused(wp),
         int64_t unused(lp), int64_t* unused(rt)) {
     uic_edit_t* e = (uic_edit_t*)ui;
     if (app.is_active() && app.has_focus() && !ui->hidden) {

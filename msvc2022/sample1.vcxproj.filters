@@ -9,10 +9,46 @@
     </ClInclude>
     <ClInclude Include="..\quick.h" />
     <ClInclude Include="..\ut\single_file_lib\ut.h" />
+    <ClInclude Include="..\inc\ui\ui.h">
+      <Filter>inc\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\inc\ui\view.h">
+      <Filter>inc\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\inc\ui\win32.h">
+      <Filter>inc\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\inc\ui\types.h">
+      <Filter>inc\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\inc\ui\app.h">
+      <Filter>inc\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\inc\ui\gdi.h">
+      <Filter>inc\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\inc\ui\colors.h">
+      <Filter>inc\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\inc\ui\layout.h">
+      <Filter>inc\ui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="res">
       <UniqueIdentifier>{c60b96ea-15fe-4796-86c9-3b9428dc82c7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc">
+      <UniqueIdentifier>{cfad7e97-c07d-4e7c-9f5d-e050de0d392d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\ui">
+      <UniqueIdentifier>{8c1f8b04-c548-4f04-a9ab-f48af41ce29c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{7270cfc9-e29d-4b58-8ef8-9cb77d2858aa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\ui">
+      <UniqueIdentifier>{b024e767-c6e0-4351-bf06-8240d113012c}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -32,5 +68,8 @@
     <ClCompile Include="..\samples\sample1.c" />
     <ClCompile Include="..\samples\quick.c" />
     <ClCompile Include="..\samples\ut.c" />
+    <ClCompile Include="..\src\ui\ui.c">
+      <Filter>src\ui</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

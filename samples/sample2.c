@@ -47,7 +47,7 @@ static void stats(volatile time_stats_t* t) {
     t->spread = max(fabs(t->max_dt), fabs(t->min_dt));
 }
 
-static void graph(uic_t* ui, volatile time_stats_t* t, color_t c, int y) {
+static void graph(view_t* ui, volatile time_stats_t* t, color_t c, int y) {
     const int h2 = app.crc.h / 2;
     const int h4 = h2 / 2;
     const int h8 = h4 / 2;
@@ -89,7 +89,7 @@ static void timer_thread(void* p) {
     }
 }
 
-static void paint(uic_t* ui) {
+static void paint(view_t* ui) {
     stats(&ts[0]);
     stats(&ts[1]);
     gdi.set_brush(gdi.brush_color);
@@ -112,7 +112,7 @@ static void paint(uic_t* ui) {
 
 }
 
-static void timer(uic_t* ui, tm_t id) {
+static void timer(view_t* ui, tm_t id) {
     assert(ui == app.ui); (void)ui;
     // there are at least 3 timers notifications coming here:
     // 1 seconds, 100ms and 10ms:

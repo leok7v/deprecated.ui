@@ -46,7 +46,7 @@ static image_t  background;
 
 static void init(void);
 static void fini(void);
-static void character(uic_t* ui, const char* utf8);
+static void character(view_t* ui, const char* utf8);
 static void midi_open(void);
 static void midi_play(void);
 static void midi_stop(void);
@@ -73,7 +73,7 @@ static void* load_animated_gif(const byte* data, int64_t bytes,
     int32_t** delays, int32_t* w, int32_t* h, int32_t* frames, int32_t* bpp,
     int32_t preferred_bytes_per_pixel);
 
-static void paint(uic_t* ui) {
+static void paint(view_t* ui) {
     if (animation.x < 0 && animation.y < 0) {
         animation.x = (ui->w - gif.w) / 2;
         animation.y = (ui->h - gif.h) / 2;
@@ -105,13 +105,13 @@ static void paint(uic_t* ui) {
     gdi.set_font(f);
 }
 
-static void character(uic_t* unused(ui), const char* utf8) {
+static void character(view_t* unused(ui), const char* utf8) {
     if (utf8[0] == 'q' || utf8[0] == 'Q' || utf8[0] == 033) {
         app.close();
     }
 }
 
-static void mouse(uic_t* unused(ui), int32_t m, int32_t unused(f)) {
+static void mouse(view_t* unused(ui), int32_t m, int32_t unused(f)) {
     const ui_point_t em = gdi.get_em(app.fonts.H1);
     if ((m == messages.left_button_pressed ||
         m == messages.right_button_pressed) &&
@@ -134,7 +134,7 @@ static void opened(void) {
     midi_play();
 }
 
-static bool message(uic_t* unused(ui), int32_t m, int64_t wp, int64_t lp,
+static bool message(view_t* unused(ui), int32_t m, int64_t wp, int64_t lp,
         int64_t* unused(ret)) {
     if (m == MM_MCINOTIFY) {
 //      traceln("MM_MCINOTIFY flags: %016llX defice: %016llX", wp, lp);

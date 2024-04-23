@@ -65,13 +65,13 @@ const char* title = "Sample";
 
 static uic_text(text, "Hello World!");
 
-static uic_t* children[] = { &text.ui, null };
+static view_t* children[] = { &text.ui, null };
 
-static void layout(uic_t* ui) {
+static void layout(view_t* ui) {
     layouts.center(ui);
 }
 
-static void paint(uic_t* ui) {
+static void paint(view_t* ui) {
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(colors.black);
     gdi.fill(0, 0, ui->w, ui->h);

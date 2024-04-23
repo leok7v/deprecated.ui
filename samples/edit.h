@@ -44,7 +44,7 @@ typedef struct uic_edit_pr_s { // page/run coordinates
 typedef struct uic_edit_s uic_edit_t;
 
 typedef struct uic_edit_s {
-    uic_t ui;
+    view_t ui;
     void (*set_font)(uic_edit_t* e, font_t* font); // see notes below (*)
     void (*move)(uic_edit_t* e, uic_edit_pg_t pg); // move caret clear selection
     // replace selected text. If bytes < 0 text is treated as zero terminated
