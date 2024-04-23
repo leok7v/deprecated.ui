@@ -79,7 +79,7 @@ static void opened(void) {
     gdi.image_init(&image[1], app.crc.w, app.crc.h, 4, pixels[1]);
     thread = threads.start(renderer, null);
     request_rendering();
-//  uic_button_init(&full_screen, "\xE2\xA7\x89", 1, full_screen_callback);
+//  button_init(&full_screen, "\xE2\xA7\x89", 1, full_screen_callback);
     strprintf(full_screen.ui.tip, "&Full Screen");
     full_screen.ui.shortcut = 'F';
 }

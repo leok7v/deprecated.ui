@@ -1,7 +1,7 @@
-static void uic_slider_measure(view_t* ui) {
+static void slider_measure(view_t* ui) {
     assert(ui->tag == uic_tag_slider);
     view_measure(ui);
-    uic_slider_t* r = (uic_slider_t*)ui;
+    slider_t* r = (slider_t*)ui;
     assert(r->inc.ui.w == r->dec.ui.w && r->inc.ui.h == r->dec.ui.h);
     const int32_t em = ui->em.x;
     font_t f = ui->font != null ? *ui->font : app.fonts.regular;
@@ -12,9 +12,9 @@ static void uic_slider_measure(view_t* ui) {
     ui->h = r->inc.ui.h;
 }
 
-static void uic_slider_layout(view_t* ui) {
+static void slider_layout(view_t* ui) {
     assert(ui->tag == uic_tag_slider);
-    uic_slider_t* r = (uic_slider_t*)ui;
+    slider_t* r = (slider_t*)ui;
     assert(r->inc.ui.w == r->dec.ui.w && r->inc.ui.h == r->dec.ui.h);
     const int32_t em = ui->em.x;
     r->dec.ui.x = ui->x;
@@ -23,9 +23,9 @@ static void uic_slider_layout(view_t* ui) {
     r->inc.ui.y = ui->y;
 }
 
-static void uic_slider_paint(view_t* ui) {
+static void slider_paint(view_t* ui) {
     assert(ui->tag == uic_tag_slider);
-    uic_slider_t* r = (uic_slider_t*)ui;
+    slider_t* r = (slider_t*)ui;
     gdi.push(ui->x, ui->y);
     gdi.set_clip(ui->x, ui->y, ui->w, ui->h);
     const int32_t em = ui->em.x;
@@ -61,10 +61,10 @@ static void uic_slider_paint(view_t* ui) {
     gdi.pop();
 }
 
-static void uic_slider_mouse(view_t* ui, int32_t message, int32_t f) {
+static void slider_mouse(view_t* ui, int32_t message, int32_t f) {
     if (!ui->hidden && !ui->disabled) {
         assert(ui->tag == uic_tag_slider);
-        uic_slider_t* r = (uic_slider_t*)ui;
+        slider_t* r = (slider_t*)ui;
         assert(!ui->hidden && !ui->disabled);
         bool drag = message == messages.mouse_move &&
             (f & (mouse_flags.left_button|mouse_flags.right_button)) != 0;
@@ -87,7 +87,7 @@ static void uic_slider_mouse(view_t* ui, int32_t message, int32_t f) {
     }
 }
 
-static void uic_slider_inc_dec_value(uic_slider_t* r, int32_t sign, int32_t mul) {
+static void slider_inc_dec_value(slider_t* r, int32_t sign, int32_t mul) {
     if (!r->ui.hidden && !r->ui.disabled) {
         // full 0x80000000..0x7FFFFFFF (-2147483648..2147483647) range
         int32_t v = r->value;
@@ -106,19 +106,19 @@ static void uic_slider_inc_dec_value(uic_slider_t* r, int32_t sign, int32_t mul)
     }
 }
 
-static void uic_slider_inc_dec(uic_button_t* b) {
-    uic_slider_t* r = (uic_slider_t*)b->ui.parent;
+static void slider_inc_dec(button_t* b) {
+    slider_t* r = (slider_t*)b->ui.parent;
     if (!r->ui.hidden && !r->ui.disabled) {
         int32_t sign = b == &r->inc ? +1 : -1;
         int32_t mul = app.shift && app.ctrl ? 1000 :
             app.shift ? 100 : app.ctrl ? 10 : 1;
-        uic_slider_inc_dec_value(r, sign, mul);
+        slider_inc_dec_value(r, sign, mul);
     }
 }
 
-static void uic_slider_every_100ms(view_t* ui) { // 100ms
+static void slider_every_100ms(view_t* ui) { // 100ms
     assert(ui->tag == uic_tag_slider);
-    uic_slider_t* r = (uic_slider_t*)ui;
+    slider_t* r = (slider_t*)ui;
     if (r->ui.hidden || r->ui.disabled) {
         r->time = 0;
     } else if (!r->dec.ui.armed && !r->inc.ui.armed) {
@@ -132,29 +132,29 @@ static void uic_slider_every_100ms(view_t* ui) { // 100ms
             int32_t mul = s >= 1 ? 1 << (s - 1) : 1;
             const int64_t range = (int64_t)r->vmax - r->vmin;
             if (mul > range / 8) { mul = (int32_t)(range / 8); }
-            uic_slider_inc_dec_value(r, sign, max(mul, 1));
+            slider_inc_dec_value(r, sign, max(mul, 1));
         }
     }
 }
 
-void _uic_slider_init_(view_t* ui) {
+void _slider_init_(view_t* ui) {
     assert(ui->tag == uic_tag_slider);
     view_init(ui);
     view_set_text(ui, ui->text);
-    ui->mouse        = uic_slider_mouse;
-    ui->measure      = uic_slider_measure;
-    ui->layout       = uic_slider_layout;
-    ui->paint        = uic_slider_paint;
-    ui->every_100ms = uic_slider_every_100ms;
-    uic_slider_t* r = (uic_slider_t*)ui;
+    ui->mouse        = slider_mouse;
+    ui->measure      = slider_measure;
+    ui->layout       = slider_layout;
+    ui->paint        = slider_paint;
+    ui->every_100ms = slider_every_100ms;
+    slider_t* r = (slider_t*)ui;
     r->buttons[0] = &r->dec.ui;
     r->buttons[1] = &r->inc.ui;
     r->buttons[2] = null;
     r->ui.children = r->buttons;
     // Heavy Minus Sign
-    uic_button_init(&r->dec, "\xE2\x9E\x96", 0, uic_slider_inc_dec);
+    button_init(&r->dec, "\xE2\x9E\x96", 0, slider_inc_dec);
     // Heavy Plus Sign
-    uic_button_init(&r->inc, "\xE2\x9E\x95", 0, uic_slider_inc_dec);
+    button_init(&r->inc, "\xE2\x9E\x95", 0, slider_inc_dec);
     static const char* accel =
         "Accelerate by holding Ctrl x10 Shift x100 and Ctrl+Shift x1000";
     strprintf(r->inc.ui.tip, "%s", accel);
@@ -164,9 +164,9 @@ void _uic_slider_init_(view_t* ui) {
     r->ui.localize(&r->ui);
 }
 
-void uic_slider_init(uic_slider_t* r, const char* label, double ems,
-        int32_t vmin, int32_t vmax, void (*cb)(uic_slider_t* r)) {
-    static_assert(offsetof(uic_slider_t, ui) == 0, "offsetof(.ui)");
+void slider_init(slider_t* r, const char* label, double ems,
+        int32_t vmin, int32_t vmax, void (*cb)(slider_t* r)) {
+    static_assert(offsetof(slider_t, ui) == 0, "offsetof(.ui)");
     assert(ems >= 3.0, "allow 1em for each of [-] and [+] buttons");
     r->ui.tag = uic_tag_slider;
     strprintf(r->ui.text, "%s", label);
@@ -175,5 +175,5 @@ void uic_slider_init(uic_slider_t* r, const char* label, double ems,
     r->vmin = vmin;
     r->vmax = vmax;
     r->value = vmin;
-    _uic_slider_init_(&r->ui);
+    _slider_init_(&r->ui);
 }

@@ -18,7 +18,7 @@ static void view_measure(view_t* ui) {
     assert(ui->em.x > 0 && ui->em.y > 0);
     ui->w = (int32_t)(ui->em.x * ui->width + 0.5);
     ui_point_t mt = { 0 };
-    if (ui->tag == uic_tag_text && ((uic_text_t*)ui)->multiline) {
+    if (ui->tag == uic_tag_text && ((label_t*)ui)->multiline) {
         int32_t w = (int)(ui->width * ui->em.x + 0.5);
         mt = gdi.measure_multiline(f, w == 0 ? -1 : w, view_nls(ui));
     } else {

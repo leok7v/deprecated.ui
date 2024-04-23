@@ -30,7 +30,7 @@ static double sy = 0.25; // [0..1]
 static struct { double x; double y; } stack[52];
 static int top = 1; // because it is already zoomed in once above
 
-static uic_slider_t zoomer;
+static slider_t zoomer;
 
 #define glyph_onna        "\xE2\xBC\xA5" // Kanji Onna "Female"
 #define glyph_two_squares "\xE2\xA7\x89" // "Two Joined Squares"
@@ -324,7 +324,7 @@ static void mouse(view_t* ui, int32_t m, int32_t flags) {
     app.redraw(); // always to update Mouse: x, y info
 }
 
-static void zoomer_callback(uic_slider_t* slider) {
+static void zoomer_callback(slider_t* slider) {
     double z = 1;
     for (int i = 0; i < slider->value; i++) { z /= 2; }
     while (zoom > z) { zoom_in(image.w / 2, image.h / 2); }
@@ -398,7 +398,7 @@ static void opened(void) {
     about.ui.font = &app.fonts.H3;
     button_locale.ui.shortcut = 'l';
     button_full_screen.ui.shortcut = 'f';
-    uic_slider_init(&zoomer, "Zoom: 1 / (2^%d)", 7.0, 0, countof(stack) - 1,
+    slider_init(&zoomer, "Zoom: 1 / (2^%d)", 7.0, 0, countof(stack) - 1,
         zoomer_callback);
     strcopy(button_message_box.ui.tip, "Show Yes/No message box");
     strcopy(button_about.ui.tip, "Show About message box");

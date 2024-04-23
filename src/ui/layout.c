@@ -82,7 +82,7 @@ static void measurements_grid(view_t* ui, int32_t gap_h, int32_t gap_v) {
                 if (!c->hidden) {
                     c->h = r->h; // all cells are same height
                     if (c->tag == uic_tag_text) { // lineup text baselines
-                        uic_text_t* t = (uic_text_t*)c;
+                        label_t* t = (label_t*)c;
                         t->dy = r->baseline - c->baseline;
                     }
                     c->w = mxw[i++];

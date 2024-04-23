@@ -952,7 +952,7 @@ static void app_toast_paint(void) {
 
 static void app_toast_cancel(void) {
     if (app_toast.ui != null && app_toast.ui->tag == uic_tag_messagebox) {
-        uic_messagebox_t* mx = (uic_messagebox_t*)app_toast.ui;
+        messagebox_t* mx = (messagebox_t*)app_toast.ui;
         if (mx->option < 0) { mx->cb(mx, -1); }
     }
     app_toast.step = 0;
@@ -1568,7 +1568,7 @@ static void app_show_tooltip_or_toast(view_t* ui, int32_t x, int32_t y, double t
         app_toast.x = x;
         app_toast.y = y;
         if (ui->tag == uic_tag_messagebox) {
-            ((uic_messagebox_t*)ui)->option = -1;
+            ((messagebox_t*)ui)->option = -1;
         }
         // allow unparented ui for toast and tooltip
         if (ui->init != null) { ui->init(ui); ui->init = null; }
@@ -1596,8 +1596,8 @@ static void app_show_tooltip(view_t* ui, int32_t x, int32_t y, double timeout) {
 
 static void app_formatted_vtoast(double timeout, const char* format, va_list vl) {
     app_show_toast(null, 0);
-    static uic_text_t txt;
-    uic_text_vinit(&txt, format, vl);
+    static label_t txt;
+    label_vinit(&txt, format, vl);
     txt.multiline = true;
     app_show_toast(&txt.ui, timeout);
 }

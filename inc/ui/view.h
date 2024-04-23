@@ -67,7 +67,7 @@ typedef struct view_s { // ui element container/control
     bool hidden; // paint() is not called on hidden
     bool armed;
     bool hover;
-    bool pressed;   // for uic_button_t and  uic_checkbox_t
+    bool pressed;   // for button_t and  checkbox_t
     bool disabled;  // mouse, keyboard, key_up/down not called on disabled
     bool focusable; // can be target for keyboard focus
     double  hover_delay; // delta time in seconds before hovered(true)
