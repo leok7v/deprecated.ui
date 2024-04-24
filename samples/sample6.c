@@ -46,7 +46,7 @@ static image_t  background;
 
 static void init(void);
 static void fini(void);
-static void character(view_t* view, const char* utf8);
+static void character(ui_view_t* view, const char* utf8);
 static void midi_open(void);
 static void midi_play(void);
 static void midi_stop(void);
@@ -73,7 +73,7 @@ static void* load_animated_gif(const uint8_t* data, int64_t bytes,
     int32_t** delays, int32_t* w, int32_t* h, int32_t* frames, int32_t* bpp,
     int32_t preferred_bytes_per_pixel);
 
-static void paint(view_t* view) {
+static void paint(ui_view_t* view) {
     if (animation.x < 0 && animation.y < 0) {
         animation.x = (view->w - gif.w) / 2;
         animation.y = (view->h - gif.h) / 2;
@@ -105,13 +105,13 @@ static void paint(view_t* view) {
     gdi.set_font(f);
 }
 
-static void character(view_t* unused(view), const char* utf8) {
+static void character(ui_view_t* unused(view), const char* utf8) {
     if (utf8[0] == 'q' || utf8[0] == 'Q' || utf8[0] == 033) {
         app.close();
     }
 }
 
-static void mouse(view_t* unused(view), int32_t m, int32_t unused(f)) {
+static void mouse(ui_view_t* unused(view), int32_t m, int32_t unused(f)) {
     const ui_point_t em = gdi.get_em(app.fonts.H1);
     if ((m == ui.message.left_button_pressed ||
         m == ui.message.right_button_pressed) &&
@@ -134,7 +134,7 @@ static void opened(void) {
     midi_play();
 }
 
-static bool message(view_t* unused(view), int32_t m, int64_t wp, int64_t lp,
+static bool message(ui_view_t* unused(view), int32_t m, int64_t wp, int64_t lp,
         int64_t* unused(ret)) {
     if (m == MM_MCINOTIFY) {
 //      traceln("MM_MCINOTIFY flags: %016llX device: %016llX", wp, lp);
@@ -296,10 +296,10 @@ static void startup(void* unused(ignored)) {
 
 static void init(void) {
     app.title = title;
-    app.ui->paint     = paint;
-    app.ui->character = character;
-    app.ui->message   = message;
-    app.ui->mouse     = mouse;
+    app.view->paint     = paint;
+    app.view->character = character;
+    app.view->message   = message;
+    app.view->mouse     = mouse;
     app.opened        = opened;
     animation.seed = (uint32_t)clock.nanoseconds();
     animation.x = -1;

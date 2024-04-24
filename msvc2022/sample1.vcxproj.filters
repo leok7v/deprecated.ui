@@ -45,6 +45,9 @@
     <ClInclude Include="..\inc\ui\messagebox.h">
       <Filter>inc\ui</Filter>
     </ClInclude>
+    <ClInclude Include="..\inc\ui\core.h">
+      <Filter>inc\ui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="res">

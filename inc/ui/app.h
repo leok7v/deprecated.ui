@@ -57,8 +57,8 @@ typedef struct app_s {
     int32_t height; // client height
     // not to call clock.seconds() too often:
     double now;     // ssb "seconds since boot" updated on each message
-    view_t* ui;      // show_window() changes ui.hidden
-    view_t* focus;   // does not affect message routing - free for all
+    ui_view_t* view;      // show_window() changes ui.hidden
+    ui_view_t* focus;   // does not affect message routing - free for all
     ui_fonts_t fonts;
     ui_cursor_t cursor; // current cursor
     ui_cursor_t cursor_arrow;
@@ -71,7 +71,7 @@ typedef struct app_s {
     ui_point_t mouse; // mouse/touchpad pointer
     ui_canvas_t canvas;  // set by WM_PAINT message
     struct { // toast state
-        view_t* ui;
+        ui_view_t* view;
         int32_t step;
         double time; // closing time or zero
         int32_t x; // (x,y) for tooltip (-1,y) for toast
@@ -96,8 +96,8 @@ typedef struct app_s {
     bool    (*intersect_rect)(ui_rect_t* r, const ui_rect_t* r0,
                                             const ui_rect_t* r1);
     // layout:
-    bool (*is_hidden)(const view_t* ui);   // control or any parent is hidden
-    bool (*is_disabled)(const view_t* ui); // control or any parent is disabled
+    bool (*is_hidden)(const ui_view_t* view);   // control or any parent is hidden
+    bool (*is_disabled)(const ui_view_t* view); // control or any parent is disabled
     bool (*is_active)(void); // is application window active
     bool (*has_focus)(void); // application window has keyboard focus
     void (*activate)(void); // request application window activation
@@ -106,7 +106,7 @@ typedef struct app_s {
     void (*request_focus)(void);   // request application window keyboard focus
     void (*bring_to_front)(void);  // activate() + bring_to_foreground() +
                                    // make_topmost() + request_focus()
-    void (*measure)(view_t* ui);    // measure all children
+    void (*measure)(ui_view_t* view);    // measure all children
     void (*layout)(void); // requests layout on UI tree before paint()
     void (*invalidate)(const ui_rect_t* rc);
     void (*full_screen)(bool on);
@@ -120,8 +120,8 @@ typedef struct app_s {
     void (*kill_timer)(ui_timer_t id);
     void (*post)(int32_t message, int64_t wp, int64_t lp);
     void (*show_window)(int32_t show); // see show_window enum
-    void (*show_toast)(view_t* toast, double seconds); // toast(null) to cancel
-    void (*show_tooltip)(view_t* tooltip, int32_t x, int32_t y, double seconds);
+    void (*show_toast)(ui_view_t* toast, double seconds); // toast(null) to cancel
+    void (*show_tooltip)(ui_view_t* tooltip, int32_t x, int32_t y, double seconds);
     void (*vtoast)(double seconds, const char* format, va_list vl);
     void (*toast)(double seconds, const char* format, ...);
     // caret calls must be balanced by caller

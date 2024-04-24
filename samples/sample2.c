@@ -47,7 +47,7 @@ static void stats(volatile time_stats_t* t) {
     t->spread = max(fabs(t->max_dt), fabs(t->min_dt));
 }
 
-static void graph(view_t* view, volatile time_stats_t* t, ui_color_t c, int y) {
+static void graph(ui_view_t* view, volatile time_stats_t* t, ui_color_t c, int y) {
     const int h2 = app.crc.h / 2;
     const int h4 = h2 / 2;
     const int h8 = h4 / 2;
@@ -89,7 +89,7 @@ static void timer_thread(void* p) {
     }
 }
 
-static void paint(view_t* view) {
+static void paint(ui_view_t* view) {
     stats(&ts[0]);
     stats(&ts[1]);
     gdi.set_brush(gdi.brush_color);
@@ -112,8 +112,8 @@ static void paint(view_t* view) {
 
 }
 
-static void timer(view_t* unused(view), ui_timer_t id) {
-    assert(view == app.ui);
+static void timer(ui_view_t* unused(view), ui_timer_t id) {
+    assert(view == app.view);
     // there are at least 3 timers notifications coming here:
     // 1 seconds, 100ms and 10ms:
     if (id == timer10ms) {
@@ -170,10 +170,10 @@ static void do_not_start_minimized(void) {
 static void init(void) {
     app.title = title;
     threads.realtime(); // both main thread and timer thread
-    app.ui->timer = timer;
+    app.view->timer = timer;
     app.closed = closed;
     app.opened = opened;
-    app.ui->paint = paint;
+    app.view->paint = paint;
     // no minimize/maximize title bar and system menu
     app.no_min = true;
     app.no_max = true;

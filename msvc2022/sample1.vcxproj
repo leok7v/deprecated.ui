@@ -152,6 +152,7 @@
     <ClInclude Include="..\inc\ui\button.h" />
     <ClInclude Include="..\inc\ui\checkbox.h" />
     <ClInclude Include="..\inc\ui\colors.h" />
+    <ClInclude Include="..\inc\ui\core.h" />
     <ClInclude Include="..\inc\ui\gdi.h" />
     <ClInclude Include="..\inc\ui\label.h" />
     <ClInclude Include="..\inc\ui\layout.h" />

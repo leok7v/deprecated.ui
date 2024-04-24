@@ -50,7 +50,7 @@ static void load_images(void) {
     }
 }
 
-static void paint(view_t* view) {
+static void paint(ui_view_t* view) {
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(colors.black);
     gdi.fill(0, 0, view->w, view->h);
@@ -87,7 +87,7 @@ static void download(void) {
 
 static void init(void) {
     app.title = title;
-    app.ui->paint = paint;
+    app.view->paint = paint;
     strprintf(filename, "%s\\mandrill-4.2.03.png",
         app.known_folder(ui.folder.pictures));
     download();

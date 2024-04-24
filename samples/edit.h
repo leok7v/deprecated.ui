@@ -4,78 +4,78 @@
 
 begin_c
 
-// important uic_edit_t will refuse to layout into a box smaller than
+// important ui_edit_t will refuse to layout into a box smaller than
 // width 3 x em.x height 1 x em.y
 
-typedef struct uic_edit_run_s {
+typedef struct ui_edit_run_s {
     int32_t bp;     // position in bytes  since start of the paragraph
     int32_t gp;     // position in glyphs since start of the paragraph
     int32_t bytes;  // number of bytes in this `run`
     int32_t glyphs; // number of glyphs in this `run`
     int32_t pixels; // width in pixels
-} uic_edit_run_t;
+} ui_edit_run_t;
 
-// uic_edit_para_t.initially text will point to readonly memory
+// ui_edit_para_t.initially text will point to readonly memory
 // with .allocated == 0; as text is modified it is copied to
 // heap and reallocated there.
 
-typedef struct uic_edit_para_s { // "paragraph"
+typedef struct ui_edit_para_s { // "paragraph"
     char* text;          // text[bytes] utf-8
     int32_t capacity;   // if != 0 text copied to heap allocated bytes
     int32_t bytes;       // number of bytes in utf-8 text
     int32_t glyphs;      // number of glyphs in text <= bytes
     int32_t runs;        // number of runs in this paragraph
-    uic_edit_run_t* run; // [runs] array of pointers (heap)
+    ui_edit_run_t* run; // [runs] array of pointers (heap)
     int32_t* g2b;        // [bytes + 1] glyph to uint8_t positions g2b[0] = 0
     int32_t  g2b_capacity; // number of bytes on heap allocated for g2b[]
-} uic_edit_para_t;
+} ui_edit_para_t;
 
-typedef struct uic_edit_pg_s { // page/glyph coordinates
+typedef struct ui_edit_pg_s { // page/glyph coordinates
     // humans used to line:column coordinates in text
     int32_t pn; // paragraph number ("line number")
     int32_t gp; // glyph position ("column")
-} uic_edit_pg_t;
+} ui_edit_pg_t;
 
-typedef struct uic_edit_pr_s { // page/run coordinates
+typedef struct ui_edit_pr_s { // page/run coordinates
     int32_t pn; // paragraph number
     int32_t rn; // run number inside paragraph
-} uic_edit_pr_t;
+} ui_edit_pr_t;
 
-typedef struct uic_edit_s uic_edit_t;
+typedef struct ui_edit_s ui_edit_t;
 
-typedef struct uic_edit_s {
-    view_t ui;
-    void (*set_font)(uic_edit_t* e, ui_font_t* font); // see notes below (*)
-    void (*move)(uic_edit_t* e, uic_edit_pg_t pg); // move caret clear selection
+typedef struct ui_edit_s {
+    ui_view_t view;
+    void (*set_font)(ui_edit_t* e, ui_font_t* font); // see notes below (*)
+    void (*move)(ui_edit_t* e, ui_edit_pg_t pg); // move caret clear selection
     // replace selected text. If bytes < 0 text is treated as zero terminated
-    void (*paste)(uic_edit_t* e, const char* text, int32_t bytes);
-    void (*copy)(uic_edit_t* e, char* text, int32_t* bytes); // copy whole text
-    void (*copy_to_clipboard)(uic_edit_t* e); // selected text to clipboard
-    void (*cut_to_clipboard)(uic_edit_t* e);  // copy selected text to clipboard and erase it
+    void (*paste)(ui_edit_t* e, const char* text, int32_t bytes);
+    void (*copy)(ui_edit_t* e, char* text, int32_t* bytes); // copy whole text
+    void (*copy_to_clipboard)(ui_edit_t* e); // selected text to clipboard
+    void (*cut_to_clipboard)(ui_edit_t* e);  // copy selected text to clipboard and erase it
     // replace selected text with content of clipboard:
-    void (*paste_from_clipboard)(uic_edit_t* e);
-    void (*select_all)(uic_edit_t* e); // select whole text
-    void (*erase)(uic_edit_t* e); // delete selected text
+    void (*paste_from_clipboard)(ui_edit_t* e);
+    void (*select_all)(ui_edit_t* e); // select whole text
+    void (*erase)(ui_edit_t* e); // delete selected text
     // keyboard actions dispatcher:
-    void (*key_down)(uic_edit_t* e);
-    void (*key_up)(uic_edit_t* e);
-    void (*key_left)(uic_edit_t* e);
-    void (*key_right)(uic_edit_t* e);
-    void (*key_pageup)(uic_edit_t* e);
-    void (*key_pagedw)(uic_edit_t* e);
-    void (*key_home)(uic_edit_t* e);
-    void (*key_end)(uic_edit_t* e);
-    void (*key_delete)(uic_edit_t* e);
-    void (*key_backspace)(uic_edit_t* e);
-    void (*key_enter)(uic_edit_t* e);
+    void (*key_down)(ui_edit_t* e);
+    void (*key_up)(ui_edit_t* e);
+    void (*key_left)(ui_edit_t* e);
+    void (*key_right)(ui_edit_t* e);
+    void (*key_pageup)(ui_edit_t* e);
+    void (*key_pagedw)(ui_edit_t* e);
+    void (*key_home)(ui_edit_t* e);
+    void (*key_end)(ui_edit_t* e);
+    void (*key_delete)(ui_edit_t* e);
+    void (*key_backspace)(ui_edit_t* e);
+    void (*key_enter)(ui_edit_t* e);
     // called when ENTER keyboard key is pressed in single line mode
-    void (*enter)(uic_edit_t* e);
+    void (*enter)(ui_edit_t* e);
     // fuzzer test:
-    void (*fuzz)(uic_edit_t* e);      // start/stop fuzzing test
-    void (*next_fuzz)(uic_edit_t* e); // next fuzz input event(s)
-    uic_edit_pg_t selection[2]; // from selection[0] to selection[1]
+    void (*fuzz)(ui_edit_t* e);      // start/stop fuzzing test
+    void (*next_fuzz)(ui_edit_t* e); // next fuzz input event(s)
+    ui_edit_pg_t selection[2]; // from selection[0] to selection[1]
     ui_point_t caret; // (-1, -1) off
-    uic_edit_pr_t scroll; // left top corner paragraph/run coordinates
+    ui_edit_pr_t scroll; // left top corner paragraph/run coordinates
     int32_t last_x;    // last_x for up/down caret movement
     int32_t mouse;     // bit 0 and bit 1 for LEFT and RIGHT buttons down
     int32_t top;       // y coordinate of the top of view
@@ -96,23 +96,23 @@ typedef struct uic_edit_s {
     // paragraphs memory:
     int32_t capacity;      // number of bytes allocated for `para` array below
     int32_t paragraphs;    // number of lines in the text
-    uic_edit_para_t* para; // para[paragraphs]
-} uic_edit_t;
+    ui_edit_para_t* para; // para[paragraphs]
+} ui_edit_t;
 
 /*
     Notes:
-    set_font() - neither edit.ui.font = font nor measure()/layout() functions
+    set_font() - neither edit.view.font = font nor measure()/layout() functions
                  do NOT dispose paragraphs layout unless geometry changed because
                  it is quite expensive operation. But choosing different font
                  on the fly needs to re-layout all paragraphs. Thus caller needs
                  to set font via this function instead which also requests
                  edit UI element re-layout.
 
-    .ro        - readonly edit->ro is used to control readonly mode. 
-                 If edit control is readonly its appearance does not change but it 
+    .ro        - readonly edit->ro is used to control readonly mode.
+                 If edit control is readonly its appearance does not change but it
                  refuses to accept any changes to the rendered text.
 
-    .wb        - wordbreak this attribute was removed as poor UX human experience 
+    .wb        - wordbreak this attribute was removed as poor UX human experience
                  along with single line scroll editing. See note below about .sle.
 
     .sle       - Single line edit control.
@@ -133,6 +133,6 @@ typedef struct uic_edit_s {
                  will need to hook .measure() function of SLE and do the math there.
 */
 
-void uic_edit_init(uic_edit_t* e);
+void ui_edit_init(ui_edit_t* e);
 
 end_c

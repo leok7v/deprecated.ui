@@ -25,7 +25,7 @@ static struct {
 // messages are far from isochronous and more likely to arrive at 16 or
 // 32ms intervals and can be delayed.
 
-static void app_on_every_message(view_t* ui);
+static void app_on_every_message(ui_view_t* view);
 
 // https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
 // https://docs.microsoft.com/en-us/windows/win32/inputdev/wm-keydown
@@ -428,8 +428,8 @@ static ui_timer_t app_timer_set(uintptr_t id, int32_t ms) {
     return tid;
 }
 
-static void set_parents(view_t* view) {
-    for (view_t** c = view->children; c != null && *c != null; c++) {
+static void set_parents(ui_view_t* view) {
+    for (ui_view_t** c = view->children; c != null && *c != null; c++) {
         if ((*c)->parent == null) {
             (*c)->parent = view;
             set_parents(*c);
@@ -439,14 +439,14 @@ static void set_parents(view_t* view) {
     }
 }
 
-static void app_init_children(view_t* view) {
-    for (view_t** c = view->children; c != null && *c != null; c++) {
+static void app_init_children(ui_view_t* view) {
+    for (ui_view_t** c = view->children; c != null && *c != null; c++) {
         if ((*c)->init != null) { (*c)->init(*c); (*c)->init = null; }
         if ((*c)->font == null) { (*c)->font = &app.fonts.regular; }
         if ((*c)->em.x == 0 || (*c)->em.y == 0) {
             (*c)->em = gdi.get_em(*view->font);
         }
-        view_localize(*c);
+        ui_view_localize(*c);
         app_init_children(*c);
     }
 }
@@ -455,7 +455,7 @@ static void app_post_message(int32_t m, int64_t wp, int64_t lp) {
     fatal_if_false(PostMessageA(window(), m, wp, lp));
 }
 
-static void app_timer(view_t* view, ui_timer_t id) {
+static void app_timer(ui_view_t* view, ui_timer_t id) {
     if (view->timer != null) {
         view->timer(view, id);
     }
@@ -465,7 +465,7 @@ static void app_timer(view_t* view, ui_timer_t id) {
     if (id == app_timer_100ms_id && view->every_100ms != null) {
         view->every_100ms(view);
     }
-    view_t** c = view->children;
+    ui_view_t** c = view->children;
     while (c != null && *c != null) { app_timer(*c, id); c++; }
 }
 
@@ -489,7 +489,7 @@ static void app_animate_timer(void) {
 static void app_wm_timer(ui_timer_t id) {
     app_every_100ms(id);
     if (app_animate.timer == id) { app_animate_timer(); }
-    app_timer(app.ui, id);
+    app_timer(app.view, id);
 }
 
 static void app_window_dpi(void) {
@@ -510,9 +510,9 @@ static void app_window_opening(void) {
     app.canvas = (ui_canvas_t)GetDC(window());
     not_null(app.canvas);
     if (app.opened != null) { app.opened(); }
-    app.ui->em = gdi.get_em(*app.ui->font);
-    set_parents(app.ui);
-    app_init_children(app.ui);
+    app.view->em = gdi.get_em(*app.view->font);
+    set_parents(app.view);
+    app_init_children(app.view);
     app_wm_timer(app_timer_100ms_id);
     app_wm_timer(app_timer_1s_id);
     fatal_if(ReleaseDC(window(), canvas()) == 0);
@@ -570,13 +570,13 @@ static void app_get_min_max_info(MINMAXINFO* mmi) {
 
 #pragma push_macro("app_method_int32")
 
-#define app_method_int32(name)                                  \
-static void app_##name(view_t* view, int32_t p) {               \
-    if (view->name != null && !view_hidden_or_disabled(view)) { \
-        view->name(view, p);                                    \
-    }                                                           \
-    view_t** c = view->children;                                \
-    while (c != null && *c != null) { app_##name(*c, p); c++; } \
+#define app_method_int32(name)                                     \
+static void app_##name(ui_view_t* view, int32_t p) {               \
+    if (view->name != null && !ui_view_hidden_or_disabled(view)) { \
+        view->name(view, p);                                       \
+    }                                                              \
+    ui_view_t** c = view->children;                                \
+    while (c != null && *c != null) { app_##name(*c, p); c++; }    \
 }
 
 app_method_int32(key_pressed)
@@ -584,26 +584,26 @@ app_method_int32(key_released)
 
 #pragma pop_macro("app_method_int32")
 
-static void app_character(view_t* view, const char* utf8) {
-    if (!view_hidden_or_disabled(view)) {
+static void app_character(ui_view_t* view, const char* utf8) {
+    if (!ui_view_hidden_or_disabled(view)) {
         if (view->character != null) { view->character(view, utf8); }
-        view_t** c = view->children;
+        ui_view_t** c = view->children;
         while (c != null && *c != null) { app_character(*c, utf8); c++; }
     }
 }
 
-static void app_paint(view_t* view) {
+static void app_paint(ui_view_t* view) {
     if (!view->hidden && app.crc.w > 0 && app.crc.h > 0) {
         if (view->paint != null) { view->paint(view); }
-        view_t** c = view->children;
+        ui_view_t** c = view->children;
         while (c != null && *c != null) { app_paint(*c); c++; }
     }
 }
 
-static bool app_set_focus(view_t* view) {
+static bool app_set_focus(ui_view_t* view) {
     bool set = false;
     assert(GetActiveWindow() == window());
-    view_t** c = view->children;
+    ui_view_t** c = view->children;
     while (c != null && *c != null && !set) { set = app_set_focus(*c); c++; }
     if (view->focusable && view->set_focus != null &&
        (app.focus == view || app.focus == null)) {
@@ -612,44 +612,44 @@ static bool app_set_focus(view_t* view) {
     return set;
 }
 
-static void app_kill_focus(view_t* view) {
-    view_t** c = view->children;
+static void app_kill_focus(ui_view_t* view) {
+    ui_view_t** c = view->children;
     while (c != null && *c != null) { app_kill_focus(*c); c++; }
     if (view->set_focus != null && view->focusable) {
         view->kill_focus(view);
     }
 }
 
-static void app_mousewheel(view_t* view, int32_t dx, int32_t dy) {
-    if (!view_hidden_or_disabled(view)) {
+static void app_mousewheel(ui_view_t* view, int32_t dx, int32_t dy) {
+    if (!ui_view_hidden_or_disabled(view)) {
         if (view->mousewheel != null) { view->mousewheel(view, dx, dy); }
-        view_t** c = view->children;
+        ui_view_t** c = view->children;
         while (c != null && *c != null) { app_mousewheel(*c, dx, dy); c++; }
     }
 }
 
-static void app_measure_children(view_t* view) {
+static void app_measure_children(ui_view_t* view) {
     if (!view->hidden && app.crc.w > 0 && app.crc.h > 0) {
-        view_t** c = view->children;
+        ui_view_t** c = view->children;
         while (c != null && *c != null) { app_measure_children(*c); c++; }
         if (view->measure != null) { view->measure(view); }
     }
 }
 
-static void app_layout_children(view_t* view) {
+static void app_layout_children(ui_view_t* view) {
     if (!view->hidden && app.crc.w > 0 && app.crc.h > 0) {
         if (view->layout != null) { view->layout(view); }
-        view_t** c = view->children;
+        ui_view_t** c = view->children;
         while (c != null && *c != null) { app_layout_children(*c); c++; }
     }
 }
 
-static void app_layout_ui(view_t* view) {
+static void app_layout_ui(ui_view_t* view) {
     app_measure_children(view);
     app_layout_children(view);
 }
 
-static bool app_message(view_t* view, int32_t m, int64_t wp, int64_t lp,
+static bool app_message(ui_view_t* view, int32_t m, int64_t wp, int64_t lp,
         int64_t* ret) {
     // message() callback is called even for hidden and disabled ui-elements
     // consider timers, and other useful messages
@@ -657,7 +657,7 @@ static bool app_message(view_t* view, int32_t m, int64_t wp, int64_t lp,
     if (view->message != null) {
         if (view->message(view, m, wp, lp, ret)) { return true; }
     }
-    view_t** c = view->children;
+    ui_view_t** c = view->children;
     while (c != null && *c != null) {
         if (app_message(*c, m, wp, lp, ret)) { return true; }
         c++;
@@ -665,12 +665,12 @@ static bool app_message(view_t* view, int32_t m, int64_t wp, int64_t lp,
     return false;
 }
 
-static void app_kill_hidden_focus(view_t* view) {
+static void app_kill_hidden_focus(ui_view_t* view) {
     // removes focus from hidden or disabled ui controls
     if (app.focus == view && (view->disabled || view->hidden)) {
         app.focus = null;
     } else {
-        view_t** c = view->children;
+        ui_view_t** c = view->children;
         while (c != null && *c != null) {
             app_kill_hidden_focus(*c);
             c++;
@@ -681,15 +681,15 @@ static void app_kill_hidden_focus(view_t* view) {
 static void app_toast_mouse(int32_t m, int32_t f);
 static void app_toast_character(const char* utf8);
 
-static void app_wm_char(view_t* view, const char* utf8) {
-    if (app.toasting.ui != null) {
+static void app_wm_char(ui_view_t* view, const char* utf8) {
+    if (app.toasting.view != null) {
         app_toast_character(utf8);
     } else {
         app_character(view, utf8);
     }
 }
 
-static void app_hover_changed(view_t* view) {
+static void app_hover_changed(ui_view_t* view) {
     if (view->hovering != null && !view->hidden) {
         if (!view->hover) {
             view->hover_at = 0;
@@ -709,7 +709,7 @@ static void app_hover_changed(view_t* view) {
 // app_on_every_message() is called on every message including timers
 // allowing ui elements to do scheduled actions like e.g. hovering()
 
-static void app_on_every_message(view_t* view) {
+static void app_on_every_message(ui_view_t* view) {
     if (view->hovering != null && !view->hidden) {
         if (view->hover_at > 0 && app.now > view->hover_at) {
             view->hover_at = -1; // "already called"
@@ -718,7 +718,7 @@ static void app_on_every_message(view_t* view) {
     }
 }
 
-static void app_ui_mouse(view_t* view, int32_t m, int32_t f) {
+static void app_ui_mouse(ui_view_t* view, int32_t m, int32_t f) {
     if (!app.is_hidden(view) &&
        (m == WM_MOUSEHOVER || m == ui.message.mouse_move)) {
         RECT rc = { view->x, view->y, view->x + view->w, view->y + view->h};
@@ -732,17 +732,17 @@ static void app_ui_mouse(view_t* view, int32_t m, int32_t f) {
             app_hover_changed(view);
         }
     }
-    if (!view_hidden_or_disabled(view)) {
+    if (!ui_view_hidden_or_disabled(view)) {
         if (view->mouse != null) { view->mouse(view, m, f); }
-        for (view_t** c = view->children; c != null && *c != null; c++) {
+        for (ui_view_t** c = view->children; c != null && *c != null; c++) {
             app_ui_mouse(*c, m, f);
         }
     }
 }
 
-static bool app_context_menu(view_t* view) {
-    if (!view_hidden_or_disabled(view)) {
-        for (view_t** c = view->children; c != null && *c != null; c++) {
+static bool app_context_menu(ui_view_t* view) {
+    if (!ui_view_hidden_or_disabled(view)) {
+        for (ui_view_t** c = view->children; c != null && *c != null; c++) {
             if (app_context_menu(*c)) { return true; }
         }
         RECT rc = { view->x, view->y, view->x + view->w, view->y + view->h};
@@ -756,16 +756,16 @@ static bool app_context_menu(view_t* view) {
     return false;
 }
 
-static bool app_inside(view_t* view) {
+static bool app_inside(ui_view_t* view) {
     const int32_t x = app.mouse.x - view->x;
     const int32_t y = app.mouse.y - view->y;
     return 0 <= x && x < view->w && 0 <= y && y < view->h;
 }
 
-static bool app_tap(view_t* view, int32_t ix) { // 0: left 1: middle 2: right
+static bool app_tap(ui_view_t* view, int32_t ix) { // 0: left 1: middle 2: right
     bool done = false; // consumed
-    if (!view_hidden_or_disabled(view) && app_inside(view)) {
-        for (view_t** c = view->children; c != null && *c != null && !done; c++) {
+    if (!ui_view_hidden_or_disabled(view) && app_inside(view)) {
+        for (ui_view_t** c = view->children; c != null && *c != null && !done; c++) {
             done = app_tap(*c, ix);
         }
         if (view->tap != null && !done) { done = view->tap(view, ix); }
@@ -773,10 +773,10 @@ static bool app_tap(view_t* view, int32_t ix) { // 0: left 1: middle 2: right
     return done;
 }
 
-static bool app_press(view_t* view, int32_t ix) { // 0: left 1: middle 2: right
+static bool app_press(ui_view_t* view, int32_t ix) { // 0: left 1: middle 2: right
     bool done = false; // consumed
-    if (!view_hidden_or_disabled(view) && app_inside(view)) {
-        for (view_t** c = view->children; c != null && *c != null && !done; c++) {
+    if (!ui_view_hidden_or_disabled(view) && app_inside(view)) {
+        for (ui_view_t** c = view->children; c != null && *c != null && !done; c++) {
             done = app_press(*c, ix);
         }
         if (view->press != null && !done) { done = view->press(view, ix); }
@@ -784,10 +784,10 @@ static bool app_press(view_t* view, int32_t ix) { // 0: left 1: middle 2: right
     return done;
 }
 
-static void app_mouse(view_t* view, int32_t m, int32_t f) {
-    if (app.toasting.ui != null && app.toasting.ui->mouse != null) {
-        app_ui_mouse(app.toasting.ui, m, f);
-    } else if (app.toasting.ui != null && app.toasting.ui->mouse == null) {
+static void app_mouse(ui_view_t* view, int32_t m, int32_t f) {
+    if (app.toasting.view != null && app.toasting.view->mouse != null) {
+        app_ui_mouse(app.toasting.view, m, f);
+    } else if (app.toasting.view != null && app.toasting.view->mouse == null) {
         app_toast_mouse(m, f);
         bool tooltip = app.toasting.x >= 0 && app.toasting.y >= 0;
         if (tooltip) { app_ui_mouse(view, m, f); }
@@ -800,17 +800,17 @@ static void app_tap_press(int32_t m, WPARAM wp, LPARAM lp) {
     app.mouse.x = GET_X_LPARAM(lp);
     app.mouse.y = GET_Y_LPARAM(lp);
     // dispatch as generic mouse message:
-    app_mouse(app.ui, (int32_t)m, (int32_t)wp);
+    app_mouse(app.view, (int32_t)m, (int32_t)wp);
     int32_t ix = (int32_t)wp;
     assert(0 <= ix && ix <= 2);
     // for now long press and double tap/double click
     // treated as press() call - can be separated if desired:
     if (m == ui.message.tap) {
-        app_tap(app.ui, ix);
+        app_tap(app.view, ix);
     } else if (m == ui.message.dtap) {
-        app_press(app.ui, ix);
+        app_press(app.view, ix);
     } else if (m == ui.message.press) {
-        app_press(app.ui, ix);
+        app_press(app.view, ix);
     } else {
         assert(false, "unexpected message: 0x%04X", m);
     }
@@ -824,14 +824,14 @@ static void app_toast_paint(void) {
         uint8_t pixels[4] = { 0x3F, 0x3F, 0x3F };
         gdi.image_init(&image, 1, 1, 3, pixels);
     }
-    if (app.toasting.ui != null) {
-        ui_font_t f = app.toasting.ui->font != null ?
-            *app.toasting.ui->font : app.fonts.regular;
+    if (app.toasting.view != null) {
+        ui_font_t f = app.toasting.view->font != null ?
+            *app.toasting.view->font : app.fonts.regular;
         const ui_point_t em = gdi.get_em(f);
-        app.toasting.ui->em = em;
+        app.toasting.view->em = em;
         // allow unparented and unmeasured toasts:
-        if (app.toasting.ui->measure != null) {
-            app.toasting.ui->measure(app.toasting.ui);
+        if (app.toasting.view->measure != null) {
+            app.toasting.view->measure(app.toasting.view);
         }
         gdi.push(0, 0);
         bool tooltip = app.toasting.x >= 0 && app.toasting.y >= 0;
@@ -842,32 +842,32 @@ static void app_toast_paint(void) {
         if (!tooltip) {
             assert(0 <= app.toasting.step && app.toasting.step < ui_toast_steps);
             int32_t step = app.toasting.step - (ui_toast_steps - 1);
-            app.toasting.ui->y = app.toasting.ui->h * step / (ui_toast_steps - 1);
+            app.toasting.view->y = app.toasting.view->h * step / (ui_toast_steps - 1);
 //          traceln("step=%d of %d y=%d", app.toasting.step,
-//                  app_toast_steps, app.toasting.ui->y);
-            app_layout_ui(app.toasting.ui);
+//                  app_toast_steps, app.toasting.view->y);
+            app_layout_ui(app.toasting.view);
             double alpha = min(0.40, 0.40 * app.toasting.step / (double)ui_toast_steps);
             gdi.alpha_blend(0, 0, app.width, app.height, &image, alpha);
-            app.toasting.ui->x = (app.width - app.toasting.ui->w) / 2;
+            app.toasting.view->x = (app.width - app.toasting.view->w) / 2;
         } else {
-            app.toasting.ui->x = app.toasting.x;
-            app.toasting.ui->y = app.toasting.y;
-            app_layout_ui(app.toasting.ui);
-            int32_t mx = app.width - app.toasting.ui->w - em_x;
-            app.toasting.ui->x = min(mx, max(0, app.toasting.x - app.toasting.ui->w / 2));
-            app.toasting.ui->y = min(app.crc.h - em_y, max(0, app.toasting.y));
+            app.toasting.view->x = app.toasting.x;
+            app.toasting.view->y = app.toasting.y;
+            app_layout_ui(app.toasting.view);
+            int32_t mx = app.width - app.toasting.view->w - em_x;
+            app.toasting.view->x = min(mx, max(0, app.toasting.x - app.toasting.view->w / 2));
+            app.toasting.view->y = min(app.crc.h - em_y, max(0, app.toasting.y));
         }
-        int32_t x = app.toasting.ui->x - em_x;
-        int32_t y = app.toasting.ui->y - em_y / 2;
-        int32_t w = app.toasting.ui->w + em_x * 2;
-        int32_t h = app.toasting.ui->h + em_y;
+        int32_t x = app.toasting.view->x - em_x;
+        int32_t y = app.toasting.view->y - em_y / 2;
+        int32_t w = app.toasting.view->w + em_x * 2;
+        int32_t h = app.toasting.view->h + em_y;
         gdi.rounded(x, y, w, h, em_x, em_y);
-        if (!tooltip) { app.toasting.ui->y += em_y / 4; }
-        app_paint(app.toasting.ui);
+        if (!tooltip) { app.toasting.view->y += em_y / 4; }
+        app_paint(app.toasting.view);
         if (!tooltip) {
-            if (app.toasting.ui->y == em_y / 4) {
+            if (app.toasting.view->y == em_y / 4) {
                 // micro "close" toast button:
-                gdi.x = app.toasting.ui->x + app.toasting.ui->w;
+                gdi.x = app.toasting.view->x + app.toasting.view->w;
                 gdi.y = 0;
                 gdi.text("\xC3\x97"); // Heavy Multiplication X
             }
@@ -877,12 +877,12 @@ static void app_toast_paint(void) {
 }
 
 static void app_toast_cancel(void) {
-    if (app.toasting.ui != null && app.toasting.ui->tag == uic_tag_messagebox) {
-        messagebox_t* mx = (messagebox_t*)app.toasting.ui;
+    if (app.toasting.view != null && app.toasting.view->type == ui_view_messagebox) {
+        ui_messagebox_t* mx = (ui_messagebox_t*)app.toasting.view;
         if (mx->option < 0) { mx->cb(mx, -1); }
     }
     app.toasting.step = 0;
-    app.toasting.ui = null;
+    app.toasting.view = null;
     app.toasting.time = 0;
     app.toasting.x = -1;
     app.toasting.y = -1;
@@ -892,27 +892,27 @@ static void app_toast_cancel(void) {
 static void app_toast_mouse(int32_t m, int32_t flags) {
     bool pressed = m == ui.message.left_button_pressed ||
                    m == ui.message.right_button_pressed;
-    if (app.toasting.ui != null && pressed) {
-        const ui_point_t em = app.toasting.ui->em;
-        int32_t x = app.toasting.ui->x + app.toasting.ui->w;
+    if (app.toasting.view != null && pressed) {
+        const ui_point_t em = app.toasting.view->em;
+        int32_t x = app.toasting.view->x + app.toasting.view->w;
         if (x <= app.mouse.x && app.mouse.x <= x + em.x &&
             0 <= app.mouse.y && app.mouse.y <= em.y) {
             app_toast_cancel();
         } else {
-            app_ui_mouse(app.toasting.ui, m, flags);
+            app_ui_mouse(app.toasting.view, m, flags);
         }
     } else {
-        app_ui_mouse(app.toasting.ui, m, flags);
+        app_ui_mouse(app.toasting.view, m, flags);
     }
 }
 
 static void app_toast_character(const char* utf8) {
     char ch = utf8[0];
-    if (app.toasting.ui != null && ch == 033) { // ESC traditionally in octal
+    if (app.toasting.view != null && ch == 033) { // ESC traditionally in octal
         app_toast_cancel();
         app.show_toast(null, 0);
     } else {
-        app_character(app.toasting.ui, utf8);
+        app_character(app.toasting.view, utf8);
     }
 }
 
@@ -958,9 +958,9 @@ static void app_animate_start(app_animate_function_t f, int32_t steps) {
 static void app_layout_root(void) {
     not_null(app.window);
     not_null(app.canvas);
-    app.ui->w = app.crc.w; // crc is window client rectangle
-    app.ui->h = app.crc.h;
-    app_layout_ui(app.ui);
+    app.view->w = app.crc.w; // crc is window client rectangle
+    app.view->h = app.crc.h;
+    app_layout_ui(app.view);
 }
 
 static void app_paint_on_canvas(HDC hdc) {
@@ -982,8 +982,8 @@ static void app_paint_on_canvas(HDC hdc) {
     ui_point_t pt = {0};
     fatal_if_false(SetBrushOrgEx(canvas(), 0, 0, (POINT*)&pt));
     ui_brush_t br = gdi.set_brush(gdi.brush_hollow);
-    app_paint(app.ui);
-    if (app.toasting.ui != null) { app_toast_paint(); }
+    app_paint(app.view);
+    if (app.toasting.view != null) { app_toast_paint(); }
     fatal_if_false(SetBrushOrgEx(canvas(), pt.x, pt.y, null));
     SetStretchBltMode(canvas(), stretch_mode);
     SetBkMode(canvas(), bm);
@@ -1018,13 +1018,13 @@ static void app_wm_paint(void) {
 // https://chromium.googlesource.com/chromium/src.git/+/62.0.3178.1/ui/views/win/hwnd_message_handler.cc#1847
 
 static void app_window_position_changed(const WINDOWPOS* wp) {
-    app.ui->hidden = !IsWindowVisible(window());
+    app.view->hidden = !IsWindowVisible(window());
     const bool moved  = (wp->flags & SWP_NOMOVE) == 0;
     const bool sized  = (wp->flags & SWP_NOSIZE) == 0;
     const bool hiding = (wp->flags & SWP_HIDEWINDOW) != 0 ||
                         wp->x == -32000 && wp->y == -32000;
     HMONITOR monitor = MonitorFromWindow(window(), MONITOR_DEFAULTTONULL);
-    if (!app.ui->hidden && (moved || sized) && !hiding && monitor != null) {
+    if (!app.view->hidden && (moved || sized) && !hiding && monitor != null) {
         RECT wrc = app_ui2rect(&app.wrc);
         fatal_if_false(GetWindowRect(window(), &wrc));
         app.wrc = app_rect2ui(&wrc);
@@ -1159,9 +1159,9 @@ static LRESULT CALLBACK window_proc(HWND window, UINT msg, WPARAM wp, LPARAM lp)
         assert(window() == window);
     }
     int64_t ret = 0;
-    app_kill_hidden_focus(app.ui);
+    app_kill_hidden_focus(app.view);
     app_click_detector(msg, wp, lp);
-    if (app_message(app.ui, msg, wp, lp, &ret)) {
+    if (app_message(app.view, msg, wp, lp, &ret)) {
         return (LRESULT)ret;
     }
     if ((int32_t)msg == ui.message.opening) { app_window_opening(); return 0; }
@@ -1183,11 +1183,11 @@ static LRESULT CALLBACK window_proc(HWND window, UINT msg, WPARAM wp, LPARAM lp)
         case WM_DESTROY      : PostQuitMessage(app.exit_code); break;
         case WM_SYSKEYDOWN: // for ALT (aka VK_MENU)
         case WM_KEYDOWN      : app_alt_ctrl_shift(true, (int32_t)wp);
-                               app_key_pressed(app.ui, (int32_t)wp);
+                               app_key_pressed(app.view, (int32_t)wp);
                                break;
         case WM_SYSKEYUP:
         case WM_KEYUP        : app_alt_ctrl_shift(false, (int32_t)wp);
-                               app_key_released(app.ui, (int32_t)wp);
+                               app_key_released(app.view, (int32_t)wp);
                                break;
         case WM_TIMER        : app_wm_timer((ui_timer_t)wp);
                                break;
@@ -1196,19 +1196,19 @@ static LRESULT CALLBACK window_proc(HWND window, UINT msg, WPARAM wp, LPARAM lp)
         // see: https://learn.microsoft.com/en-us/windows/win32/inputdev/about-keyboard-input
         // https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-tounicode
 //      case WM_UNICHAR      : // only UTF-32 via PostMessage
-        case WM_CHAR         : app_wm_char(app.ui, (const char*)&wp);
+        case WM_CHAR         : app_wm_char(app.view, (const char*)&wp);
                                break; // TODO: CreateWindowW() and utf16->utf8
         case WM_PRINTCLIENT  : app_paint_on_canvas((HDC)wp); break;
-        case WM_SETFOCUS     : if (!app.ui->hidden) { app_set_focus(app.ui); }
+        case WM_SETFOCUS     : if (!app.view->hidden) { app_set_focus(app.view); }
                                break;
-        case WM_KILLFOCUS    : if (!app.ui->hidden) { app_kill_focus(app.ui); }
+        case WM_KILLFOCUS    : if (!app.view->hidden) { app_kill_focus(app.view); }
                                break;
         case WM_PAINT        : app_wm_paint(); break;
-        case WM_CONTEXTMENU  : (void)app_context_menu(app.ui); break;
+        case WM_CONTEXTMENU  : (void)app_context_menu(app.view); break;
         case WM_MOUSEWHEEL   :
-            app_mousewheel(app.ui, 0, GET_WHEEL_DELTA_WPARAM(wp)); break;
+            app_mousewheel(app.view, 0, GET_WHEEL_DELTA_WPARAM(wp)); break;
         case WM_MOUSEHWHEEL  :
-            app_mousewheel(app.ui, GET_WHEEL_DELTA_WPARAM(wp), 0); break;
+            app_mousewheel(app.view, GET_WHEEL_DELTA_WPARAM(wp), 0); break;
         case WM_NCMOUSEMOVE    :
         case WM_NCLBUTTONDOWN  :
         case WM_NCLBUTTONUP    :
@@ -1223,7 +1223,7 @@ static LRESULT CALLBACK window_proc(HWND window, UINT msg, WPARAM wp, LPARAM lp)
 //          traceln("%d %d", pt.x, pt.y);
             ScreenToClient(window(), &pt);
             app.mouse = app_point2ui(&pt);
-            app_mouse(app.ui, (int32_t)msg, (int32_t)wp);
+            app_mouse(app.view, (int32_t)msg, (int32_t)wp);
             break;
         }
         case WM_MOUSEHOVER   : // see TrackMouseEvent()
@@ -1241,7 +1241,7 @@ static LRESULT CALLBACK window_proc(HWND window, UINT msg, WPARAM wp, LPARAM lp)
             app.mouse.y = GET_Y_LPARAM(lp);
 //          traceln("%d %d", app.mouse.x, app.mouse.y);
             // note: ScreenToClient() is not needed for this messages
-            app_mouse(app.ui, (int32_t)msg, (int32_t)wp);
+            app_mouse(app.view, (int32_t)msg, (int32_t)wp);
             break;
         }
         case WM_GETDPISCALEDSIZE: { // sent before WM_DPICHANGED
@@ -1254,7 +1254,7 @@ static LRESULT CALLBACK window_proc(HWND window, UINT msg, WPARAM wp, LPARAM lp)
                     "size %d,%d *may/must* be adjusted",
                     app.dpi.window, dpi, cell.x, cell.y);
             #endif
-            if (app_timer_1s_id != 0 && !app.ui->hidden) { app.layout(); }
+            if (app_timer_1s_id != 0 && !app.view->hidden) { app.layout(); }
             // IMPORTANT: return true because otherwise linear, see
             // https://learn.microsoft.com/en-us/windows/win32/hidpi/wm-getdpiscaledsize
             return true;
@@ -1263,7 +1263,7 @@ static LRESULT CALLBACK window_proc(HWND window, UINT msg, WPARAM wp, LPARAM lp)
 //          traceln("WM_DPICHANGED");
             app_window_dpi();
             app_init_fonts(app.dpi.window);
-            if (app_timer_1s_id != 0 && !app.ui->hidden) {
+            if (app_timer_1s_id != 0 && !app.view->hidden) {
                 app.layout();
             } else {
                 app_layout_dirty = true;
@@ -1381,13 +1381,13 @@ static void app_create_window(const ui_rect_t r) {
         SetWindowPos(window(), NULL, 0, 0, 0, 0, swp);
     }
     if (app.visibility != ui.visibility.hide) {
-        app.ui->w = app.wrc.w;
-        app.ui->h = app.wrc.h;
+        app.view->w = app.wrc.w;
+        app.view->h = app.wrc.h;
         AnimateWindow(window(), 250, AW_ACTIVATE);
         app.show_window(app.visibility);
         app_update_crc();
-//      app.ui->w = app.crc.w; // app.crc is "client rectangle"
-//      app.ui->h = app.crc.h;
+//      app.view->w = app.crc.w; // app.crc is "client rectangle"
+//      app.view->h = app.crc.h;
     }
     // even if it is hidden:
     app_post_message(ui.message.opening, 0, 0);
@@ -1491,35 +1491,35 @@ static void app_quit(int32_t exit_code) {
     app.close(); // close and destroy app only window
 }
 
-static void app_show_tooltip_or_toast(view_t* view, int32_t x, int32_t y,
+static void app_show_tooltip_or_toast(ui_view_t* view, int32_t x, int32_t y,
         double timeout) {
     if (view != null) {
         app.toasting.x = x;
         app.toasting.y = y;
-        if (view->tag == uic_tag_messagebox) {
-            ((messagebox_t*)view)->option = -1;
+        if (view->type == ui_view_messagebox) {
+            ((ui_messagebox_t*)view)->option = -1;
         }
         // allow unparented ui for toast and tooltip
         if (view->init != null) { view->init(view); view->init = null; }
         view->localize(view);
         app_animate_start(app_toast_dim, ui_toast_steps);
-        app.toasting.ui = view;
-        app.toasting.ui->font = &app.fonts.H1;
+        app.toasting.view = view;
+        app.toasting.view->font = &app.fonts.H1;
         app.toasting.time = timeout > 0 ? app.now + timeout : 0;
     } else {
         app_toast_cancel();
     }
 }
 
-static void app_show_toast(view_t* view, double timeout) {
+static void app_show_toast(ui_view_t* view, double timeout) {
     app_show_tooltip_or_toast(view, -1, -1, timeout);
 }
 
-static void app_show_tooltip(view_t* view, int32_t x, int32_t y,
+static void app_show_tooltip(ui_view_t* view, int32_t x, int32_t y,
         double timeout) {
     if (view != null) {
         app_show_tooltip_or_toast(view, x, y, timeout);
-    } else if (app.toasting.ui != null && app.toasting.x >= 0 &&
+    } else if (app.toasting.view != null && app.toasting.x >= 0 &&
                app.toasting.y >= 0) {
         app_toast_cancel(); // only cancel tooltips not toasts
     }
@@ -1527,10 +1527,10 @@ static void app_show_tooltip(view_t* view, int32_t x, int32_t y,
 
 static void app_formatted_vtoast(double timeout, const char* format, va_list vl) {
     app_show_toast(null, 0);
-    static label_t txt;
-    label_vinit(&txt, format, vl);
+    static ui_label_t txt;
+    ui_label_vinit(&txt, format, vl);
     txt.multiline = true;
-    app_show_toast(&txt.ui, timeout);
+    app_show_toast(&txt.view, timeout);
 }
 
 static void app_formatted_toast(double timeout, const char* format, ...) {
@@ -2015,9 +2015,9 @@ clipboard_t clipboard = {
     .text = clipboard_text
 };
 
-static view_t app_ui;
+static ui_view_t app_ui;
 
-static bool app_is_hidden(const view_t* view) {
+static bool app_is_hidden(const ui_view_t* view) {
     bool hidden = view->hidden;
     while (!hidden && view->parent != null) {
         view = view->parent;
@@ -2026,7 +2026,7 @@ static bool app_is_hidden(const view_t* view) {
     return hidden;
 }
 
-static bool app_is_disabled(const view_t* view) {
+static bool app_is_disabled(const ui_view_t* view) {
     bool disabled = view->disabled;
     while (!disabled && view->parent != null) {
         view = view->parent;
@@ -2057,7 +2057,7 @@ static void app_request_focus(void) {
 }
 
 static void app_init(void) {
-    app.ui = &app_ui;
+    app.view = &app_ui;
     app.redraw = app_fast_redraw;
     app.draw = app_draw;
     app.px2in = app_px2in;
@@ -2151,11 +2151,11 @@ static int app_win_main(void) {
         wr.y = app.work_area.y + (app.work_area.h - wr.h) / 2;
         app_bring_window_inside_monitor(&app.mrc, &wr);
     }
-    app.ui->invalidate  = view_invalidate;
-    app.ui->hidden = true; // start with ui hidden
-    app.ui->font = &app.fonts.regular;
-    app.ui->w = wr.w - size_frame * 2;
-    app.ui->h = wr.h - size_frame * 2 - caption_height;
+    app.view->invalidate = ui_view_invalidate;
+    app.view->hidden = true; // start with ui hidden
+    app.view->font = &app.fonts.regular;
+    app.view->w = wr.w - size_frame * 2;
+    app.view->h = wr.h - size_frame * 2 - caption_height;
     app_layout_dirty = true; // layout will be done before first paint
     not_null(app.class_name);
     if (!app.no_ui) {

@@ -1,8 +1,8 @@
 
-static void label_paint(view_t* view) {
-    assert(view->tag == uic_tag_text);
+static void ui_label_paint(ui_view_t* view) {
+    assert(view->type == ui_view_text);
     assert(!view->hidden);
-    label_t* t = (label_t*)view;
+    ui_label_t* t = (ui_label_t*)view;
     // at later stages of layout text height can grow:
     gdi.push(view->x, view->y + t->dy);
     ui_font_t f = view->font != null ? *view->font : app.fonts.regular;
@@ -14,10 +14,10 @@ static void label_paint(view_t* view) {
     // paint for text also does lightweight re-layout
     // which is useful for simplifying dynamic text changes
     if (!t->multiline) {
-        gdi.text("%s", view_nls(view));
+        gdi.text("%s", ui_view_nls(view));
     } else {
         int32_t w = (int)(view->width * view->em.x + 0.5);
-        gdi.multiline(w == 0 ? -1 : w, "%s", view_nls(view));
+        gdi.multiline(w == 0 ? -1 : w, "%s", ui_view_nls(view));
     }
     if (view->hover && t->hovered && !t->label) {
         gdi.set_colored_pen(colors.btn_hover_highlight);
@@ -30,11 +30,11 @@ static void label_paint(view_t* view) {
     gdi.pop();
 }
 
-static void label_context_menu(view_t* view) {
-    assert(view->tag == uic_tag_text);
-    label_t* t = (label_t*)view;
-    if (!t->label && !view_hidden_or_disabled(view)) {
-        clipboard.copy_text(view_nls(view));
+static void ui_label_context_menu(ui_view_t* view) {
+    assert(view->type == ui_view_text);
+    ui_label_t* t = (ui_label_t*)view;
+    if (!t->label && !ui_view_hidden_or_disabled(view)) {
+        clipboard.copy_text(ui_view_nls(view));
         static bool first_time = true;
         app.toast(first_time ? 2.15 : 0.75,
             app.nls("Text copied to clipboard"));
@@ -42,48 +42,48 @@ static void label_context_menu(view_t* view) {
     }
 }
 
-static void label_character(view_t* view, const char* utf8) {
-    assert(view->tag == uic_tag_text);
-    label_t* t = (label_t*)view;
-    if (view->hover && !view_hidden_or_disabled(view) && !t->label) {
+static void ui_label_character(ui_view_t* view, const char* utf8) {
+    assert(view->type == ui_view_text);
+    ui_label_t* t = (ui_label_t*)view;
+    if (view->hover && !ui_view_hidden_or_disabled(view) && !t->label) {
         char ch = utf8[0];
         // Copy to clipboard works for hover over text
         if ((ch == 3 || ch == 'c' || ch == 'C') && app.ctrl) {
-            clipboard.copy_text(view_nls(view)); // 3 is ASCII for Ctrl+C
+            clipboard.copy_text(ui_view_nls(view)); // 3 is ASCII for Ctrl+C
         }
     }
 }
 
-void _label_init_(view_t* view) {
-    static_assert(offsetof(label_t, ui) == 0, "offsetof(.ui)");
-    assert(view->tag == uic_tag_text);
-    view_init(view);
+void ui_label_init_(ui_view_t* view) {
+    static_assert(offsetof(ui_label_t, view) == 0, "offsetof(.view)");
+    assert(view->type == ui_view_text);
+    ui_view_init(view);
     if (view->font == null) { view->font = &app.fonts.regular; }
     view->color = colors.text;
-    view->paint = label_paint;
-    view->character = label_character;
-    view->context_menu = label_context_menu;
+    view->paint = ui_label_paint;
+    view->character = ui_label_character;
+    view->context_menu = ui_label_context_menu;
 }
 
-void label_vinit(label_t* t, const char* format, va_list vl) {
-    static_assert(offsetof(label_t, ui) == 0, "offsetof(.ui)");
-    str.vformat(t->ui.text, countof(t->ui.text), format, vl);
-    t->ui.tag = uic_tag_text;
-    _label_init_(&t->ui);
+void ui_label_vinit(ui_label_t* t, const char* format, va_list vl) {
+    static_assert(offsetof(ui_label_t, view) == 0, "offsetof(.view)");
+    str.vformat(t->view.text, countof(t->view.text), format, vl);
+    t->view.type = ui_view_text;
+    ui_label_init_(&t->view);
 }
 
-void label_init(label_t* t, const char* format, ...) {
+void ui_label_init(ui_label_t* t, const char* format, ...) {
     va_list vl;
     va_start(vl, format);
-    label_vinit(t, format, vl);
+    ui_label_vinit(t, format, vl);
     va_end(vl);
 }
 
-void label_init_ml(label_t* t, double width, const char* format, ...) {
+void ui_label_init_ml(ui_label_t* t, double width, const char* format, ...) {
     va_list vl;
     va_start(vl, format);
-    label_vinit(t, format, vl);
+    ui_label_vinit(t, format, vl);
     va_end(vl);
-    t->ui.width = width;
+    t->view.width = width;
     t->multiline = true;
 }

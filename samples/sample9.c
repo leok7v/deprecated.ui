@@ -29,7 +29,7 @@ static double sy = 0.25; // [0..1]
 static struct { double x; double y; } stack[52];
 static int top = 1; // because it is already zoomed in once above
 
-static slider_t zoomer;
+static ui_slider_t zoomer;
 
 #define glyph_onna        "\xE2\xBC\xA5" // Kanji Onna "Female"
 #define glyph_two_squares "\xE2\xA7\x89" // "Two Joined Squares"
@@ -38,16 +38,16 @@ static slider_t zoomer;
 #define glyph_right       "\xE2\x86\x92" // "ShortRightArrow"
 #define glyph_down        "\xE2\x86\x93" // "ShortDownArrow"
 
-uic_text(text_single_line, "Mandelbrot Explorer");
+ui_text(text_single_line, "Mandelbrot Explorer");
 
-uic_text(toast_filename, "filename placeholder");
+ui_text(toast_filename, "filename placeholder");
 
-uic_multiline(text_multiline, 19.0, "Click inside or +/- to zoom;\n"
+ui_multiline(text_multiline, 19.0, "Click inside or +/- to zoom;\n"
     "right mouse click to zoom out;\nuse "
     "touchpad or keyboard " glyph_left glyph_up glyph_down glyph_right
     " to pan");
 
-uic_multiline(about, 34.56,
+ui_multiline(about, 34.56,
     "\nClick inside Mandelbrot Julia Set fractal to zoom in into interesting "
     "areas. Right mouse click to zoom out.\n"
     "Use Win + Shift + S to take a screenshot of something "
@@ -62,7 +62,7 @@ uic_multiline(about, 34.56,
     "to dismiss this message or just wait - it will disappear by "
     "itself in 10 seconds.\n");
 
-uic_messagebox(messagebox,
+ui_messagebox(messagebox,
     "\"Pneumonoultramicroscopicsilicovolcanoconiosis\"\n"
     "is it the longest English language word or not?", {
     traceln("option=%d", option); // -1 or index of { "&Yes", "&No" }
@@ -75,59 +75,59 @@ static const char* filter[] = {
     "Executables", ".exe"
 };
 
-uic_button(open_file, "&Open", 7.5, {
+ui_button(open_file, "&Open", 7.5, {
     const char* fn = app.open_filename(
         app.known_folder(ui.folder.home),
         filter, countof(filter)); //  all files filer: null, 0
     if (fn[0] != 0) {
-        strprintf(toast_filename.ui.text, "%s", fn);
+        strprintf(toast_filename.view.text, "%s", fn);
         traceln("%s", fn);
-        app.show_toast(&toast_filename.ui, 2.0);
+        app.show_toast(&toast_filename.view, 2.0);
     }
 });
 
-uic_button(button_full_screen, glyph_two_squares, 1, {
-    button_full_screen->ui.pressed = !button_full_screen->ui.pressed;
-    app.full_screen(button_full_screen->ui.pressed);
-    if (button_full_screen->ui.pressed) {
+ui_button(button_full_screen, glyph_two_squares, 1, {
+    button_full_screen->view.pressed = !button_full_screen->view.pressed;
+    app.full_screen(button_full_screen->view.pressed);
+    if (button_full_screen->view.pressed) {
         app.toast(2.75, "Press ESC to exit full screen");
     }
 });
 
-uic_button(button_locale, glyph_onna "A", 1, {
-    button_locale->ui.pressed = !button_locale->ui.pressed;
-    app.set_locale(button_locale->ui.pressed ? "zh-CN" : "en-US");
+ui_button(button_locale, glyph_onna "A", 1, {
+    button_locale->view.pressed = !button_locale->view.pressed;
+    app.set_locale(button_locale->view.pressed ? "zh-CN" : "en-US");
     app.layout(); // because center panel layout changed
 });
 
-uic_button(button_about, "&About", 7.5, {
-    app.show_toast(&about.ui, 10.0);
+ui_button(button_about, "&About", 7.5, {
+    app.show_toast(&about.view, 10.0);
 });
 
-uic_button(button_message_box, "&Message Box", 7.5, {
-    app.show_toast(&messagebox.ui, 0);
+ui_button(button_message_box, "&Message Box", 7.5, {
+    app.show_toast(&messagebox.view, 0);
 });
 
-// uic_checkbox label can include "___" for "ON ": "OFF" state
-uic_checkbox(scroll, "Scroll &Direction:", 0, {});
+// ui_checkbox label can include "___" for "ON ": "OFF" state
+ui_checkbox(scroll, "Scroll &Direction:", 0, {});
 
-uic_container(panel_top, null, null);
-uic_container(panel_bottom, null, null);
-uic_container(panel_center, null, null);
-uic_container(panel_right, null,
-    &button_locale.ui,
-    &button_full_screen.ui,
-    &zoomer.ui,
-    &scroll.ui,
-    &open_file.ui,
-    &button_about.ui,
-    &button_message_box.ui,
-    &text_single_line.ui,
-    &text_multiline.ui,
+ui_container(panel_top, null, null);
+ui_container(panel_bottom, null, null);
+ui_container(panel_center, null, null);
+ui_container(panel_right, null,
+    &button_locale.view,
+    &button_full_screen.view,
+    &zoomer.view,
+    &scroll.view,
+    &open_file.view,
+    &button_about.view,
+    &button_message_box.view,
+    &text_single_line.view,
+    &text_multiline.view,
     null
 );
 
-static void panel_paint(view_t* view) {
+static void panel_paint(ui_view_t* view) {
     gdi.push(view->x, view->y);
     gdi.set_clip(view->x, view->y, view->w, view->h);
     gdi.set_brush(gdi.brush_color);
@@ -166,12 +166,12 @@ static void panel_paint(view_t* view) {
     gdi.pop();
 }
 
-static void right_layout(view_t* view) {
+static void right_layout(ui_view_t* view) {
     if ( view->children != null) {
         int x = view->x + em.x;
         int y = view->y + em.y * 2;
-        for (view_t** it = view->children; *it != null; it++) {
-            view_t* ch = *it;
+        for (ui_view_t** it = view->children; *it != null; it++) {
+            ui_view_t* ch = *it;
             ch->x = x;
             ch->y = y;
             y += ch->h + max(1, em.y / 2);
@@ -179,7 +179,7 @@ static void right_layout(view_t* view) {
     }
 }
 
-static void text_after(view_t* view, const char* format, ...) {
+static void text_after(ui_view_t* view, const char* format, ...) {
     gdi.x = view->x + view->w + view->em.x;
     gdi.y = view->y;
     va_list va;
@@ -188,19 +188,19 @@ static void text_after(view_t* view, const char* format, ...) {
     va_end(va);
 }
 
-static void right_paint(view_t* view) {
+static void right_paint(ui_view_t* view) {
     panel_paint(view);
     gdi.push(view->x, view->y);
     gdi.set_clip(view->x, view->y, view->w, view->h);
-    gdi.x = button_locale.ui.x + button_locale.ui.w + em.x;
-    gdi.y = button_locale.ui.y;
-    gdi.println("&Locale %s", button_locale.ui.pressed ? "zh-CN" : "en-US");
-    gdi.x = button_full_screen.ui.x + button_full_screen.ui.w + em.x;
-    gdi.y = button_full_screen.ui.y;
+    gdi.x = button_locale.view.x + button_locale.view.w + em.x;
+    gdi.y = button_locale.view.y;
+    gdi.println("&Locale %s", button_locale.view.pressed ? "zh-CN" : "en-US");
+    gdi.x = button_full_screen.view.x + button_full_screen.view.w + em.x;
+    gdi.y = button_full_screen.view.y;
     gdi.println(app.is_full_screen ? app.nls("Restore from &Full Screen") :
         app.nls("&Full Screen"));
-    gdi.x = text_multiline.ui.x;
-    gdi.y = text_multiline.ui.y + text_multiline.ui.h + max(1, em.y / 4);
+    gdi.x = text_multiline.view.x;
+    gdi.y = text_multiline.view.y + text_multiline.view.h + max(1, em.y / 4);
     gdi.textln("Proportional");
     gdi.println("Monospaced");
     ui_font_t font = gdi.set_font(app.fonts.H1);
@@ -216,14 +216,14 @@ static void right_paint(view_t* view) {
     gdi.println("%d x paint()", app.paint_count);
     gdi.println("%.1fms (max %.1f avg %.1f)", app.paint_time * 1000.0,
         app.paint_max * 1000.0, app.paint_avg * 1000.0);
-    text_after(&zoomer.ui, "%.16f", zoom);
-    text_after(&scroll.ui, "%s", scroll.ui.pressed ?
+    text_after(&zoomer.view, "%.16f", zoom);
+    text_after(&scroll.view, "%s", scroll.view.pressed ?
         app.nls("Natural") : app.nls("Reverse"));
     gdi.set_clip(0, 0, 0, 0);
     gdi.pop();
 }
 
-static void center_paint(view_t* view) {
+static void center_paint(ui_view_t* view) {
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(colors.black);
     gdi.fill(view->x, view->y, view->w, view->h);
@@ -256,7 +256,7 @@ static void center_paint(view_t* view) {
 
 }
 
-static void measure(view_t* view) {
+static void measure(ui_view_t* view) {
     ui_point_t em_mono = gdi.get_em(app.fonts.mono);
     em = gdi.get_em(app.fonts.regular);
     view->em = em;
@@ -276,7 +276,7 @@ static void measure(view_t* view) {
     panel_center.h = h - panel_bottom.h - panel_top.h;
 }
 
-static void layout(view_t* unused(view)) {
+static void layout(ui_view_t* unused(view)) {
     assert(view->em.x > 0 && view->em.y > 0);
     const int32_t h = app.height;
     panel_top.x = 0;
@@ -309,7 +309,7 @@ static void zoom_in(int x, int y) {
     sy += zoom * y / image.h;
 }
 
-static void mouse(view_t* unused(view), int32_t m, int32_t unused(flags)) {
+static void mouse(ui_view_t* unused(view), int32_t m, int32_t unused(flags)) {
     int x = app.mouse.x - (panel_center.w - image.w) / 2 - panel_center.x;
     int y = app.mouse.y - (panel_center.h - image.h) / 2 - panel_center.y;
     if (0 <= x && x < image.w && 0 <= y && y < image.h) {
@@ -322,7 +322,7 @@ static void mouse(view_t* unused(view), int32_t m, int32_t unused(flags)) {
     app.redraw(); // always to update Mouse: x, y info
 }
 
-static void zoomer_callback(slider_t* slider) {
+static void zoomer_callback(ui_slider_t* slider) {
     double z = 1;
     for (int i = 0; i < slider->value; i++) { z /= 2; }
     while (zoom > z) { zoom_in(image.w / 2, image.h / 2); }
@@ -330,16 +330,16 @@ static void zoomer_callback(slider_t* slider) {
     refresh();
 }
 
-static void mousewheel(view_t* unused, int32_t dx, int32_t dy) {
+static void mousewheel(ui_view_t* unused, int32_t dx, int32_t dy) {
     (void)unused;
-    if (!scroll.ui.pressed) { dy = -dy; }
-    if (!scroll.ui.pressed) { dx = -dx; }
+    if (!scroll.view.pressed) { dy = -dy; }
+    if (!scroll.view.pressed) { dx = -dx; }
     sx = sx + zoom * dx / image.w;
     sy = sy + zoom * dy / image.h;
     refresh();
 }
 
-static void character(view_t* view, const char* utf8) {
+static void character(ui_view_t* view, const char* utf8) {
     char ch = utf8[0];
     if (ch == 'q' || ch == 'Q') {
         app.close();
@@ -358,7 +358,7 @@ static void character(view_t* view, const char* utf8) {
     }
 }
 
-static void keyboard(view_t* view, int32_t vk) {
+static void keyboard(ui_view_t* view, int32_t vk) {
     if (vk == ui.key.up) {
         mousewheel(view, 0, +image.h / 8);
     } else if (vk == ui.key.down) {
@@ -370,8 +370,8 @@ static void keyboard(view_t* view, int32_t vk) {
     }
 }
 
-static void init_panel(view_t* panel, const char* text, ui_color_t color,
-        void (*paint)(view_t*)) {
+static void init_panel(ui_view_t* panel, const char* text, ui_color_t color,
+        void (*paint)(ui_view_t*)) {
     strprintf(panel->text, "%s", text);
     panel->color = color;
     panel->paint = paint;
@@ -390,30 +390,30 @@ static void opened(void) {
     text_single_line.highlight = true;
     text_multiline.highlight = true;
     text_multiline.hovered = true;
-    strprintf(text_multiline.ui.tip, "%s",
+    strprintf(text_multiline.view.tip, "%s",
         "Ctrl+C or Right Mouse click to copy text to clipboard");
-    toast_filename.ui.font = &app.fonts.H1;
-    about.ui.font = &app.fonts.H3;
-    button_locale.ui.shortcut = 'l';
-    button_full_screen.ui.shortcut = 'f';
-    slider_init(&zoomer, "Zoom: 1 / (2^%d)", 7.0, 0, countof(stack) - 1,
+    toast_filename.view.font = &app.fonts.H1;
+    about.view.font = &app.fonts.H3;
+    button_locale.view.shortcut = 'l';
+    button_full_screen.view.shortcut = 'f';
+    ui_slider_init(&zoomer, "Zoom: 1 / (2^%d)", 7.0, 0, countof(stack) - 1,
         zoomer_callback);
-    strcopy(button_message_box.ui.tip, "Show Yes/No message box");
-    strcopy(button_about.ui.tip, "Show About message box");
+    strcopy(button_message_box.view.tip, "Show Yes/No message box");
+    strcopy(button_about.view.tip, "Show About message box");
     refresh();
 }
 
 static void init(void) {
     app.title = TITLE;
-    app.ui->measure = measure;
-    app.ui->layout = layout;
-    app.ui->character   = character;
-    app.ui->key_pressed = keyboard; // virtual_keys
-    app.ui->mousewheel = mousewheel;
+    app.view->measure = measure;
+    app.view->layout = layout;
+    app.view->character   = character;
+    app.view->key_pressed = keyboard; // virtual_keys
+    app.view->mousewheel = mousewheel;
     app.opened = opened;
-    static view_t* root_children[] = { &panel_top, &panel_center,
+    static ui_view_t* root_children[] = { &panel_top, &panel_center,
         &panel_right, &panel_bottom, null };
-    app.ui->children = root_children;
+    app.view->children = root_children;
     panel_center.mouse = mouse;
 }
 

@@ -1,4 +1,4 @@
-static int checkbox_paint_on_off(view_t* view) {
+static int ui_checkbox_paint_on_off(ui_view_t* view) {
     // https://www.compart.com/en/unicode/U+2B24
     static const char* circle = "\xE2\xAC\xA4"; // Black Large Circle
     gdi.push(view->x, view->y);
@@ -20,8 +20,8 @@ static int checkbox_paint_on_off(view_t* view) {
     return rx;
 }
 
-static const char*  checkbox_on_off_label(view_t* view, char* label, int32_t count)  {
-    str.sformat(label, count, "%s", view_nls(view));
+static const char* ui_checkbox_on_off_label(ui_view_t* view, char* label, int32_t count)  {
+    str.sformat(label, count, "%s", ui_view_nls(view));
     char* s = strstr(label, "___");
     if (s != null) {
         memcpy(s, view->pressed ? "On " : "Off", 3);
@@ -29,50 +29,50 @@ static const char*  checkbox_on_off_label(view_t* view, char* label, int32_t cou
     return app.nls(label);
 }
 
-static void  checkbox_measure(view_t* view) {
-    assert(view->tag == uic_tag_checkbox);
-    view_measure(view);
+static void ui_checkbox_measure(ui_view_t* view) {
+    assert(view->type == ui_view_checkbox);
+    ui_view_measure(view);
     view->w += view->em.x * 2;
 }
 
-static void  checkbox_paint(view_t* view) {
-    assert(view->tag == uic_tag_checkbox);
+static void ui_checkbox_paint(ui_view_t* view) {
+    assert(view->type == ui_view_checkbox);
     char text[countof(view->text)];
-    const char* label =  checkbox_on_off_label(view, text, countof(text));
+    const char* label = ui_checkbox_on_off_label(view, text, countof(text));
     gdi.push(view->x, view->y);
     ui_font_t f = view->font != null ? *view->font : app.fonts.regular;
     ui_font_t font = gdi.set_font(f);
-    gdi.x =  checkbox_paint_on_off(view) + view->em.x * 3 / 4;
+    gdi.x = ui_checkbox_paint_on_off(view) + view->em.x * 3 / 4;
     gdi.text("%s", label);
     gdi.set_font(font);
     gdi.pop();
 }
 
-static void  checkbox_flip(checkbox_t* c) {
-    assert(c->ui.tag == uic_tag_checkbox);
+static void ui_checkbox_flip(checkbox_t* c) {
+    assert(c->view.type == ui_view_checkbox);
     app.redraw();
-    c->ui.pressed = !c->ui.pressed;
+    c->view.pressed = !c->view.pressed;
     if (c->cb != null) { c->cb(c); }
 }
 
-static void  checkbox_character(view_t* view, const char* utf8) {
-    assert(view->tag == uic_tag_checkbox);
+static void ui_checkbox_character(ui_view_t* view, const char* utf8) {
+    assert(view->type == ui_view_checkbox);
     assert(!view->hidden && !view->disabled);
     char ch = utf8[0];
-    if (uic_is_keyboard_shortcut(view, ch)) {
-         checkbox_flip((checkbox_t*)view);
+    if (ui_is_keyboard_shortcut(view, ch)) {
+         ui_checkbox_flip((checkbox_t*)view);
     }
 }
 
-static void checkbox_key_pressed(view_t* view, int32_t key) {
-    if (app.alt && uic_is_keyboard_shortcut(view, key)) {
-//      traceln("key: 0x%02X shortcut: %d", key, uic_is_keyboard_shortcut(view, key));
-        checkbox_flip((checkbox_t*)view);
+static void ui_checkbox_key_pressed(ui_view_t* view, int32_t key) {
+    if (app.alt && ui_is_keyboard_shortcut(view, key)) {
+//      traceln("key: 0x%02X shortcut: %d", key, ui_is_keyboard_shortcut(view, key));
+        ui_checkbox_flip((checkbox_t*)view);
     }
 }
 
-static void  checkbox_mouse(view_t* view, int32_t message, int32_t flags) {
-    assert(view->tag == uic_tag_checkbox);
+static void ui_checkbox_mouse(ui_view_t* view, int32_t message, int32_t flags) {
+    assert(view->type == ui_view_checkbox);
     (void)flags; // unused
     assert(!view->hidden && !view->disabled);
     if (message == ui.message.left_button_pressed ||
@@ -81,31 +81,31 @@ static void  checkbox_mouse(view_t* view, int32_t message, int32_t flags) {
         int32_t y = app.mouse.y - view->y;
         if (0 <= x && x < view->w && 0 <= y && y < view->h) {
             app.focus = view;
-            checkbox_flip((checkbox_t*)view);
+            ui_checkbox_flip((checkbox_t*)view);
         }
     }
 }
 
-void _checkbox_init_(view_t* view) {
-    assert(view->tag == uic_tag_checkbox);
-    view_init(view);
-    view_set_text(view, view->text);
-    view->mouse       =  checkbox_mouse;
-    view->measure     = checkbox_measure;
-    view->paint       = checkbox_paint;
-    view->character   = checkbox_character;
-    view->key_pressed = checkbox_key_pressed;
+void ui_checkbox_init_(ui_view_t* view) {
+    assert(view->type == ui_view_checkbox);
+    ui_view_init(view);
+    ui_view_set_text(view, view->text);
+    view->mouse       = ui_checkbox_mouse;
+    view->measure     = ui_checkbox_measure;
+    view->paint       = ui_checkbox_paint;
+    view->character   = ui_checkbox_character;
+    view->key_pressed = ui_checkbox_key_pressed;
     view->localize(view);
     view->color = colors.btn_text;
 }
 
-void checkbox_init(checkbox_t* c, const char* label, double ems,
+void ui_checkbox_init(checkbox_t* c, const char* label, double ems,
        void (*cb)( checkbox_t* b)) {
-    static_assert(offsetof( checkbox_t, ui) == 0, "offsetof(.ui)");
-    view_init(&c->ui);
-    strprintf(c->ui.text, "%s", label);
-    c->ui.width = ems;
+    static_assert(offsetof( checkbox_t, view) == 0, "offsetof(.view)");
+    ui_view_init(&c->view);
+    strprintf(c->view.text, "%s", label);
+    c->view.width = ems;
     c->cb = cb;
-    c->ui.tag = uic_tag_checkbox;
-    _checkbox_init_(&c->ui);
+    c->view.type = ui_view_checkbox;
+    ui_checkbox_init_(&c->view);
 }

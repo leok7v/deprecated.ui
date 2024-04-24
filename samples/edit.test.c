@@ -57,9 +57,9 @@ typedef struct {
     int32_t min_words; // at least 2
     int32_t max_words;
     const char* append; // append after each paragraph (e.g. extra "\n")
-} uic_edit_lorem_ipsum_generator_params_t;
+} ui_edit_lorem_ipsum_generator_params_t;
 
-static void uic_edit_lorem_ipsum_generator(uic_edit_lorem_ipsum_generator_params_t p) {
+static void ui_edit_lorem_ipsum_generator(ui_edit_lorem_ipsum_generator_params_t p) {
     fatal_if(p.count < 1024); // at least 1KB expected
     fatal_if_false(0 < p.min_paragraphs && p.min_paragraphs <= p.max_paragraphs);
     fatal_if_false(0 < p.min_sentences && p.min_sentences <= p.max_sentences);
@@ -151,10 +151,10 @@ static void uic_edit_lorem_ipsum_generator(uic_edit_lorem_ipsum_generator_params
 //  traceln("%s\n", p.text);
 }
 
-void uic_edit_init_with_lorem_ipsum(uic_edit_t* e) {
+void ui_edit_init_with_lorem_ipsum(ui_edit_t* e) {
     fatal_if(e->paragraphs != 0);
     static char text[64 * 1024];
-    uic_edit_lorem_ipsum_generator_params_t p = {
+    ui_edit_lorem_ipsum_generator_params_t p = {
         .text = text,
         .count = countof(text),
         .min_paragraphs = 4,
@@ -170,19 +170,19 @@ void uic_edit_init_with_lorem_ipsum(uic_edit_t* e) {
     #else
         p.seed = (int32_t)clock.nanoseconds() | 0x1; // must be odd
     #endif
-    uic_edit_lorem_ipsum_generator(p);
+    ui_edit_lorem_ipsum_generator(p);
     e->paste(e, test_content, (int32_t)strlen(test_content));
     e->paste(e, "\n\n", 2);
     e->paste(e, p.text, (int32_t)strlen(p.text));
-    e->move(e, (uic_edit_pg_t){ .pn = 0, .gp = 0});
+    e->move(e, (ui_edit_pg_t){ .pn = 0, .gp = 0});
 }
 
-void uic_edit_next_fuzz(uic_edit_t* e) {
+void ui_edit_next_fuzz(ui_edit_t* e) {
     atomics.increment_int32(&e->fuzz_count);
 }
 
-static void uic_edit_fuzzer(void* p) {
-    uic_edit_t* e = (uic_edit_t*)p;
+static void ui_edit_fuzzer(void* p) {
+    ui_edit_t* e = (ui_edit_t*)p;
     for (;;) {
         while (!e->fuzz_quit && e->fuzz_count == e->fuzz_last) {
             threads.sleep_for(1.0 / 1024.0); // ~1ms
@@ -232,8 +232,8 @@ static void uic_edit_fuzzer(void* p) {
         if (num.random32(&e->fuzz_seed) % 32 == 0) {
             // mouse events only inside edit control otherwise
             // they will start clicking buttons around
-            int32_t x = num.random32(&e->fuzz_seed) % e->ui.w;
-            int32_t y = num.random32(&e->fuzz_seed) % e->ui.h;
+            int32_t x = num.random32(&e->fuzz_seed) % e->view.w;
+            int32_t y = num.random32(&e->fuzz_seed) % e->view.h;
             app.post(ui.message.mouse_move,   0, (int64_t)(x | (y << 16)));
             app.post(ui.message.left_button_pressed,  0, (int64_t)(x | (y << 16)));
             app.post(ui.message.left_button_released, 0, (int64_t)(x | (y << 16)));
@@ -241,11 +241,11 @@ static void uic_edit_fuzzer(void* p) {
     }
 }
 
-void uic_edit_fuzz(uic_edit_t* e) {
+void ui_edit_fuzz(ui_edit_t* e) {
     if (e->fuzzer == null) {
         app.request_focus(); // force application to be focused
-        e->fuzzer = threads.start(uic_edit_fuzzer, e);
-        uic_edit_next_fuzz(e);
+        e->fuzzer = threads.start(ui_edit_fuzzer, e);
+        ui_edit_next_fuzz(e);
     } else {
         e->fuzz_quit = true;
         threads.join(e->fuzzer, -1);

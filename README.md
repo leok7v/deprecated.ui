@@ -63,15 +63,15 @@ begin_c
 
 const char* title = "Sample";
 
-static uic_text(text, "Hello World!");
+static ui_text(text, "Hello World!");
 
-static view_t* children[] = { &text.ui, null };
+static ui_view_t* children[] = { &text.view, null };
 
-static void layout(view_t* ui) {
+static void layout(ui_view_t* view) {
     layouts.center(ui);
 }
 
-static void paint(view_t* ui) {
+static void paint(ui_view_t* view) {
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(colors.black);
     gdi.fill(0, 0, ui->w, ui->h);
@@ -79,9 +79,9 @@ static void paint(view_t* ui) {
 
 static void init(void) {
     app.title = title;
-    app.ui->layout = layout;
-    app.ui->paint = paint;
-    app.ui->children = children;
+    app.view->layout = layout;
+    app.view->paint = paint;
+    app.view->children = children;
 }
 
 app_t app = {
