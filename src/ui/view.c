@@ -53,7 +53,7 @@ static bool view_hidden_or_disabled(view_t* ui) {
 
 static void view_hovering(view_t* ui, bool start) {
     static uic_text(btn_tooltip,  "");
-    if (start && app_toast.ui == null && ui->tip[0] != 0 &&
+    if (start && app.toasting.ui == null && ui->tip[0] != 0 &&
        !app.is_hidden(ui)) {
         strprintf(btn_tooltip.ui.text, "%s", app.nls(ui->tip));
         btn_tooltip.ui.font = &app.fonts.H1;
@@ -62,7 +62,7 @@ static void view_hovering(view_t* ui, bool start) {
         if (y < ui->em.y) { y = app.mouse.y + ui->em.y * 3 / 2; }
         y = min(app.crc.h - ui->em.y * 3 / 2, max(0, y));
         app.show_tooltip(&btn_tooltip.ui, app.mouse.x, y, 0);
-    } else if (!start && app_toast.ui == &btn_tooltip.ui) {
+    } else if (!start && app.toasting.ui == &btn_tooltip.ui) {
         app.show_tooltip(null, -1, -1, 0);
     }
 }

@@ -14,14 +14,6 @@
 #define window() ((HWND)app.window)
 #define canvas() ((HDC)app.canvas)
 
-static struct {
-    view_t* ui;
-    int32_t step;
-    double time; // closing time or zero
-    int32_t x; // -1 for toast
-    int32_t y; // screen coordinates for tooltip
-} app_toast;
-
 #include "src/ui/gdi.c"
 #include "src/ui/colors.c"
 #include "src/ui/view.c"

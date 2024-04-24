@@ -561,7 +561,7 @@ static void app_every_100ms(tm_t id) {
     if (id == app_timer_100ms_id && app.every_100ms != null) {
         app.every_100ms();
     }
-    if (app_toast.time != 0 && app.now > app_toast.time) {
+    if (app.toasting.time != 0 && app.now > app.toasting.time) {
         app.show_toast(null, 0);
     }
 }
@@ -763,7 +763,7 @@ static void app_toast_mouse(int32_t m, int32_t f);
 static void app_toast_character(const char* utf8);
 
 static void app_wm_char(view_t* ui, const char* utf8) {
-    if (app_toast.ui != null) {
+    if (app.toasting.ui != null) {
         app_toast_character(utf8);
     } else {
         app_character(ui, utf8);
@@ -866,11 +866,11 @@ static bool app_press(view_t* ui, int32_t ix) { // 0: left 1: middle 2: right
 }
 
 static void app_mouse(view_t* ui, int32_t m, int32_t f) {
-    if (app_toast.ui != null && app_toast.ui->mouse != null) {
-        app_ui_mouse(app_toast.ui, m, f);
-    } else if (app_toast.ui != null && app_toast.ui->mouse == null) {
+    if (app.toasting.ui != null && app.toasting.ui->mouse != null) {
+        app_ui_mouse(app.toasting.ui, m, f);
+    } else if (app.toasting.ui != null && app.toasting.ui->mouse == null) {
         app_toast_mouse(m, f);
-        bool tooltip = app_toast.x >= 0 && app_toast.y >= 0;
+        bool tooltip = app.toasting.x >= 0 && app.toasting.y >= 0;
         if (tooltip) { app_ui_mouse(ui, m, f); }
     } else {
         app_ui_mouse(ui, m, f);
@@ -902,46 +902,46 @@ static void app_toast_paint(void) {
         uint8_t pixels[4] = { 0x3F, 0x3F, 0x3F };
         gdi.image_init(&image, 1, 1, 3, pixels);
     }
-    if (app_toast.ui != null) {
-        font_t f = app_toast.ui->font != null ? *app_toast.ui->font : app.fonts.regular;
+    if (app.toasting.ui != null) {
+        font_t f = app.toasting.ui->font != null ? *app.toasting.ui->font : app.fonts.regular;
         const ui_point_t em = gdi.get_em(f);
-        app_toast.ui->em = em;
-        // allow unparented and unmeasureed toasts:
-        if (app_toast.ui->measure != null) { app_toast.ui->measure(app_toast.ui); }
+        app.toasting.ui->em = em;
+        // allow unparented and unmeasured toasts:
+        if (app.toasting.ui->measure != null) { app.toasting.ui->measure(app.toasting.ui); }
         gdi.push(0, 0);
-        bool tooltip = app_toast.x >= 0 && app_toast.y >= 0;
+        bool tooltip = app.toasting.x >= 0 && app.toasting.y >= 0;
         int32_t em_x = em.x;
         int32_t em_y = em.y;
         gdi.set_brush(gdi.brush_color);
         gdi.set_brush_color(colors.toast);
         if (!tooltip) {
-            assert(0 <= app_toast.step && app_toast.step < toast_steps);
-            int32_t step = app_toast.step - (toast_steps - 1);
-            app_toast.ui->y = app_toast.ui->h * step / (toast_steps - 1);
-//          traceln("step=%d of %d y=%d", app_toast.step, app_toast_steps, app_toast.ui->y);
-            app_layout_ui(app_toast.ui);
-            double alpha = min(0.40, 0.40 * app_toast.step / (double)toast_steps);
+            assert(0 <= app.toasting.step && app.toasting.step < toast_steps);
+            int32_t step = app.toasting.step - (toast_steps - 1);
+            app.toasting.ui->y = app.toasting.ui->h * step / (toast_steps - 1);
+//          traceln("step=%d of %d y=%d", app.toasting.step, app_toast_steps, app.toasting.ui->y);
+            app_layout_ui(app.toasting.ui);
+            double alpha = min(0.40, 0.40 * app.toasting.step / (double)toast_steps);
             gdi.alpha_blend(0, 0, app.width, app.height, &image, alpha);
-            app_toast.ui->x = (app.width - app_toast.ui->w) / 2;
+            app.toasting.ui->x = (app.width - app.toasting.ui->w) / 2;
         } else {
-            app_toast.ui->x = app_toast.x;
-            app_toast.ui->y = app_toast.y;
-            app_layout_ui(app_toast.ui);
-            int32_t mx = app.width - app_toast.ui->w - em_x;
-            app_toast.ui->x = min(mx, max(0, app_toast.x - app_toast.ui->w / 2));
-            app_toast.ui->y = min(app.crc.h - em_y, max(0, app_toast.y));
+            app.toasting.ui->x = app.toasting.x;
+            app.toasting.ui->y = app.toasting.y;
+            app_layout_ui(app.toasting.ui);
+            int32_t mx = app.width - app.toasting.ui->w - em_x;
+            app.toasting.ui->x = min(mx, max(0, app.toasting.x - app.toasting.ui->w / 2));
+            app.toasting.ui->y = min(app.crc.h - em_y, max(0, app.toasting.y));
         }
-        int32_t x = app_toast.ui->x - em_x;
-        int32_t y = app_toast.ui->y - em_y / 2;
-        int32_t w = app_toast.ui->w + em_x * 2;
-        int32_t h = app_toast.ui->h + em_y;
+        int32_t x = app.toasting.ui->x - em_x;
+        int32_t y = app.toasting.ui->y - em_y / 2;
+        int32_t w = app.toasting.ui->w + em_x * 2;
+        int32_t h = app.toasting.ui->h + em_y;
         gdi.rounded(x, y, w, h, em_x, em_y);
-        if (!tooltip) { app_toast.ui->y += em_y / 4; }
-        app_paint(app_toast.ui);
+        if (!tooltip) { app.toasting.ui->y += em_y / 4; }
+        app_paint(app.toasting.ui);
         if (!tooltip) {
-            if (app_toast.ui->y == em_y / 4) {
+            if (app.toasting.ui->y == em_y / 4) {
                 // micro "close" toast button:
-                gdi.x = app_toast.ui->x + app_toast.ui->w;
+                gdi.x = app.toasting.ui->x + app.toasting.ui->w;
                 gdi.y = 0;
                 gdi.text("\xC3\x97"); // Heavy Multiplication X
             }
@@ -951,47 +951,47 @@ static void app_toast_paint(void) {
 }
 
 static void app_toast_cancel(void) {
-    if (app_toast.ui != null && app_toast.ui->tag == uic_tag_messagebox) {
-        messagebox_t* mx = (messagebox_t*)app_toast.ui;
+    if (app.toasting.ui != null && app.toasting.ui->tag == uic_tag_messagebox) {
+        messagebox_t* mx = (messagebox_t*)app.toasting.ui;
         if (mx->option < 0) { mx->cb(mx, -1); }
     }
-    app_toast.step = 0;
-    app_toast.ui = null;
-    app_toast.time = 0;
-    app_toast.x = -1;
-    app_toast.y = -1;
+    app.toasting.step = 0;
+    app.toasting.ui = null;
+    app.toasting.time = 0;
+    app.toasting.x = -1;
+    app.toasting.y = -1;
     app.redraw();
 }
 
 static void app_toast_mouse(int32_t m, int32_t flags) {
     bool pressed = m == messages.left_button_pressed ||
                    m == messages.right_button_pressed;
-    if (app_toast.ui != null && pressed) {
-        const ui_point_t em = app_toast.ui->em;
-        int32_t x = app_toast.ui->x + app_toast.ui->w;
+    if (app.toasting.ui != null && pressed) {
+        const ui_point_t em = app.toasting.ui->em;
+        int32_t x = app.toasting.ui->x + app.toasting.ui->w;
         if (x <= app.mouse.x && app.mouse.x <= x + em.x &&
             0 <= app.mouse.y && app.mouse.y <= em.y) {
             app_toast_cancel();
         } else {
-            app_ui_mouse(app_toast.ui, m, flags);
+            app_ui_mouse(app.toasting.ui, m, flags);
         }
     } else {
-        app_ui_mouse(app_toast.ui, m, flags);
+        app_ui_mouse(app.toasting.ui, m, flags);
     }
 }
 
 static void app_toast_character(const char* utf8) {
     char ch = utf8[0];
-    if (app_toast.ui != null && ch == 033) { // ESC traditionally in octal
+    if (app.toasting.ui != null && ch == 033) { // ESC traditionally in octal
         app_toast_cancel();
         app.show_toast(null, 0);
     } else {
-        app_character(app_toast.ui, utf8);
+        app_character(app.toasting.ui, utf8);
     }
 }
 
 static void app_toast_dim(int32_t step) {
-    app_toast.step = step;
+    app.toasting.step = step;
     app.redraw();
     UpdateWindow(window());
 }
@@ -1057,7 +1057,7 @@ static void app_paint_on_canvas(HDC hdc) {
     fatal_if_false(SetBrushOrgEx(canvas(), 0, 0, (POINT*)&pt));
     brush_t br = gdi.set_brush(gdi.brush_hollow);
     app_paint(app.ui);
-    if (app_toast.ui != null) { app_toast_paint(); }
+    if (app.toasting.ui != null) { app_toast_paint(); }
     fatal_if_false(SetBrushOrgEx(canvas(), pt.x, pt.y, null));
     SetStretchBltMode(canvas(), stretch_mode);
     SetBkMode(canvas(), bm);
@@ -1565,8 +1565,8 @@ static void app_quit(int32_t exit_code) {
 
 static void app_show_tooltip_or_toast(view_t* ui, int32_t x, int32_t y, double timeout) {
     if (ui != null) {
-        app_toast.x = x;
-        app_toast.y = y;
+        app.toasting.x = x;
+        app.toasting.y = y;
         if (ui->tag == uic_tag_messagebox) {
             ((messagebox_t*)ui)->option = -1;
         }
@@ -1574,9 +1574,9 @@ static void app_show_tooltip_or_toast(view_t* ui, int32_t x, int32_t y, double t
         if (ui->init != null) { ui->init(ui); ui->init = null; }
         ui->localize(ui);
         app_animate_start(app_toast_dim, toast_steps);
-        app_toast.ui = ui;
-        app_toast.ui->font = &app.fonts.H1;
-        app_toast.time = timeout > 0 ? app.now + timeout : 0;
+        app.toasting.ui = ui;
+        app.toasting.ui->font = &app.fonts.H1;
+        app.toasting.time = timeout > 0 ? app.now + timeout : 0;
     } else {
         app_toast_cancel();
     }
@@ -1589,7 +1589,7 @@ static void app_show_toast(view_t* ui, double timeout) {
 static void app_show_tooltip(view_t* ui, int32_t x, int32_t y, double timeout) {
     if (ui != null) {
         app_show_tooltip_or_toast(ui, x, y, timeout);
-    } else if (app_toast.ui != null && app_toast.x >= 0 && app_toast.y >= 0) {
+    } else if (app.toasting.ui != null && app.toasting.x >= 0 && app.toasting.y >= 0) {
         app_toast_cancel(); // only cancel tooltips not toasts
     }
 }

@@ -115,6 +115,7 @@ fn(int32_t, glyph_bytes)(char start_byte_value) { // utf-8
     if ((uc & 0xF0) == 0xE0) { return 3; }
     // 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx 0b1111,1000=0xF8 0x1111,0000=0xF0
     if ((uc & 0xF8) == 0xF0) { return 4; }
+// TODO: should NOT be fatal: try editing .exe file to see the crash
     fatal_if(true, "incorrect UTF first byte 0%02X", uc);
     return -1;
 }
