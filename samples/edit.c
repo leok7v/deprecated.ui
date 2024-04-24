@@ -125,7 +125,7 @@ fn(int32_t, glyph_bytes)(char start_byte_value) { // utf-8
 fn(int32_t, g2b)(const char* utf8, int32_t bytes, int32_t g2b[]) {
     int32_t i = 0;
     int32_t k = 1;
-    // g2b[k] start postion in byte offset from utf8 text of glyph[k]
+    // g2b[k] start postion in uint8_t offset from utf8 text of glyph[k]
     if (g2b != null) { g2b[0] = 0; }
     while (i < bytes) {
         i += ns(glyph_bytes)(utf8[i]);
@@ -168,7 +168,7 @@ fn(void, paragraph_g2b)(uic_edit_t* e, int32_t pn) {
         p->g2b[0] = 0; // first glyph starts at 0
         int32_t i = 0;
         int32_t k = 1;
-        // g2b[k] start postion in byte offset from utf8 text of glyph[k]
+        // g2b[k] start postion in uint8_t offset from utf8 text of glyph[k]
         while (i < bytes) {
             i += ns(glyph_bytes)(utf8[i]);
             p->g2b[k] = i;

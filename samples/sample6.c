@@ -16,7 +16,7 @@ static struct {
     int32_t h;
     int32_t frames;
     int32_t* delays; // delays[frames];
-    byte* pixels;
+    uint8_t* pixels;
 } gif; // animated
 
 enum { max_speed = 3 };
@@ -66,10 +66,10 @@ app_t app = {
     .hmin = 4.0f
 };
 
-static void* load_image(const byte* data, int64_t bytes, int32_t* w, int32_t* h,
+static void* load_image(const uint8_t* data, int64_t bytes, int32_t* w, int32_t* h,
     int32_t* bpp, int32_t preferred_bytes_per_pixel);
 
-static void* load_animated_gif(const byte* data, int64_t bytes,
+static void* load_animated_gif(const uint8_t* data, int64_t bytes,
     int32_t** delays, int32_t* w, int32_t* h, int32_t* frames, int32_t* bpp,
     int32_t preferred_bytes_per_pixel);
 
@@ -89,7 +89,7 @@ static void paint(view_t* ui) {
     gdi.draw_image(x, y, w, h, &background);
     gdi.set_clip(0, 0, 0, 0);
     if (gif.pixels != null) {
-        byte* p = gif.pixels + gif.w * gif.h * gif.bpp * animation.index;
+        uint8_t* p = gif.pixels + gif.w * gif.h * gif.bpp * animation.index;
         image_t frame = { 0 };
         gdi.image_init(&frame, gif.w, gif.h, gif.bpp, p);
         x = animation.x - gif.w / 2;
@@ -330,14 +330,14 @@ static void fini(void) {
     delete_midi_file();
 }
 
-static void* load_image(const byte* data, int64_t bytes, int32_t* w, int32_t* h,
+static void* load_image(const uint8_t* data, int64_t bytes, int32_t* w, int32_t* h,
     int32_t* bpp, int32_t preferred_bytes_per_pixel) {
-    void* pixels = stbi_load_from_memory((byte const*)data, (int)bytes, w, h,
+    void* pixels = stbi_load_from_memory((uint8_t const*)data, (int)bytes, w, h,
         bpp, preferred_bytes_per_pixel);
     return pixels;
 }
 
-static void* load_animated_gif(const byte* data, int64_t bytes,
+static void* load_animated_gif(const uint8_t* data, int64_t bytes,
     int32_t** delays, int32_t* w, int32_t* h, int32_t* frames, int32_t* bpp,
     int32_t preferred_bytes_per_pixel) {
     stbi_uc* pixels = stbi_load_gif_from_memory(data, (int32_t)bytes,

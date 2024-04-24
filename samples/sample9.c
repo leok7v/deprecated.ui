@@ -383,7 +383,7 @@ static void opened(void) {
     int n = countof(pixels);
     static_assert(sizeof(pixels[0][0]) == 4, "4 bytes per pixel");
     static_assert(countof(pixels) == countof(pixels[0]), "square");
-    gdi.image_init(&image, n, n, (int)sizeof(pixels[0][0]), (byte*)pixels);
+    gdi.image_init(&image, n, n, (int)sizeof(pixels[0][0]), (uint8_t*)pixels);
     init_panel(&panel_top, "top", colors.orange, panel_paint);
     init_panel(&panel_center, "center", colors.off_white, center_paint);
     init_panel(&panel_bottom, "bottom", colors.tone_blue, panel_paint);
@@ -454,7 +454,7 @@ static void mandelbrot(image_t* im) {
                 rgb(153,  87,   0),  rgb(106,  52,   3)
             };
             color_t color = palette[iteration % countof(palette)];
-            byte* px = &((byte*)im->pixels)[r * im->w * 4 + c * 4];
+            uint8_t* px = &((uint8_t*)im->pixels)[r * im->w * 4 + c * 4];
             px[3] = 0xFF;
             px[0] = (color >> 16) & 0xFF;
             px[1] = (color >>  8) & 0xFF;

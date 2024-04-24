@@ -1,5 +1,6 @@
 /* Copyright (c) Dmitry "Leo" Kuznetsov 2024 see LICENSE for details */
 #include "quick.h"
+#include "ut/ut.h"
 #include "edit.h"
 
 begin_c
@@ -127,7 +128,7 @@ uic_container(bottom, null, &text.ui);
 
 static void set_text(int32_t ix) {
     static char last[128];
-    sprintf(text.ui.text, "%d:%d %d:%d %dx%d\n"
+    strprintf(text.ui.text, "%d:%d %d:%d %dx%d\n"
         "scroll %03d:%03d",
         edit[ix]->selection[0].pn, edit[ix]->selection[0].gp,
         edit[ix]->selection[1].pn, edit[ix]->selection[1].gp,
@@ -144,7 +145,7 @@ static void set_text(int32_t ix) {
     if (text.ui.invalidate != null && !strequ(last, text.ui.text)) {
         text.ui.invalidate(&text.ui);
     }
-    sprintf(last, "%s", text.ui.text);
+    strprintf(last, "%s", text.ui.text);
 }
 
 static void after_paint(void) {
@@ -214,7 +215,7 @@ static void open_file(const char* pathname) {
     char* file = null;
     int64_t bytes = 0;
     if (mem.map_ro(pathname, &file, &bytes) == 0) {
-        if (0 < bytes && bytes <= INT_MAX) {
+        if (0 < bytes && bytes <= INT64_MAX) {
             edit[0]->select_all(edit[0]);
             edit[0]->paste(edit[0], file, (int32_t)bytes);
             uic_edit_pg_t start = { .pn = 0, .gp = 0 };

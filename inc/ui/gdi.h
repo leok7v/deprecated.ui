@@ -56,7 +56,7 @@ typedef struct gdi_s {
         color_t rgba_from, color_t rgba_to, bool vertical);
     // draw images: (x,y remains untouched after drawing)
     // draw_greyscale() sx, sy, sw, sh screen rectangle
-    // x, y, w, h rectangle inside pixels[ih][iw] byte array
+    // x, y, w, h rectangle inside pixels[ih][iw] uint8_t array
     void (*draw_greyscale)(int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         int32_t x, int32_t y, int32_t w, int32_t h,
         int32_t iw, int32_t ih, int32_t stride, const uint8_t* pixels);

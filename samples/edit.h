@@ -26,7 +26,7 @@ typedef struct uic_edit_para_s { // "paragraph"
     int32_t glyphs;      // number of glyphs in text <= bytes
     int32_t runs;        // number of runs in this paragraph
     uic_edit_run_t* run; // [runs] array of pointers (heap)
-    int32_t* g2b;        // [bytes + 1] glyph to byte positions g2b[0] = 0
+    int32_t* g2b;        // [bytes + 1] glyph to uint8_t positions g2b[0] = 0
     int32_t  g2b_capacity; // number of bytes on heap allocated for g2b[]
 } uic_edit_para_t;
 

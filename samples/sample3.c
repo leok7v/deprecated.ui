@@ -7,7 +7,7 @@ const char* title = "Sample3";
 
 static volatile int index; // index of image to paint, !ix to render
 static image_t image[2];
-static byte pixels[2][4 * 4096 * 4096];
+static uint8_t pixels[2][4 * 4096 * 4096];
 
 static thread_t thread;
 static event_t wake;
@@ -162,7 +162,7 @@ static void mandelbrot(image_t* im) {
                 rgb(153,  87,   0),  rgb(106,  52,   3)
             };
             color_t color = palette[iteration % countof(palette)];
-            byte* px = &((byte*)im->pixels)[r * im->w * 4 + c * 4];
+            uint8_t* px = &((uint8_t*)im->pixels)[r * im->w * 4 + c * 4];
             px[3] = 0xFF;
             px[0] = (color >> 16) & 0xFF;
             px[1] = (color >>  8) & 0xFF;

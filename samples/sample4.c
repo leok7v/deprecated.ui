@@ -1,8 +1,7 @@
 /* Copyright (c) Dmitry "Leo" Kuznetsov 2021 see LICENSE for details */
 #include "quick.h"
+#include "ut/ut.h"
 #include "stb/stb_image.h"
-
-begin_c
 
 const char* title = "Sample4";
 
@@ -25,7 +24,7 @@ app_t app = {
     .hmin = 4.0f
 };
 
-static void* load_image(const byte* data, int64_t bytes, int32_t* w, int32_t* h,
+static void* load_image(const uint8_t* data, int64_t bytes, int32_t* w, int32_t* h,
     int32_t* bpp, int32_t preferred_bytes_per_pixel);
 
 static void load_images(void) {
@@ -75,13 +74,13 @@ static void download(void) {
     static const char* url =
         "https://upload.wikimedia.org/wikipedia/commons/c/c1/"
         "Wikipedia-sipi-image-db-mandrill-4.2.03.png";
-    if (access(filename, 04) != 0) {
+    if (!files.exists(filename)) {
         char cmd[256];
         strprintf(cmd, "curl.exe  --silent --fail --create-dirs "
             "\"%s\" --output \"%s\" 2>nul >nul", url, filename);
         int r = system(cmd);
         if (r != 0) {
-            traceln("download %s failed %d %s", filename, r, strerror(r));
+            traceln("download %s failed %d %s", filename, r, str.error(r));
         }
     }
 }
@@ -95,12 +94,9 @@ static void init(void) {
     load_images();
 }
 
-static void* load_image(const byte* data, int64_t bytes, int32_t* w, int32_t* h,
+static void* load_image(const uint8_t* data, int64_t bytes, int32_t* w, int32_t* h,
     int32_t* bpp, int32_t preferred_bytes_per_pixel) {
-    void* pixels = stbi_load_from_memory((byte const*)data, (int)bytes, w, h,
+    void* pixels = stbi_load_from_memory((uint8_t const*)data, (int)bytes, w, h,
         bpp, preferred_bytes_per_pixel);
     return pixels;
 }
-
-end_c
-

@@ -32,6 +32,18 @@
 #include <windowsx.h>
 #pragma warning(pop)
 
+#include <ctype.h>
+#include <fcntl.h>
+#include <io.h>
+#include <malloc.h>
+#define _USE_MATH_DEFINES
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
 #if (defined(_DEBUG) || defined(DEBUG)) && !defined(_malloca) // Microsoft runtime debug heap
 #define _CRTDBG_MAP_ALLOC
 #include <crtdbg.h> // _malloca()
