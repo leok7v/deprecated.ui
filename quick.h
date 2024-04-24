@@ -37,21 +37,18 @@ static struct {
 
 #pragma warning(disable: 28251) // inconsistent annotations
 
-int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, char* command,
-        int show_command) {
+int WINAPI WinMain(HINSTANCE unused(instance), HINSTANCE unused(previous),
+        char* unused(command), int show) {
     app.tid = threads.id();
     fatal_if_not_zero(CoInitializeEx(0, COINIT_MULTITHREADED | COINIT_SPEED_OVER_MEMORY));
     // https://learn.microsoft.com/en-us/windows/win32/api/imm/nf-imm-immdisablelegacyime
     ImmDisableLegacyIME();
     // https://developercommunity.visualstudio.com/t/MSCTFdll-timcpp-An-assertion-failure-h/10513796
-    ImmDisableIME(0); // temporarely disable IME till MS fixes thta assert
+    ImmDisableIME(0); // temporarily disable IME till MS fixes that assert
     SetConsoleCP(CP_UTF8);
     __winnls_init__();
-    app.visibility = show_command;
-    (void)command; // ASCII unused
-    const char* cl = utf16to8(GetCommandLineW());
-    args.WinMain(cl);
-    (void)instance; (void)previous; // unused
+    app.visibility = show;
+    args.WinMain();
     int32_t r = app_win_main();
     args.fini();
     return r;
