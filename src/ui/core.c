@@ -1,12 +1,12 @@
 #include "ui/ui.h"
 #include "ui/win32.h"
 
-#define WM_ANIMATE  (WM_APP + 0x7FFF)
-#define WM_OPENING  (WM_APP + 0x7FFE)
-#define WM_CLOSING  (WM_APP + 0x7FFD)
-#define WM_TAP      (WM_APP + 0x7FFC)
-#define WM_DTAP     (WM_APP + 0x7FFB) // double tap (aka click)
-#define WM_PRESS    (WM_APP + 0x7FFA)
+#define UI_WM_ANIMATE  (WM_APP + 0x7FFF)
+#define UI_WM_OPENING  (WM_APP + 0x7FFE)
+#define UI_WM_CLOSING  (WM_APP + 0x7FFD)
+#define UI_WM_TAP      (WM_APP + 0x7FFC)
+#define UI_WM_DTAP     (WM_APP + 0x7FFB) // double tap (aka click)
+#define UI_WM_PRESS    (WM_APP + 0x7FFA)
 
 extern ui_if ui = {
     .visibility = { // window visibility see ShowWindow link below
@@ -34,12 +34,12 @@ extern ui_if ui = {
         .mouse_move            = WM_MOUSEMOVE,
         .left_double_click     = WM_LBUTTONDBLCLK,
         .right_double_click    = WM_RBUTTONDBLCLK,
-        .animate               = WM_ANIMATE,
-        .opening               = WM_OPENING,
-        .closing               = WM_CLOSING,
-        .tap                   = WM_TAP,
-        .dtap                  = WM_DTAP,
-        .press                 = WM_PRESS
+        .animate               = UI_WM_ANIMATE,
+        .opening               = UI_WM_OPENING,
+        .closing               = UI_WM_CLOSING,
+        .tap                   = UI_WM_TAP,
+        .dtap                  = UI_WM_DTAP,
+        .press                 = UI_WM_PRESS
     },
     .mouse = {
         .button = {

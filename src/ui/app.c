@@ -1,9 +1,6 @@
 
 enum { ui_long_press_msec = 250 };
 
-typedef LPARAM lparam_t;
-typedef WPARAM wparam_t;
-
 static NONCLIENTMETRICSW app_ncm = { sizeof(NONCLIENTMETRICSW) };
 static MONITORINFO app_mi = {sizeof(MONITORINFO)};
 
@@ -312,7 +309,8 @@ static bool app_point_in_rect(const ui_point_t* p, const ui_rect_t* r) {
            r->y <= p->y && p->y < r->y + r->h;
 }
 
-static bool app_intersect_rect(ui_rect_t* i, const ui_rect_t* r0, const ui_rect_t* r1) {
+static bool app_intersect_rect(ui_rect_t* i, const ui_rect_t* r0,
+                               const ui_rect_t* r1) {
     ui_rect_t r = {0};
     r.x = max(r0->x, r1->x);  // Maximum of left edges
     r.y = max(r0->y, r1->y);  // Maximum of top edges
@@ -327,7 +325,8 @@ static bool app_intersect_rect(ui_rect_t* i, const ui_rect_t* r0, const ui_rect_
     return b;
 }
 
-static bool app_is_fully_inside(const ui_rect_t* inner, const ui_rect_t* outer) {
+static bool app_is_fully_inside(const ui_rect_t* inner,
+                                const ui_rect_t* outer) {
     return
         outer->x <= inner->x && inner->x + inner->w <= outer->x + outer->w &&
         outer->y <= inner->y && inner->y + inner->h <= outer->y + outer->h;
@@ -355,7 +354,8 @@ static bool app_load_window_pos(ui_rect_t* rect, int32_t *visibility) {
             traceln("wiw.placement: %d,%d %dx%d", wiw.placement.x, wiw.placement.y,
                 wiw.placement.w, wiw.placement.h);
             traceln("wiw.mrc: %d,%d %dx%d", wiw.mrc.x, wiw.mrc.y, wiw.mrc.w, wiw.mrc.h);
-            traceln("wiw.work_area: %d,%d %dx%d", wiw.work_area.x, wiw.work_area.y, wiw.work_area.w, wiw.work_area.h);
+            traceln("wiw.work_area: %d,%d %dx%d", wiw.work_area.x, wiw.work_area.y,
+                                                  wiw.work_area.w, wiw.work_area.h);
             traceln("wiw.min_position: %d,%d", wiw.min_position.x, wiw.min_position.y);
             traceln("wiw.max_position: %d,%d", wiw.max_position.x, wiw.max_position.y);
             traceln("wiw.max_track: %d,%d", wiw.max_track.x, wiw.max_track.y);
@@ -439,13 +439,15 @@ static void set_parents(view_t* view) {
     }
 }
 
-static void init_children(view_t* view) {
+static void app_init_children(view_t* view) {
     for (view_t** c = view->children; c != null && *c != null; c++) {
         if ((*c)->init != null) { (*c)->init(*c); (*c)->init = null; }
         if ((*c)->font == null) { (*c)->font = &app.fonts.regular; }
-        if ((*c)->em.x == 0 || (*c)->em.y == 0) { (*c)->em = gdi.get_em(*view->font); }
+        if ((*c)->em.x == 0 || (*c)->em.y == 0) {
+            (*c)->em = gdi.get_em(*view->font);
+        }
         view_localize(*c);
-        init_children(*c);
+        app_init_children(*c);
     }
 }
 
@@ -480,7 +482,7 @@ static void app_every_100ms(ui_timer_t id) {
 }
 
 static void app_animate_timer(void) {
-    app_post_message(WM_ANIMATE, (uint64_t)app_animate.step + 1,
+    app_post_message(ui.message.animate, (uint64_t)app_animate.step + 1,
         (uintptr_t)app_animate.f);
 }
 
@@ -510,7 +512,7 @@ static void app_window_opening(void) {
     if (app.opened != null) { app.opened(); }
     app.ui->em = gdi.get_em(*app.ui->font);
     set_parents(app.ui);
-    init_children(app.ui);
+    app_init_children(app.ui);
     app_wm_timer(app_timer_100ms_id);
     app_wm_timer(app_timer_1s_id);
     fatal_if(ReleaseDC(window(), canvas()) == 0);
@@ -566,6 +568,8 @@ static void app_get_min_max_info(MINMAXINFO* mmi) {
     mmi->ptMaxSize.y = mmi->ptMaxTrackSize.y;
 }
 
+#pragma push_macro("app_method_int32")
+
 #define app_method_int32(name)                                  \
 static void app_##name(view_t* view, int32_t p) {               \
     if (view->name != null && !view_hidden_or_disabled(view)) { \
@@ -577,6 +581,8 @@ static void app_##name(view_t* view, int32_t p) {               \
 
 app_method_int32(key_pressed)
 app_method_int32(key_released)
+
+#pragma pop_macro("app_method_int32")
 
 static void app_character(view_t* view, const char* utf8) {
     if (!view_hidden_or_disabled(view)) {
@@ -790,7 +796,7 @@ static void app_mouse(view_t* view, int32_t m, int32_t f) {
     }
 }
 
-static void app_tap_press(uint32_t m, WPARAM wp, LPARAM lp) {
+static void app_tap_press(int32_t m, WPARAM wp, LPARAM lp) {
     app.mouse.x = GET_X_LPARAM(lp);
     app.mouse.y = GET_Y_LPARAM(lp);
     // dispatch as generic mouse message:
@@ -799,15 +805,18 @@ static void app_tap_press(uint32_t m, WPARAM wp, LPARAM lp) {
     assert(0 <= ix && ix <= 2);
     // for now long press and double tap/double click
     // treated as press() call - can be separated if desired:
-    switch (m) {
-        case WM_TAP  : app_tap(app.ui, ix);  break;
-        case WM_DTAP : app_press(app.ui, ix); break;
-        case WM_PRESS: app_press(app.ui, ix); break;
-        default: assert(false);
+    if (m == ui.message.tap) {
+        app_tap(app.ui, ix);
+    } else if (m == ui.message.dtap) {
+        app_press(app.ui, ix);
+    } else if (m == ui.message.press) {
+        app_press(app.ui, ix);
+    } else {
+        assert(false, "unexpected message: 0x%04X", m);
     }
 }
 
-enum { toast_steps = 15 }; // number of animation steps
+enum { ui_toast_steps = 15 }; // number of animation steps
 
 static void app_toast_paint(void) {
     static image_t image;
@@ -816,11 +825,14 @@ static void app_toast_paint(void) {
         gdi.image_init(&image, 1, 1, 3, pixels);
     }
     if (app.toasting.ui != null) {
-        ui_font_t f = app.toasting.ui->font != null ? *app.toasting.ui->font : app.fonts.regular;
+        ui_font_t f = app.toasting.ui->font != null ?
+            *app.toasting.ui->font : app.fonts.regular;
         const ui_point_t em = gdi.get_em(f);
         app.toasting.ui->em = em;
         // allow unparented and unmeasured toasts:
-        if (app.toasting.ui->measure != null) { app.toasting.ui->measure(app.toasting.ui); }
+        if (app.toasting.ui->measure != null) {
+            app.toasting.ui->measure(app.toasting.ui);
+        }
         gdi.push(0, 0);
         bool tooltip = app.toasting.x >= 0 && app.toasting.y >= 0;
         int32_t em_x = em.x;
@@ -828,12 +840,13 @@ static void app_toast_paint(void) {
         gdi.set_brush(gdi.brush_color);
         gdi.set_brush_color(colors.toast);
         if (!tooltip) {
-            assert(0 <= app.toasting.step && app.toasting.step < toast_steps);
-            int32_t step = app.toasting.step - (toast_steps - 1);
-            app.toasting.ui->y = app.toasting.ui->h * step / (toast_steps - 1);
-//          traceln("step=%d of %d y=%d", app.toasting.step, app_toast_steps, app.toasting.ui->y);
+            assert(0 <= app.toasting.step && app.toasting.step < ui_toast_steps);
+            int32_t step = app.toasting.step - (ui_toast_steps - 1);
+            app.toasting.ui->y = app.toasting.ui->h * step / (ui_toast_steps - 1);
+//          traceln("step=%d of %d y=%d", app.toasting.step,
+//                  app_toast_steps, app.toasting.ui->y);
             app_layout_ui(app.toasting.ui);
-            double alpha = min(0.40, 0.40 * app.toasting.step / (double)toast_steps);
+            double alpha = min(0.40, 0.40 * app.toasting.step / (double)ui_toast_steps);
             gdi.alpha_blend(0, 0, app.width, app.height, &image, alpha);
             app.toasting.ui->x = (app.width - app.toasting.ui->w) / 2;
         } else {
@@ -1077,12 +1090,12 @@ static void app_click_detector(uint32_t msg, WPARAM wp, LPARAM lp) {
     int32_t ix = -1;
     uint32_t m = 0;
     switch (msg) {
-        case WM_LBUTTONDOWN  : ix = 0; m = WM_TAP;  break;
-        case WM_MBUTTONDOWN  : ix = 1; m = WM_TAP;  break;
-        case WM_RBUTTONDOWN  : ix = 2; m = WM_TAP;  break;
-        case WM_LBUTTONDBLCLK: ix = 0; m = WM_DTAP; break;
-        case WM_MBUTTONDBLCLK: ix = 1; m = WM_DTAP; break;
-        case WM_RBUTTONDBLCLK: ix = 2; m = WM_DTAP; break;
+        case WM_LBUTTONDOWN  : ix = 0; m = ui.message.tap;  break;
+        case WM_MBUTTONDOWN  : ix = 1; m = ui.message.tap;  break;
+        case WM_RBUTTONDOWN  : ix = 2; m = ui.message.tap;  break;
+        case WM_LBUTTONDBLCLK: ix = 0; m = ui.message.dtap; break;
+        case WM_MBUTTONDBLCLK: ix = 1; m = ui.message.dtap; break;
+        case WM_RBUTTONDBLCLK: ix = 2; m = ui.message.dtap; break;
         case WM_LBUTTONUP    : ix = 0; up = true;   break;
         case WM_MBUTTONUP    : ix = 1; up = true;   break;
         case WM_RBUTTONUP    : ix = 2; up = true;   break;
@@ -1091,12 +1104,12 @@ static void app_click_detector(uint32_t msg, WPARAM wp, LPARAM lp) {
         for (int i = 0; i < 3; i++) {
             if (wp == timer_p[i]) {
                 lp = MAKELONG(click_at[i].x, click_at[i].y);
-                app_post_message(WM_PRESS, i, lp);
+                app_post_message(ui.message.press, i, lp);
                 done(i);
             }
             if (wp == timer_d[i]) {
                 lp = MAKELONG(click_at[i].x, click_at[i].y);
-                app_post_message(WM_TAP, i, lp);
+                app_post_message(ui.message.tap, i, lp);
                 done(i);
             }
         }
@@ -1107,11 +1120,11 @@ static void app_click_detector(uint32_t msg, WPARAM wp, LPARAM lp) {
         const int double_click_x = GetSystemMetrics(SM_CXDOUBLECLK) / 2;
         const int double_click_y = GetSystemMetrics(SM_CYDOUBLECLK) / 2;
         ui_point_t pt = { GET_X_LPARAM(lp), GET_Y_LPARAM(lp) };
-        if (m == WM_TAP) {
+        if ((int32_t)m == ui.message.tap) {
             if (app.now  - clicked[ix]  <= double_click_dt &&
                 abs(pt.x - click_at[ix].x) <= double_click_x &&
                 abs(pt.y - click_at[ix].y) <= double_click_y) {
-                app_post_message(WM_DTAP, ix, lp);
+                app_post_message(ui.message.dtap, ix, lp);
                 done(ix);
             } else {
                 done(ix); // clear timers
@@ -1124,12 +1137,12 @@ static void app_click_detector(uint32_t msg, WPARAM wp, LPARAM lp) {
         } else if (up) {
 //          traceln("pressed[%d]: %d %.3f", ix, pressed[ix], app.now - clicked[ix]);
             if (pressed[ix] && app.now - clicked[ix] > double_click_dt) {
-                app_post_message(WM_DTAP, ix, lp);
+                app_post_message(ui.message.dtap, ix, lp);
                 done(ix);
             }
             kill_timer(timer_p[ix]); // long press is no the case
-        } else if (m == WM_DTAP) {
-            app_post_message(WM_DTAP, ix, lp);
+        } else if ((int32_t)m == ui.message.dtap) {
+            app_post_message(ui.message.dtap, ix, lp);
             done(ix);
         }
     }
@@ -1153,11 +1166,20 @@ static LRESULT CALLBACK window_proc(HWND window, UINT msg, WPARAM wp, LPARAM lp)
     }
     if ((int32_t)msg == ui.message.opening) { app_window_opening(); return 0; }
     if ((int32_t)msg == ui.message.closing) { app_window_closing(); return 0; }
+    if ((int32_t)msg == ui.message.tap || (int32_t)msg == ui.message.dtap ||
+        (int32_t)msg == ui.message.press) {
+            app_tap_press((int32_t)msg, wp, lp);
+            return 0;
+    }
+    if ((int32_t)msg == ui.message.animate) {
+        app_animate_step((app_animate_function_t)lp, (int)wp, -1);
+        return 0;
+    }
     switch (msg) {
         case WM_GETMINMAXINFO: app_get_min_max_info((MINMAXINFO*)lp); break;
         case WM_SETTINGCHANGE: app_setting_change(wp, lp); break;
         case WM_CLOSE        : app.focus = null; // before WM_CLOSING
-                               app_post_message(WM_CLOSING, 0, 0); return 0;
+                               app_post_message(ui.message.closing, 0, 0); return 0;
         case WM_DESTROY      : PostQuitMessage(app.exit_code); break;
         case WM_SYSKEYDOWN: // for ALT (aka VK_MENU)
         case WM_KEYDOWN      : app_alt_ctrl_shift(true, (int32_t)wp);
@@ -1177,8 +1199,6 @@ static LRESULT CALLBACK window_proc(HWND window, UINT msg, WPARAM wp, LPARAM lp)
         case WM_CHAR         : app_wm_char(app.ui, (const char*)&wp);
                                break; // TODO: CreateWindowW() and utf16->utf8
         case WM_PRINTCLIENT  : app_paint_on_canvas((HDC)wp); break;
-        case WM_ANIMATE      : app_animate_step((app_animate_function_t)lp, (int)wp, -1);
-                               break;
         case WM_SETFOCUS     : if (!app.ui->hidden) { app_set_focus(app.ui); }
                                break;
         case WM_KILLFOCUS    : if (!app.ui->hidden) { app_kill_focus(app.ui); }
@@ -1206,11 +1226,6 @@ static LRESULT CALLBACK window_proc(HWND window, UINT msg, WPARAM wp, LPARAM lp)
             app_mouse(app.ui, (int32_t)msg, (int32_t)wp);
             break;
         }
-        case WM_TAP:
-        case WM_DTAP:
-        case WM_PRESS:
-            app_tap_press(msg, wp, lp);
-            break;
         case WM_MOUSEHOVER   : // see TrackMouseEvent()
         case WM_MOUSEMOVE    :
         case WM_LBUTTONDOWN  :
@@ -1487,7 +1502,7 @@ static void app_show_tooltip_or_toast(view_t* view, int32_t x, int32_t y,
         // allow unparented ui for toast and tooltip
         if (view->init != null) { view->init(view); view->init = null; }
         view->localize(view);
-        app_animate_start(app_toast_dim, toast_steps);
+        app_animate_start(app_toast_dim, ui_toast_steps);
         app.toasting.ui = view;
         app.toasting.ui->font = &app.fonts.H1;
         app.toasting.time = timeout > 0 ? app.now + timeout : 0;
