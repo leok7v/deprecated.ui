@@ -5,16 +5,16 @@ begin_c
 
 const char* title = "Sample1";
 
-static void layout(view_t* ui) {
-    layouts.center(ui);
+static void layout(view_t* view) {
+    layouts.center(view);
 }
 
-static void paint(view_t* ui) {
+static void paint(view_t* view) {
     // all UIC are transparent and expect parent to paint background
     // UI control paint is always called with a hollow brush
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(colors.black);
-    gdi.fill(0, 0, ui->w, ui->h);
+    gdi.fill(0, 0, view->w, view->h);
 }
 
 static void init(void) {

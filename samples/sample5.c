@@ -14,8 +14,8 @@ static const double fs[] = {0.5, 0.75, 1.0, 1.25, 1.50, 1.75, 2.0};
 // font scale index
 static int32_t fx = 2; // fs[2] == 1.0
 
-static font_t mf; // mono font
-static font_t pf; // proportional font
+static ui_font_t mf; // mono font
+static ui_font_t pf; // proportional font
 
 static uic_edit_t edit0;
 static uic_edit_t edit1;
@@ -161,49 +161,49 @@ static void after_paint(void) {
     }
 }
 
-static void paint_frames(view_t* ui) {
-    for (view_t** c = ui->children; c != null && *c != null; c++) {
+static void paint_frames(view_t* view) {
+    for (view_t** c = view->children; c != null && *c != null; c++) {
         paint_frames(*c);
     }
-    color_t fc[] = {
+    ui_color_t fc[] = {
         colors.red, colors.green, colors.blue, colors.red,
         colors.yellow, colors.cyan, colors.magenta
     };
     static int32_t color;
-    gdi.push(ui->x, ui->y + ui->h - ui->em.y);
-    gdi.frame_with(ui->x, ui->y, ui->w, ui->h, fc[color]);
-    color_t c = gdi.set_text_color(fc[color]);
-    gdi.print("%s", ui->text);
+    gdi.push(view->x, view->y + view->h - view->em.y);
+    gdi.frame_with(view->x, view->y, view->w, view->h, fc[color]);
+    ui_color_t c = gdi.set_text_color(fc[color]);
+    gdi.print("%s", view->text);
     gdi.set_text_color(c);
     gdi.pop();
     color = (color + 1) % countof(fc);
 }
 
-static void null_paint(view_t* ui) {
-    for (view_t** c = ui->children; c != null && *c != null; c++) {
+static void null_paint(view_t* view) {
+    for (view_t** c = view->children; c != null && *c != null; c++) {
         null_paint(*c);
     }
-    if (ui != app.ui) {
-        ui->paint = null;
+    if (view != app.ui) {
+        view->paint = null;
     }
 }
 
-static void paint(view_t* ui) {
+static void paint(view_t* view) {
 //  traceln("");
-    if (debug_layout) { null_paint(ui); }
+    if (debug_layout) { null_paint(view); }
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(colors.black);
-    gdi.fill(0, 0, ui->w, ui->h);
+    gdi.fill(0, 0, view->w, view->h);
     int32_t ix = focused();
     for (int32_t i = 0; i < countof(edit); i++) {
         view_t* e = &edit[i]->ui;
-        color_t c = edit[i]->ro ?
+        ui_color_t c = edit[i]->ro ?
             colors.tone_red : colors.btn_hover_highlight;
         gdi.frame_with(e->x - 1, e->y - 1, e->w + 2, e->h + 2,
             i == ix ? c : colors.dkgray4);
     }
     after_paint();
-    if (debug_layout) { paint_frames(ui); }
+    if (debug_layout) { paint_frames(view); }
     if (ix >= 0) {
         ro.ui.pressed = edit[ix]->ro;
         sl.ui.pressed = edit[ix]->sle;
@@ -260,20 +260,20 @@ static void every_100ms(void) {
     last = app.focus;
 }
 
-static void measure(view_t* ui) {
+static void measure(view_t* view) {
 //  traceln("");
     // gaps:
-    const int32_t gx = ui->em.x;
-    const int32_t gy = ui->em.y;
-    right.h = ui->h - text.ui.h - gy;
+    const int32_t gx = view->em.x;
+    const int32_t gy = view->em.y;
+    right.h = view->h - text.ui.h - gy;
     right.w = 0;
     measurements.vertical(&right, gy / 2);
     right.w += gx;
     bottom.w = text.ui.w - gx;
     bottom.h = text.ui.h;
-    int32_t h = (ui->h - bottom.h - gy * 3) / countof(edit);
+    int32_t h = (view->h - bottom.h - gy * 3) / countof(edit);
     for (int32_t i = 0; i < 2; i++) { // edit[0] and edit[1] only
-        edit[i]->ui.w = ui->w - right.w - gx * 2;
+        edit[i]->ui.w = view->w - right.w - gx * 2;
         edit[i]->ui.h = h; // TODO: remove me - bad idea
     }
     left.w = 0;
@@ -281,7 +281,7 @@ static void measure(view_t* ui) {
     left.w += gx;
     edit2.ui.w = ro.ui.w; // only "width" height determined by text
     if (debug_layout) {
-        traceln("%d,%d %dx%d", ui->x, ui->y, ui->w, ui->h);
+        traceln("%d,%d %dx%d", view->x, view->y, view->w, view->h);
         traceln("right %d,%d %dx%d", right.x, right.y, right.w, right.h);
         for (view_t** c = right.children; c != null && *c != null; c++) {
             traceln("  %s %d,%d %dx%d", (*c)->text, (*c)->x, (*c)->y, (*c)->w, (*c)->h);
@@ -295,49 +295,49 @@ static void measure(view_t* ui) {
     }
 }
 
-static void layout(view_t* ui) {
+static void layout(view_t* view) {
 //  traceln("");
     // gaps:
-    const int32_t gx2 = ui->em.x / 2;
-    const int32_t gy2 = ui->em.y / 2;
+    const int32_t gx2 = view->em.x / 2;
+    const int32_t gy2 = view->em.y / 2;
     left.x = gx2;
     left.y = gy2;
     layouts.vertical(&left, left.x + gx2, left.y + gy2, gy2);
     right.x = left.x + left.w + gx2;
     right.y = left.y;
     bottom.x = gx2;
-    bottom.y = ui->h - bottom.h;
+    bottom.y = view->h - bottom.h;
     layouts.vertical(&right, right.x + gx2, right.y, gy2);
     text.ui.x = gx2;
-    text.ui.y = ui->h - text.ui.h;
+    text.ui.y = view->h - text.ui.h;
 }
 
 // limiting vertical height of SLE to 3 lines of text:
 
-static void (*hooked_sle_measure)(view_t* unused(ui));
+static void (*hooked_sle_measure)(view_t* unused(view));
 
-static void measure_3_lines_sle(view_t* ui) {
+static void measure_3_lines_sle(view_t* view) {
     // UX design decision:
     // 3 vertical visible runs SLE is friendlier in UX term
     // than not implemented horizontal scroll.
-    assert(ui == &edit[2]->ui);
+    assert(view == &edit[2]->ui);
 //  traceln("WxH: %dx%d <- r/o button", ro.ui.w, ro.ui.h);
-    ui->w = ro.ui.w; // r/o button
-    hooked_sle_measure(ui);
+    view->w = ro.ui.w; // r/o button
+    hooked_sle_measure(view);
 //  traceln("WxH: %dx%d (%dx%d) em: %d lines: %d",
 //          edit[2]->ui.w, edit[2]->ui.h,
 //          edit[2]->width, edit[2]->height,
 //          edit[2]->ui.em.y, edit[2]->ui.h / edit[2]->ui.em.y);
     int32_t max_lines = edit[2]->focused ? 3 : 1;
-    if (ui->h > ui->em.y * max_lines) {
-        ui->h = ui->em.y * max_lines;
+    if (view->h > view->em.y * max_lines) {
+        view->h = view->em.y * max_lines;
     }
 }
 
-static void key_pressed(view_t* unused(ui), int32_t key) {
-    if (app.has_focus() && key == virtual_keys.escape) { app.close(); }
+static void key_pressed(view_t* unused(view), int32_t key) {
+    if (app.has_focus() && key == ui.key.escape) { app.close(); }
     int32_t ix = focused();
-    if (key == virtual_keys.f5) {
+    if (key == ui.key.f5) {
         if (ix >= 0) {
             uic_edit_t* e = edit[ix];
             if (app.ctrl && app.shift && e->fuzzer == null) {
@@ -348,9 +348,9 @@ static void key_pressed(view_t* unused(ui), int32_t key) {
         }
     }
     if (app.ctrl) {
-        if (key == virtual_keys.minus) {
+        if (key == ui.key.minus) {
             font_minus();
-        } else if (key == virtual_keys.plus) {
+        } else if (key == ui.key.plus) {
             font_plus();
         } else if (key == '0') {
             font_reset();

@@ -17,11 +17,12 @@
 #define NOCOMM
 #endif
 
-
-#include <Windows.h> // has to be first
-
 #pragma warning(push)
 #pragma warning(disable: 4255) // no function prototype: '()' to '(void)'
+#pragma warning(disable: 4459) // declaration of '...' hides global declaration
+
+#include <Windows.h> // must be first
+
 #include <commdlg.h>
 #include <dwmapi.h>
 #include <initguid.h>

@@ -11,11 +11,11 @@ static void messagebox_button(button_t* b) {
     app.show_toast(null, 0);
 }
 
-static void messagebox_measure(view_t* ui) {
-    messagebox_t* mx = (messagebox_t*)ui;
-    assert(ui->tag == uic_tag_messagebox);
+static void messagebox_measure(view_t* view) {
+    messagebox_t* mx = (messagebox_t*)view;
+    assert(view->tag == uic_tag_messagebox);
     int32_t n = 0;
-    for (view_t** c = ui->children; c != null && *c != null; c++) { n++; }
+    for (view_t** c = view->children; c != null && *c != null; c++) { n++; }
     n--; // number of buttons
     mx->text.ui.measure(&mx->text.ui);
     const int32_t em_x = mx->text.ui.em.x;
@@ -27,24 +27,23 @@ static void messagebox_measure(view_t* ui) {
         for (int32_t i = 0; i < n; i++) {
             bw += mx->button[i].ui.w;
         }
-        ui->w = max(tw, bw + em_x * 2);
-        ui->h = th + mx->button[0].ui.h + em_y + em_y / 2;
+        view->w = max(tw, bw + em_x * 2);
+        view->h = th + mx->button[0].ui.h + em_y + em_y / 2;
     } else {
-        ui->h = th + em_y / 2;
-        ui->w = tw;
+        view->h = th + em_y / 2;
+        view->w = tw;
     }
 }
 
-static void messagebox_layout(view_t* ui) {
-    messagebox_t* mx = (messagebox_t*)ui;
-    assert(ui->tag == uic_tag_messagebox);
-//  traceln("ui.y=%d", ui->y);
+static void messagebox_layout(view_t* view) {
+    messagebox_t* mx = (messagebox_t*)view;
+    assert(view->tag == uic_tag_messagebox);
     int32_t n = 0;
-    for (view_t** c = ui->children; c != null && *c != null; c++) { n++; }
+    for (view_t** c = view->children; c != null && *c != null; c++) { n++; }
     n--; // number of buttons
     const int32_t em_y = mx->text.ui.em.y;
-    mx->text.ui.x = ui->x;
-    mx->text.ui.y = ui->y + em_y * 2 / 3;
+    mx->text.ui.x = view->x;
+    mx->text.ui.y = view->y + em_y * 2 / 3;
     const int32_t tw = mx->text.ui.w;
     const int32_t th = mx->text.ui.h;
     if (n > 0) {
@@ -53,24 +52,24 @@ static void messagebox_layout(view_t* ui) {
             bw += mx->button[i].ui.w;
         }
         // center text:
-        mx->text.ui.x = ui->x + (ui->w - tw) / 2;
+        mx->text.ui.x = view->x + (view->w - tw) / 2;
         // spacing between buttons:
-        int32_t sp = (ui->w - bw) / (n + 1);
+        int32_t sp = (view->w - bw) / (n + 1);
         int32_t x = sp;
         for (int32_t i = 0; i < n; i++) {
-            mx->button[i].ui.x = ui->x + x;
-            mx->button[i].ui.y = ui->y + th + em_y * 3 / 2;
+            mx->button[i].ui.x = view->x + x;
+            mx->button[i].ui.y = view->y + th + em_y * 3 / 2;
             x += mx->button[i].ui.w + sp;
         }
     }
 }
 
-void messagebox_init_(view_t* ui) {
-    assert(ui->tag == uic_tag_messagebox);
-    messagebox_t* mx = (messagebox_t*)ui;
-    view_init(ui);
-    ui->measure = messagebox_measure;
-    ui->layout = messagebox_layout;
+void messagebox_init_(view_t* view) {
+    assert(view->tag == uic_tag_messagebox);
+    messagebox_t* mx = (messagebox_t*)view;
+    view_init(view);
+    view->measure = messagebox_measure;
+    view->layout = messagebox_layout;
     mx->ui.font = &app.fonts.H3;
     const char** opts = mx->opts;
     int32_t n = 0;

@@ -22,14 +22,14 @@ uic_button(full_screen, "\xE2\xA7\x89", 1.0, {
     app.full_screen(full_screen->ui.pressed);
 });
 
-static void paint(view_t* ui) {
+static void paint(view_t* view) {
     int k = index;
-    gdi.draw_image(0, 0, ui->w, ui->h, &image[k]);
-    gdi.x = ui->em.x;
-    gdi.y = ui->em.y / 4;
+    gdi.draw_image(0, 0, view->w, view->h, &image[k]);
+    gdi.x = view->em.x;
+    gdi.y = view->em.y / 4;
     gdi.set_text_color(colors.orange);
     gdi.textln("Try Full Screen Button there --->");
-    gdi.y = ui->h - ui->em.y * 3 / 2;
+    gdi.y = view->h - view->em.y * 3 / 2;
     gdi.set_text_color(colors.orange);
     gdi.textln("render time %.1f ms / avg paint time %.1f ms",
         render_time * 1000, app.paint_avg * 1000);
@@ -47,12 +47,12 @@ static void stop_rendering(void) {
     }
 }
 
-static void measure(view_t* ui) {
+static void measure(view_t* view) {
     // called on window resize
-    ui->w = app.crc.w;
-    ui->h = app.crc.h;
-    const int w = ui->w;
-    const int h = ui->h;
+    view->w = app.crc.w;
+    view->h = app.crc.h;
+    const int w = view->w;
+    const int h = view->h;
     image_t* im = &image[index];
     if (w != im->w || h != im->h) {
         stop_rendering();
@@ -65,9 +65,9 @@ static void measure(view_t* ui) {
     }
 }
 
-static void layout(view_t* ui) {
-    full_screen.ui.x = ui->w - full_screen.ui.w - ui->em.x / 4;
-    full_screen.ui.y = ui->em.y / 4;
+static void layout(view_t* view) {
+    full_screen.ui.x = view->w - full_screen.ui.w - view->em.x / 4;
+    full_screen.ui.y = view->em.y / 4;
 }
 
 static void renderer(void* unused); // renderer thread
@@ -151,7 +151,7 @@ static void mandelbrot(image_t* im) {
                 x = t;
                 iteration++;
             }
-            static color_t palette[16] = {
+            static ui_color_t palette[16] = {
                 rgb( 66,  30,  15),  rgb( 25,   7,  26),
                 rgb(  9,   1,  47),  rgb(  4,   4,  73),
                 rgb(  0,   7, 100),  rgb( 12,  44, 138),
@@ -161,7 +161,7 @@ static void mandelbrot(image_t* im) {
                 rgb(255, 170,   0),  rgb(204, 128,   0),
                 rgb(153,  87,   0),  rgb(106,  52,   3)
             };
-            color_t color = palette[iteration % countof(palette)];
+            ui_color_t color = palette[iteration % countof(palette)];
             uint8_t* px = &((uint8_t*)im->pixels)[r * im->w * 4 + c * 4];
             px[3] = 0xFF;
             px[0] = (color >> 16) & 0xFF;

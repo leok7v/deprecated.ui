@@ -61,7 +61,7 @@ typedef struct view_s { // ui element container/control
     void (*invalidate)(const view_t* ui); // more prone to delays than app.redraw()
     // timer() every_100ms() and every_sec() called
     // even for hidden and disabled ui elements
-    void (*timer)(view_t* ui, tm_t id);
+    void (*timer)(view_t* ui, ui_timer_t id);
     void (*every_100ms)(view_t* ui); // ~10 x times per second
     void (*every_sec)(view_t* ui); // ~once a second
     bool hidden; // paint() is not called on hidden
@@ -72,9 +72,9 @@ typedef struct view_s { // ui element container/control
     bool focusable; // can be target for keyboard focus
     double  hover_delay; // delta time in seconds before hovered(true)
     double  hover_at;    // time in seconds when to call hovered()
-    color_t color;      // interpretation depends on ui element type
-    color_t background; // interpretation depends on ui element type
-    font_t* font;
+    ui_color_t color;      // interpretation depends on ui element type
+    ui_color_t background; // interpretation depends on ui element type
+    ui_font_t* font;
     int32_t baseline; // font ascent; descent = height - baseline
     int32_t descent;  // font descent
     char    tip[256]; // tooltip text

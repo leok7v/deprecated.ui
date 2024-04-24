@@ -1,6 +1,6 @@
 /* Copyright (c) Dmitry "Leo" Kuznetsov 2021 see LICENSE for details */
 #include "quick.h"
-#include <windows.h>
+#include "ui/win32.h"
 #include <mmsystem.h>
 #include "stb/stb_image.h"
 
@@ -46,7 +46,7 @@ static image_t  background;
 
 static void init(void);
 static void fini(void);
-static void character(view_t* ui, const char* utf8);
+static void character(view_t* view, const char* utf8);
 static void midi_open(void);
 static void midi_play(void);
 static void midi_stop(void);
@@ -73,19 +73,19 @@ static void* load_animated_gif(const uint8_t* data, int64_t bytes,
     int32_t** delays, int32_t* w, int32_t* h, int32_t* frames, int32_t* bpp,
     int32_t preferred_bytes_per_pixel);
 
-static void paint(view_t* ui) {
+static void paint(view_t* view) {
     if (animation.x < 0 && animation.y < 0) {
-        animation.x = (ui->w - gif.w) / 2;
-        animation.y = (ui->h - gif.h) / 2;
+        animation.x = (view->w - gif.w) / 2;
+        animation.y = (view->h - gif.h) / 2;
     }
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(colors.black);
-    gdi.fill(0, 0, ui->w, ui->h);
-    int32_t w = min(ui->w, background.w);
-    int32_t h = min(ui->h, background.h);
-    int32_t x = (ui->w - w) / 2;
-    int32_t y = (ui->h - h) / 2;
-    gdi.set_clip(0, 0, ui->w, ui->h);
+    gdi.fill(0, 0, view->w, view->h);
+    int32_t w = min(view->w, background.w);
+    int32_t h = min(view->h, background.h);
+    int32_t x = (view->w - w) / 2;
+    int32_t y = (view->h - h) / 2;
+    gdi.set_clip(0, 0, view->w, view->h);
     gdi.draw_image(x, y, w, h, &background);
     gdi.set_clip(0, 0, 0, 0);
     if (gif.pixels != null) {
@@ -97,7 +97,7 @@ static void paint(view_t* ui) {
         gdi.alpha_blend(x, y, gif.w, gif.h, &frame, 1.0);
         gdi.image_dispose(&frame);
     }
-    font_t f = gdi.set_font(app.fonts.H1);
+    ui_font_t f = gdi.set_font(app.fonts.H1);
     gdi.x = 0;
     gdi.y = 0;
     gdi.set_text_color(midi.muted ? colors.green : colors.red);
@@ -105,16 +105,16 @@ static void paint(view_t* ui) {
     gdi.set_font(f);
 }
 
-static void character(view_t* unused(ui), const char* utf8) {
+static void character(view_t* unused(view), const char* utf8) {
     if (utf8[0] == 'q' || utf8[0] == 'Q' || utf8[0] == 033) {
         app.close();
     }
 }
 
-static void mouse(view_t* unused(ui), int32_t m, int32_t unused(f)) {
+static void mouse(view_t* unused(view), int32_t m, int32_t unused(f)) {
     const ui_point_t em = gdi.get_em(app.fonts.H1);
-    if ((m == messages.left_button_pressed ||
-        m == messages.right_button_pressed) &&
+    if ((m == ui.message.left_button_pressed ||
+        m == ui.message.right_button_pressed) &&
         0 <= app.mouse.x && app.mouse.x < em.x &&
         0 <= app.mouse.y && app.mouse.y < em.y) {
         midi.muted = !midi.muted;
@@ -134,10 +134,10 @@ static void opened(void) {
     midi_play();
 }
 
-static bool message(view_t* unused(ui), int32_t m, int64_t wp, int64_t lp,
+static bool message(view_t* unused(view), int32_t m, int64_t wp, int64_t lp,
         int64_t* unused(ret)) {
     if (m == MM_MCINOTIFY) {
-//      traceln("MM_MCINOTIFY flags: %016llX defice: %016llX", wp, lp);
+//      traceln("MM_MCINOTIFY flags: %016llX device: %016llX", wp, lp);
 //      if (wp & MCI_NOTIFY_ABORTED)    { traceln("MCI_NOTIFY_ABORTED"); }
 //      if (wp & MCI_NOTIFY_FAILURE)    { traceln("MCI_NOTIFY_FAILURE"); }
 //      if (wp & MCI_NOTIFY_SUCCESSFUL) { traceln("MCI_NOTIFY_SUCCESSFUL"); }
@@ -287,7 +287,7 @@ static void animate(void) {
 }
 
 static void startup(void* unused(ignored)) {
-    cursor_t cursor = app.cursor;
+    ui_cursor_t cursor = app.cursor;
     app.set_cursor(app.cursor_wait);
     load_gif();
     app.set_cursor(cursor);

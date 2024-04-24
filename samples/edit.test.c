@@ -202,20 +202,20 @@ static void uic_edit_fuzzer(void* p) {
             default: assert(false);
         }
         int keys[] = {
-            virtual_keys.up,
-            virtual_keys.down,
-            virtual_keys.left,
-            virtual_keys.right,
-            virtual_keys.home,
-            virtual_keys.end,
-            virtual_keys.pageup,
-            virtual_keys.pagedw,
-            virtual_keys.insert,
+            ui.key.up,
+            ui.key.down,
+            ui.key.left,
+            ui.key.right,
+            ui.key.home,
+            ui.key.end,
+            ui.key.pageup,
+            ui.key.pagedw,
+            ui.key.insert,
 // TODO: cut copy paste erase need special treatment in fuzzing
 //       otherwise text collapses to nothing pretty fast
-//          virtual_keys.del,
-//          virtual_keys.back,
-            virtual_keys.enter,
+//          ui.key.del,
+//          ui.key.back,
+            ui.key.enter,
             0
         };
 // TODO: Alt+Q should be filtered out as well as ESC
@@ -225,18 +225,18 @@ static void uic_edit_fuzzer(void* p) {
             rnd = num.random32(&e->fuzz_seed);
             int ch = rnd % 128;
             if (ch == 033) { ch = 'a'; } // don't send ESC
-            app.post(messages.character, ch, 0);
+            app.post(ui.message.character, ch, 0);
         } else {
-            app.post(messages.key_pressed, key, 0);
+            app.post(ui.message.key_pressed, key, 0);
         }
         if (num.random32(&e->fuzz_seed) % 32 == 0) {
             // mouse events only inside edit control otherwise
             // they will start clicking buttons around
             int32_t x = num.random32(&e->fuzz_seed) % e->ui.w;
             int32_t y = num.random32(&e->fuzz_seed) % e->ui.h;
-            app.post(messages.mouse_move,   0, (int64_t)(x | (y << 16)));
-            app.post(messages.left_button_pressed,  0, (int64_t)(x | (y << 16)));
-            app.post(messages.left_button_released, 0, (int64_t)(x | (y << 16)));
+            app.post(ui.message.mouse_move,   0, (int64_t)(x | (y << 16)));
+            app.post(ui.message.left_button_pressed,  0, (int64_t)(x | (y << 16)));
+            app.post(ui.message.left_button_released, 0, (int64_t)(x | (y << 16)));
         }
     }
 }

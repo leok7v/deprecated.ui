@@ -14,6 +14,7 @@
 #define window() ((HWND)app.window)
 #define canvas() ((HDC)app.canvas)
 
+#include "src/ui/core.c"
 #include "src/ui/gdi.c"
 #include "src/ui/colors.c"
 #include "src/ui/view.c"

@@ -33,7 +33,7 @@ typedef  struct uic_edit_glyph_s {
     int32_t bytes;
 } uic_edit_glyph_t;
 
-fn(void, layout)(view_t* ui);
+fn(void, layout)(view_t* view);
 
 // Glyphs in monospaced Windows fonts may have different width for non-ASCII
 // characters. Thus even if edit is monospaced glyph measurements are used
@@ -413,7 +413,7 @@ fn(void, if_sle_layout)(uic_edit_t* e) {
     }
 }
 
-fn(void, set_font)(uic_edit_t* e, font_t* f) {
+fn(void, set_font)(uic_edit_t* e, ui_font_t* f) {
     ns(dispose_paragraphs_layout)(e);
     e->scroll.rn = 0;
     e->ui.font = f;
@@ -595,8 +595,8 @@ fn(void, paint_selection)(uic_edit_t* e, const uic_edit_run_t* r,
             int32_t ofs1 = ns(gp_to_bytes)(text, r->bytes, to);
             int32_t x0 = ns(text_width)(e, text, ofs0);
             int32_t x1 = ns(text_width)(e, text, ofs1);
-            brush_t b = gdi.set_brush(gdi.brush_color);
-            color_t c = gdi.set_brush_color(rgb(48, 64, 72));
+            ui_brush_t b = gdi.set_brush(gdi.brush_color);
+            ui_color_t c = gdi.set_brush_color(rgb(48, 64, 72));
             gdi.fill(gdi.x + x0, gdi.y, x1 - x0, e->ui.em.y);
             gdi.set_brush_color(c);
             gdi.set_brush(b);
@@ -1200,31 +1200,31 @@ fn(void, key_enter)(uic_edit_t* e) {
     }
 }
 
-fn(void, key_pressed)(view_t* ui, int32_t key) {
-    assert(ui->tag == uic_tag_edit);
-    uic_edit_t* e = (uic_edit_t*)ui;
+fn(void, key_pressed)(view_t* view, int32_t key) {
+    assert(view->tag == uic_tag_edit);
+    uic_edit_t* e = (uic_edit_t*)view;
     if (e->focused) {
-        if (key == virtual_keys.down && e->selection[1].pn < e->paragraphs) {
+        if (key == ui.key.down && e->selection[1].pn < e->paragraphs) {
             e->key_down(e);
-        } else if (key == virtual_keys.up && e->paragraphs > 0) {
+        } else if (key == ui.key.up && e->paragraphs > 0) {
             e->key_up(e);
-        } else if (key == virtual_keys.left) {
+        } else if (key == ui.key.left) {
             e->key_left(e);
-        } else if (key == virtual_keys.right) {
+        } else if (key == ui.key.right) {
             e->key_right(e);
-        } else if (key == virtual_keys.pageup) {
+        } else if (key == ui.key.pageup) {
             e->key_pageup(e);
-        } else if (key == virtual_keys.pagedw) {
+        } else if (key == ui.key.pagedw) {
             e->key_pagedw(e);
-        } else if (key == virtual_keys.home) {
+        } else if (key == ui.key.home) {
             e->key_home(e);
-        } else if (key == virtual_keys.end) {
+        } else if (key == ui.key.end) {
             e->key_end(e);
-        } else if (key == virtual_keys.del && !e->ro) {
+        } else if (key == ui.key.del && !e->ro) {
             e->key_delete(e);
-        } else if (key == virtual_keys.back && !e->ro) {
+        } else if (key == ui.key.back && !e->ro) {
             e->key_backspace(e);
-        } else if (key == virtual_keys.enter && !e->ro) {
+        } else if (key == ui.key.enter && !e->ro) {
             e->key_enter(e);
         } else {
             // ignore other keys
@@ -1233,12 +1233,12 @@ fn(void, key_pressed)(view_t* ui, int32_t key) {
     if (e->fuzzer != null) { e->next_fuzz(e); }
 }
 
-fn(void, character)(view_t* unused(ui), const char* utf8) {
-    assert(ui->tag == uic_tag_edit);
-    assert(!ui->hidden && !ui->disabled);
+fn(void, character)(view_t* unused(view), const char* utf8) {
+    assert(view->tag == uic_tag_edit);
+    assert(!view->hidden && !view->disabled);
     #pragma push_macro("ctl")
     #define ctl(c) ((char)((c) - 'a' + 1))
-    uic_edit_t* e = (uic_edit_t*)ui;
+    uic_edit_t* e = (uic_edit_t*)view;
     if (e->focused) {
         char ch = utf8[0];
         if (app.ctrl) {
@@ -1354,7 +1354,6 @@ fn(void, focus_on_click)(uic_edit_t* e, int32_t x, int32_t y) {
         if (app.focus != null && app.focus->kill_focus != null) {
             app.focus->kill_focus(app.focus);
         }
-//      traceln("app.focus %p := %p", app.focus, &e->ui);
         app.focus = &e->ui;
         bool set = e->ui.set_focus(&e->ui);
         fatal_if(!set);
@@ -1367,25 +1366,25 @@ fn(void, focus_on_click)(uic_edit_t* e, int32_t x, int32_t y) {
 
 fn(void, mouse_button_down)(uic_edit_t* e, int32_t m,
         int32_t x, int32_t y) {
-    if (m == messages.left_button_pressed)  { e->mouse |= (1 << 0); }
-    if (m == messages.right_button_pressed) { e->mouse |= (1 << 1); }
+    if (m == ui.message.left_button_pressed)  { e->mouse |= (1 << 0); }
+    if (m == ui.message.right_button_pressed) { e->mouse |= (1 << 1); }
     ns(focus_on_click)(e, x, y);
 }
 
 fn(void, mouse_button_up)(uic_edit_t* e, int32_t m) {
-    if (m == messages.left_button_released)  { e->mouse &= ~(1 << 0); }
-    if (m == messages.right_button_released) { e->mouse &= ~(1 << 1); }
+    if (m == ui.message.left_button_released)  { e->mouse &= ~(1 << 0); }
+    if (m == ui.message.right_button_released) { e->mouse &= ~(1 << 1); }
 }
 
 #ifdef EDIT_USE_TAP
 
-fn(bool, tap)(view_t* ui, int32_t ix) {
+fn(bool, tap)(view_t* view, int32_t ix) {
     traceln("ix: %d", ix);
     if (ix == 0) {
-        uic_edit_t* e = (uic_edit_t*)ui;
+        uic_edit_t* e = (uic_edit_t*)view;
         const int32_t x = app.mouse.x - e->ui.x;
         const int32_t y = app.mouse.y - e->ui.y - e->top;
-        bool inside = 0 <= x && x < ui->w && 0 <= y && y < ui->h;
+        bool inside = 0 <= x && x < view->w && 0 <= y && y < view->h;
         if (inside) {
             e->mouse = 0x1;
             ns(focus_on_click)(e, x, y);
@@ -1399,13 +1398,13 @@ fn(bool, tap)(view_t* ui, int32_t ix) {
 
 #endif // EDIT_USE_TAP
 
-fn(bool, press)(view_t* ui, int32_t ix) {
+fn(bool, press)(view_t* view, int32_t ix) {
 //  traceln("ix: %d", ix);
     if (ix == 0) {
-        uic_edit_t* e = (uic_edit_t*)ui;
+        uic_edit_t* e = (uic_edit_t*)view;
         const int32_t x = app.mouse.x - e->ui.x;
         const int32_t y = app.mouse.y - e->ui.y - e->top;
-        bool inside = 0 <= x && x < ui->w && 0 <= y && y < ui->h;
+        bool inside = 0 <= x && x < view->w && 0 <= y && y < view->h;
         if (inside) {
             e->mouse = 0x1;
             ns(focus_on_click)(e, x, y);
@@ -1418,35 +1417,35 @@ fn(bool, press)(view_t* ui, int32_t ix) {
     }
 }
 
-fn(void, mouse)(view_t* ui, int32_t m, int32_t unused(flags)) {
-//  if (m == messages.left_button_pressed) { traceln("%p", ui); }
-    assert(ui->tag == uic_tag_edit);
-    assert(!ui->hidden);
-    assert(!ui->disabled);
-    uic_edit_t* e = (uic_edit_t*)ui;
+fn(void, mouse)(view_t* view, int32_t m, int32_t unused(flags)) {
+//  if (m == ui.message.left_button_pressed) { traceln("%p", view); }
+    assert(view->tag == uic_tag_edit);
+    assert(!view->hidden);
+    assert(!view->disabled);
+    uic_edit_t* e = (uic_edit_t*)view;
     const int32_t x = app.mouse.x - e->ui.x;
     const int32_t y = app.mouse.y - e->ui.y - e->top;
-    bool inside = 0 <= x && x < ui->w && 0 <= y && y < ui->h;
+    bool inside = 0 <= x && x < view->w && 0 <= y && y < view->h;
     if (inside) {
-        if (m == messages.left_button_pressed ||
-            m == messages.right_button_pressed) {
+        if (m == ui.message.left_button_pressed ||
+            m == ui.message.right_button_pressed) {
             ns(mouse_button_down)(e, m, x, y);
-        } else if (m == messages.left_button_released ||
-                   m == messages.right_button_released) {
+        } else if (m == ui.message.left_button_released ||
+                   m == ui.message.right_button_released) {
             ns(mouse_button_up)(e, m);
-        } else if (m == messages.left_double_click ||
-                   m == messages.right_double_click) {
+        } else if (m == ui.message.left_double_click ||
+                   m == ui.message.right_double_click) {
             ns(double_click)(e, x, y);
         }
     }
 }
 
-fn(void, mousewheel)(view_t* ui, int32_t unused(dx), int32_t dy) {
+fn(void, mousewheel)(view_t* view, int32_t unused(dx), int32_t dy) {
     // TODO: may make a use of dx in single line not-word-breaked edit control
-    if (app.focus == ui) {
-        assert(ui->tag == uic_tag_edit);
-        uic_edit_t* e = (uic_edit_t*)ui;
-        int32_t lines = (abs(dy) + ui->em.y - 1) / ui->em.y;
+    if (app.focus == view) {
+        assert(view->tag == uic_tag_edit);
+        uic_edit_t* e = (uic_edit_t*)view;
+        int32_t lines = (abs(dy) + view->em.y - 1) / view->em.y;
         if (dy > 0) {
             ns(scroll_down)(e, lines);
         } else if (dy < 0) {
@@ -1464,14 +1463,14 @@ fn(void, mousewheel)(view_t* ui, int32_t unused(dx), int32_t dy) {
     }
 }
 
-fn(bool, set_focus)(view_t* ui) {
-    assert(ui->tag == uic_tag_edit);
-    uic_edit_t* e = (uic_edit_t*)ui;
+fn(bool, set_focus)(view_t* view) {
+    assert(view->tag == uic_tag_edit);
+    uic_edit_t* e = (uic_edit_t*)view;
 //  traceln("active=%d has_focus=%d focused=%d",
 //           app.is_active(), app.has_focus(), e->focused);
-    assert(app.focus == ui || app.focus == null);
-    assert(ui->focusable);
-    app.focus = ui;
+    assert(app.focus == view || app.focus == null);
+    assert(view->focusable);
+    app.focus = view;
     if (app.has_focus() && !e->focused) {
         ns(create_caret)(e);
         ns(show_caret)(e);
@@ -1480,9 +1479,9 @@ fn(bool, set_focus)(view_t* ui) {
     return true;
 }
 
-fn(void, kill_focus)(view_t* ui) {
-    assert(ui->tag == uic_tag_edit);
-    uic_edit_t* e = (uic_edit_t*)ui;
+fn(void, kill_focus)(view_t* view) {
+    assert(view->tag == uic_tag_edit);
+    uic_edit_t* e = (uic_edit_t*)view;
 //  traceln("active=%d has_focus=%d focused=%d",
 //           app.is_active(), app.has_focus(), e->focused);
     if (e->focused) {
@@ -1490,7 +1489,7 @@ fn(void, kill_focus)(view_t* ui) {
         ns(destroy_caret)(e);
         ns(if_sle_layout)(e);
     }
-    if (app.focus == ui) { app.focus = null; }
+    if (app.focus == view) { app.focus = null; }
 }
 
 fn(void, erase)(uic_edit_t* e) {
@@ -1615,33 +1614,33 @@ fn(void, clipboard_paste)(uic_edit_t* e) {
     }
 }
 
-fn(void, measure)(view_t* ui) { // bottom up
-    assert(ui->tag == uic_tag_edit);
-    uic_edit_t* e = (uic_edit_t*)ui;
-    ui->em = gdi.get_em(ui->font == null ? app.fonts.regular : *ui->font);
+fn(void, measure)(view_t* view) { // bottom up
+    assert(view->tag == uic_tag_edit);
+    uic_edit_t* e = (uic_edit_t*)view;
+    view->em = gdi.get_em(view->font == null ? app.fonts.regular : *view->font);
     // enforce minimum size - it makes it checking corner cases much simpler
     // and it's hard to edit anything in a smaller area - will result in bad UX
-    if (ui->w < ui->em.x * 4) { ui->w = ui->em.x * 4; }
-    if (ui->h < ui->em.y) { ui->h = ui->em.y; }
+    if (view->w < view->em.x * 4) { view->w = view->em.x * 4; }
+    if (view->h < view->em.y) { view->h = view->em.y; }
     if (e->sle) { // for SLE if more than one run resize vertical:
         int32_t runs = max(ns(paragraph_run_count)(e, 0), 1);
-        if (ui->h < ui->em.y * runs) { ui->h = ui->em.y * runs; }
+        if (view->h < view->em.y * runs) { view->h = view->em.y * runs; }
     }
 }
 
-fn(void, layout)(view_t* ui) { // top down
-    assert(ui->tag == uic_tag_edit);
-    assert(ui->w > 0 && ui->h > 0); // could be `if'
-    uic_edit_t* e = (uic_edit_t*)ui;
+fn(void, layout)(view_t* view) { // top down
+    assert(view->tag == uic_tag_edit);
+    assert(view->w > 0 && view->h > 0); // could be `if'
+    uic_edit_t* e = (uic_edit_t*)view;
     // glyph position in scroll_pn paragraph:
-    const uic_edit_pg_t scroll = ui->w == 0 ?
+    const uic_edit_pg_t scroll = view->w == 0 ?
         (uic_edit_pg_t){0, 0} : ns(scroll_pg)(e);
     // the optimization of layout disposal with cached
     // width and height cannot guarantee correct layout
     // in other changing conditions, e.g. moving UI
     // between monitors with different DPI or font
     // changes by the caller (Ctrl +/- 0)...
-//  if (ui->w > 0 && ui->w != ui->w) {
+//  if (view->w > 0 && view->w != view->w) {
 //      ns(dispose_paragraphs_layout)(e);
 //  }
     // always dispose paragraphs layout:
@@ -1649,12 +1648,12 @@ fn(void, layout)(view_t* ui) { // top down
     int32_t sle_height = 0;
     if (e->sle) {
         int32_t runs = max(ns(paragraph_run_count)(e, 0), 1);
-        sle_height = min(e->ui.em.y * runs, ui->h);
+        sle_height = min(e->ui.em.y * runs, view->h);
     }
-    e->top    = !e->sle ? 0 : (ui->h - sle_height) / 2;
-    e->bottom = !e->sle ? ui->h : e->top + sle_height;
+    e->top    = !e->sle ? 0 : (view->h - sle_height) / 2;
+    e->bottom = !e->sle ? view->h : e->top + sle_height;
     e->visible_runs = (e->bottom - e->top) / e->ui.em.y; // fully visible
-    // number of runs in e->scroll.pn may have changed with ui->w change
+    // number of runs in e->scroll.pn may have changed with view->w change
     int32_t runs = ns(paragraph_run_count)(e, e->scroll.pn);
     e->scroll.rn = ns(pg_to_pr)(e, scroll).rn;
     assert(0 <= e->scroll.rn && e->scroll.rn < runs); (void)runs;
@@ -1672,20 +1671,20 @@ fn(void, layout)(view_t* ui) { // top down
     }
 }
 
-fn(void, paint)(view_t* ui) {
-    assert(ui->tag == uic_tag_edit);
-    assert(!ui->hidden);
-    uic_edit_t* e = (uic_edit_t*)ui;
-    gdi.push(ui->x, ui->y + e->top);
+fn(void, paint)(view_t* view) {
+    assert(view->tag == uic_tag_edit);
+    assert(!view->hidden);
+    uic_edit_t* e = (uic_edit_t*)view;
+    gdi.push(view->x, view->y + e->top);
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(rgb(20, 20, 14));
-    gdi.fill(ui->x, ui->y, ui->w, ui->h);
-    gdi.set_clip(ui->x, ui->y, ui->w, ui->h);
-    font_t f = ui->font != null ? *ui->font : app.fonts.regular;
+    gdi.fill(view->x, view->y, view->w, view->h);
+    gdi.set_clip(view->x, view->y, view->w, view->h);
+    ui_font_t f = view->font != null ? *view->font : app.fonts.regular;
     f = gdi.set_font(f);
-    gdi.set_text_color(ui->color);
+    gdi.set_text_color(view->color);
     const int32_t pn = e->scroll.pn;
-    const int32_t bottom = ui->y + e->bottom;
+    const int32_t bottom = view->y + e->bottom;
     assert(pn <= e->paragraphs);
     for (int32_t i = pn; i < e->paragraphs && gdi.y < bottom; i++) {
         ns(paint_paragraph)(e, i);
@@ -1704,16 +1703,16 @@ fn(void, move)(uic_edit_t* e, uic_edit_pg_t pg) {
     e->selection[0] = e->selection[1];
 }
 
-fn(bool, message)(view_t* ui, int32_t unused(m), int64_t unused(wp),
+fn(bool, message)(view_t* view, int32_t unused(m), int64_t unused(wp),
         int64_t unused(lp), int64_t* unused(rt)) {
-    uic_edit_t* e = (uic_edit_t*)ui;
-    if (app.is_active() && app.has_focus() && !ui->hidden) {
-        if (e->focused != (app.focus == ui)) {
-//          traceln("message: 0x%04X e->focused != (app.focus == ui)", m);
+    uic_edit_t* e = (uic_edit_t*)view;
+    if (app.is_active() && app.has_focus() && !view->hidden) {
+        if (e->focused != (app.focus == view)) {
+//          traceln("message: 0x%04X e->focused != (app.focus == view)", m);
             if (e->focused) {
-                ui->kill_focus(ui);
+                view->kill_focus(view);
             } else {
-                ui->set_focus(ui);
+                view->set_focus(view);
             }
         }
     } else {

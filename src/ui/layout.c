@@ -1,49 +1,49 @@
-static void measurements_center(view_t* ui) {
-    assert(ui->children != null && ui->children[0] != null, "no children?");
-    assert(ui->children[1] == null, "must be single child");
-    view_t* c = ui->children[0]; // even if hidden measure it
-    c->w = ui->w;
-    c->h = ui->h;
+static void measurements_center(view_t* view) {
+    assert(view->children != null && view->children[0] != null, "no children?");
+    assert(view->children[1] == null, "must be single child");
+    view_t* c = view->children[0]; // even if hidden measure it
+    c->w = view->w;
+    c->h = view->h;
 }
 
-static void measurements_horizontal(view_t* ui, int32_t gap) {
-    assert(ui->children != null && ui->children[0] != null, "no children?");
-    view_t** c = ui->children;
-    ui->w = 0;
-    ui->h = 0;
+static void measurements_horizontal(view_t* view, int32_t gap) {
+    assert(view->children != null && view->children[0] != null, "no children?");
+    view_t** c = view->children;
+    view->w = 0;
+    view->h = 0;
     bool seen = false;
     while (*c != null) {
         view_t* u = *c;
         if (!u->hidden) {
-            if (seen) { ui->w += gap; }
-            ui->w += u->w;
-            ui->h = max(ui->h, u->h);
+            if (seen) { view->w += gap; }
+            view->w += u->w;
+            view->h = max(view->h, u->h);
             seen = true;
         }
         c++;
     }
 }
 
-static void measurements_vertical(view_t* ui, int32_t gap) {
-    assert(ui->children != null && ui->children[0] != null, "no children?");
-    view_t** c = ui->children;
-    ui->h = 0;
+static void measurements_vertical(view_t* view, int32_t gap) {
+    assert(view->children != null && view->children[0] != null, "no children?");
+    view_t** c = view->children;
+    view->h = 0;
     bool seen = false;
     while (*c != null) {
         view_t* u = *c;
         if (!u->hidden) {
-            if (seen) { ui->h += gap; }
-            ui->h += u->h;
-            ui->w = max(ui->w, u->w);
+            if (seen) { view->h += gap; }
+            view->h += u->h;
+            view->w = max(view->w, u->w);
             seen = true;
         }
         c++;
     }
 }
 
-static void measurements_grid(view_t* ui, int32_t gap_h, int32_t gap_v) {
+static void measurements_grid(view_t* view, int32_t gap_h, int32_t gap_v) {
     int32_t cols = 0;
-    for (view_t** row = ui->children; *row != null; row++) {
+    for (view_t** row = view->children; *row != null; row++) {
         view_t* r = *row;
         int32_t n = 0;
         for (view_t** col = r->children; *col != null; col++) { n++; }
@@ -52,7 +52,7 @@ static void measurements_grid(view_t* ui, int32_t gap_h, int32_t gap_v) {
     }
     int32_t* mxw = (int32_t*)alloca(cols * sizeof(int32_t));
     memset(mxw, 0, cols * sizeof(int32_t));
-    for (view_t** row = ui->children; *row != null; row++) {
+    for (view_t** row = view->children; *row != null; row++) {
         if (!(*row)->hidden) {
             (*row)->h = 0;
             (*row)->baseline = 0;
@@ -68,10 +68,10 @@ static void measurements_grid(view_t* ui, int32_t gap_h, int32_t gap_v) {
             }
         }
     }
-    ui->h = 0;
-    ui->w = 0;
+    view->h = 0;
+    view->w = 0;
     int32_t rows_seen = 0; // number of visible rows so far
-    for (view_t** row = ui->children; *row != null; row++) {
+    for (view_t** row = view->children; *row != null; row++) {
         view_t* r = *row;
         if (!r->hidden) {
             r->w = 0;
@@ -88,12 +88,12 @@ static void measurements_grid(view_t* ui, int32_t gap_h, int32_t gap_v) {
                     c->w = mxw[i++];
                     r->w += c->w;
                     if (cols_seen > 0) { r->w += gap_h; }
-                    ui->w = max(ui->w, r->w);
+                    view->w = max(view->w, r->w);
                     cols_seen++;
                 }
             }
-            ui->h += r->h;
-            if (rows_seen > 0) { ui->h += gap_v; }
+            view->h += r->h;
+            if (rows_seen > 0) { view->h += gap_v; }
             rows_seen++;
         }
     }
@@ -108,17 +108,17 @@ measurements_if measurements = {
 
 // layouts
 
-static void layouts_center(view_t* ui) {
-    assert(ui->children != null && ui->children[0] != null, "no children?");
-    assert(ui->children[1] == null, "must be single child");
-    view_t* c = ui->children[0];
-    c->x = (ui->w - c->w) / 2;
-    c->y = (ui->h - c->h) / 2;
+static void layouts_center(view_t* view) {
+    assert(view->children != null && view->children[0] != null, "no children?");
+    assert(view->children[1] == null, "must be single child");
+    view_t* c = view->children[0];
+    c->x = (view->w - c->w) / 2;
+    c->y = (view->h - c->h) / 2;
 }
 
-static void layouts_horizontal(view_t* ui, int32_t x, int32_t y, int32_t gap) {
-    assert(ui->children != null && ui->children[0] != null, "no children?");
-    view_t** c = ui->children;
+static void layouts_horizontal(view_t* view, int32_t x, int32_t y, int32_t gap) {
+    assert(view->children != null && view->children[0] != null, "no children?");
+    view_t** c = view->children;
     bool seen = false;
     while (*c != null) {
         view_t* u = *c;
@@ -133,9 +133,9 @@ static void layouts_horizontal(view_t* ui, int32_t x, int32_t y, int32_t gap) {
     }
 }
 
-static void layouts_vertical(view_t* ui, int32_t x, int32_t y, int32_t gap) {
-    assert(ui->children != null && ui->children[0] != null, "no children?");
-    view_t** c = ui->children;
+static void layouts_vertical(view_t* view, int32_t x, int32_t y, int32_t gap) {
+    assert(view->children != null && view->children[0] != null, "no children?");
+    view_t** c = view->children;
     bool seen = false;
     while (*c != null) {
         view_t* u = *c;
@@ -150,12 +150,12 @@ static void layouts_vertical(view_t* ui, int32_t x, int32_t y, int32_t gap) {
     }
 }
 
-static void layouts_grid(view_t* ui, int32_t gap_h, int32_t gap_v) {
-    assert(ui->children != null, "layout_grid() with no children?");
-    int32_t x = ui->x;
-    int32_t y = ui->y;
+static void layouts_grid(view_t* view, int32_t gap_h, int32_t gap_v) {
+    assert(view->children != null, "layout_grid() with no children?");
+    int32_t x = view->x;
+    int32_t y = view->y;
     bool row_seen = false;
-    for (view_t** row = ui->children; *row != null; row++) {
+    for (view_t** row = view->children; *row != null; row++) {
         if (!(*row)->hidden) {
             if (row_seen) { y += gap_v; }
             int32_t xc = x;

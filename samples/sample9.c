@@ -1,7 +1,6 @@
 /* Copyright (c) Dmitry "Leo" Kuznetsov 2021 see LICENSE for details */
 #include "quick.h"
-#include <Windows.h>
-#include <WindowsX.h>
+#include "ui/win32.h"
 
 begin_c
 
@@ -78,7 +77,7 @@ static const char* filter[] = {
 
 uic_button(open_file, "&Open", 7.5, {
     const char* fn = app.open_filename(
-        app.known_folder(known_folder_home),
+        app.known_folder(ui.folder.home),
         filter, countof(filter)); //  all files filer: null, 0
     if (fn[0] != 0) {
         strprintf(toast_filename.ui.text, "%s", fn);
@@ -128,50 +127,50 @@ uic_container(panel_right, null,
     null
 );
 
-static void panel_paint(view_t* ui) {
-    gdi.push(ui->x, ui->y);
-    gdi.set_clip(ui->x, ui->y, ui->w, ui->h);
+static void panel_paint(view_t* view) {
+    gdi.push(view->x, view->y);
+    gdi.set_clip(view->x, view->y, view->w, view->h);
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(colors.dkgray1);
-    gdi.fill(ui->x, ui->y, ui->w, ui->h);
-    pen_t p = gdi.create_pen(colors.dkgray4, panel_border);
+    gdi.fill(view->x, view->y, view->w, view->h);
+    ui_pen_t p = gdi.create_pen(colors.dkgray4, panel_border);
     gdi.set_pen(p);
-    gdi.move_to(ui->x, ui->y);
-    if (ui == &panel_right) {
-        gdi.line(ui->x + ui->w, ui->y);
-        gdi.line(ui->x + ui->w, ui->y + ui->h);
-        gdi.line(ui->x, ui->y + ui->h);
-        gdi.line(ui->x, ui->y);
-    } else if (ui == &panel_top || ui == &panel_bottom) {
-        gdi.line(ui->x, ui->y + ui->h);
-        gdi.line(ui->x + ui->w, ui->y + ui->h);
-        gdi.move_to(ui->x + ui->w, ui->y);
-        gdi.line(ui->x, ui->y);
+    gdi.move_to(view->x, view->y);
+    if (view == &panel_right) {
+        gdi.line(view->x + view->w, view->y);
+        gdi.line(view->x + view->w, view->y + view->h);
+        gdi.line(view->x, view->y + view->h);
+        gdi.line(view->x, view->y);
+    } else if (view == &panel_top || view == &panel_bottom) {
+        gdi.line(view->x, view->y + view->h);
+        gdi.line(view->x + view->w, view->y + view->h);
+        gdi.move_to(view->x + view->w, view->y);
+        gdi.line(view->x, view->y);
     } else {
-        assert(ui == &panel_center);
-        gdi.line(ui->x, ui->y + ui->h);
+        assert(view == &panel_center);
+        gdi.line(view->x, view->y + view->h);
     }
-    int32_t x = ui->x + panel_border + max(1, em.x / 8);
-    int32_t y = ui->y + panel_border + max(1, em.y / 4);
-    pen_t s = gdi.set_colored_pen(ui->color);
+    int32_t x = view->x + panel_border + max(1, em.x / 8);
+    int32_t y = view->y + panel_border + max(1, em.y / 4);
+    ui_pen_t s = gdi.set_colored_pen(view->color);
     gdi.set_brush(gdi.brush_hollow);
     gdi.rounded(x, y, em.x * 12, em.y, max(1, em.y / 4), max(1, em.y / 4));
     gdi.set_pen(s);
-    color_t color = gdi.set_text_color(ui->color);
-    gdi.x = ui->x + panel_border + max(1, em.x / 2);
-    gdi.y = ui->y + panel_border + max(1, em.y / 4);
-    gdi.text("%d,%d %dx%d %s", ui->x, ui->y, ui->w, ui->h, ui->text);
+    ui_color_t color = gdi.set_text_color(view->color);
+    gdi.x = view->x + panel_border + max(1, em.x / 2);
+    gdi.y = view->y + panel_border + max(1, em.y / 4);
+    gdi.text("%d,%d %dx%d %s", view->x, view->y, view->w, view->h, view->text);
     gdi.set_text_color(color);
     gdi.set_clip(0, 0, 0, 0);
     gdi.delete_pen(p);
     gdi.pop();
 }
 
-static void right_layout(view_t* ui) {
-    if ( ui->children != null) {
-        int x = ui->x + em.x;
-        int y = ui->y + em.y * 2;
-        for (view_t** it = ui->children; *it != null; it++) {
+static void right_layout(view_t* view) {
+    if ( view->children != null) {
+        int x = view->x + em.x;
+        int y = view->y + em.y * 2;
+        for (view_t** it = view->children; *it != null; it++) {
             view_t* ch = *it;
             ch->x = x;
             ch->y = y;
@@ -180,19 +179,19 @@ static void right_layout(view_t* ui) {
     }
 }
 
-static void text_after(view_t* ui, const char* format, ...) {
-    gdi.x = ui->x + ui->w + ui->em.x;
-    gdi.y = ui->y;
+static void text_after(view_t* view, const char* format, ...) {
+    gdi.x = view->x + view->w + view->em.x;
+    gdi.y = view->y;
     va_list va;
     va_start(va, format);
     gdi.vtextln(format, va);
     va_end(va);
 }
 
-static void right_paint(view_t* ui) {
-    panel_paint(ui);
-    gdi.push(ui->x, ui->y);
-    gdi.set_clip(ui->x, ui->y, ui->w, ui->h);
+static void right_paint(view_t* view) {
+    panel_paint(view);
+    gdi.push(view->x, view->y);
+    gdi.set_clip(view->x, view->y, view->w, view->h);
     gdi.x = button_locale.ui.x + button_locale.ui.w + em.x;
     gdi.y = button_locale.ui.y;
     gdi.println("&Locale %s", button_locale.ui.pressed ? "zh-CN" : "en-US");
@@ -204,7 +203,7 @@ static void right_paint(view_t* ui) {
     gdi.y = text_multiline.ui.y + text_multiline.ui.h + max(1, em.y / 4);
     gdi.textln("Proportional");
     gdi.println("Monospaced");
-    font_t font = gdi.set_font(app.fonts.H1);
+    ui_font_t font = gdi.set_font(app.fonts.H1);
     gdi.textln("H1 %s", app.nls("Header"));
     gdi.set_font(app.fonts.H2); gdi.textln("H2 %s", app.nls("Header"));
     gdi.set_font(app.fonts.H3); gdi.textln("H3 %s", app.nls("Header"));
@@ -224,13 +223,13 @@ static void right_paint(view_t* ui) {
     gdi.pop();
 }
 
-static void center_paint(view_t* ui) {
+static void center_paint(view_t* view) {
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(colors.black);
-    gdi.fill(ui->x, ui->y, ui->w, ui->h);
-    int x = (ui->w - image.w) / 2;
-    int y = (ui->h - image.h) / 2;
-//  gdi.alpha_blend(ui->x + x, ui->y + y, image.w, image.h, &image, 0.8);
+    gdi.fill(view->x, view->y, view->w, view->h);
+    int x = (view->w - image.w) / 2;
+    int y = (view->h - image.h) / 2;
+//  gdi.alpha_blend(view->x + x, view->y + y, image.w, image.h, &image, 0.8);
     HDC canvas = GetDC((HWND)app.window);
     fatal_if_null(canvas);
     HDC src = CreateCompatibleDC(canvas); fatal_if_null(src);
@@ -245,7 +244,7 @@ static void center_paint(view_t* ui) {
     fatal_if_false(StretchBlt(dst, 0, 0, image.w, image.h, src, 0, 0,
         image.w, image.h, SRCCOPY));
     ///
-    fatal_if_false(StretchBlt((HDC)app.canvas, ui->x + x, ui->y + y,
+    fatal_if_false(StretchBlt((HDC)app.canvas, view->x + x, view->y + y,
         image.w, image.h, dst, 0, 0,
         image.w, image.h, SRCCOPY));
     fatal_if_null(SelectBitmap(dst, d));
@@ -257,10 +256,10 @@ static void center_paint(view_t* ui) {
 
 }
 
-static void measure(view_t* ui) {
+static void measure(view_t* view) {
     ui_point_t em_mono = gdi.get_em(app.fonts.mono);
     em = gdi.get_em(app.fonts.regular);
-    ui->em = em;
+    view->em = em;
     panel_border = max(1, em_mono.y / 4);
     frame_border = max(1, em_mono.y / 8);
     assert(panel_border > 0 && frame_border > 0);
@@ -277,8 +276,8 @@ static void measure(view_t* ui) {
     panel_center.h = h - panel_bottom.h - panel_top.h;
 }
 
-static void layout(view_t* ui) {
-    assert(ui->em.x > 0 && ui->em.y > 0); (void)ui;
+static void layout(view_t* unused(view)) {
+    assert(view->em.x > 0 && view->em.y > 0);
     const int32_t h = app.height;
     panel_top.x = 0;
     panel_top.y = 0;
@@ -310,14 +309,13 @@ static void zoom_in(int x, int y) {
     sy += zoom * y / image.h;
 }
 
-static void mouse(view_t* ui, int32_t m, int32_t flags) {
-    (void)ui; (void)m; (void)flags;
+static void mouse(view_t* unused(view), int32_t m, int32_t unused(flags)) {
     int x = app.mouse.x - (panel_center.w - image.w) / 2 - panel_center.x;
     int y = app.mouse.y - (panel_center.h - image.h) / 2 - panel_center.y;
     if (0 <= x && x < image.w && 0 <= y && y < image.h) {
-        if (m == messages.right_button_pressed) {
+        if (m == ui.message.right_button_pressed) {
             if (zoom < 1) { zoom_out(); refresh(); }
-        } else if (m == messages.left_button_pressed) {
+        } else if (m == ui.message.left_button_pressed) {
             if (top < countof(stack)) { zoom_in(x, y); refresh(); }
         }
     }
@@ -341,7 +339,7 @@ static void mousewheel(view_t* unused, int32_t dx, int32_t dy) {
     refresh();
 }
 
-static void character(view_t* ui, const char* utf8) {
+static void character(view_t* view, const char* utf8) {
     char ch = utf8[0];
     if (ch == 'q' || ch == 'Q') {
         app.close();
@@ -352,27 +350,27 @@ static void character(view_t* ui, const char* utf8) {
     } else if (ch == '-' || ch == '_') {
         zoom = min(zoom * 2, 1.0); refresh();
     } else if (ch == '<' || ch == ',') {
-        mousewheel(ui, +image.w / 8, 0);
+        mousewheel(view, +image.w / 8, 0);
     } else if (ch == '>' || ch == '.') {
-        mousewheel(ui, -image.w / 8, 0);
+        mousewheel(view, -image.w / 8, 0);
     } else if (ch == 3) { // Ctrl+C
         clipboard.copy_bitmap(&image);
     }
 }
 
-static void keyboard(view_t* ui, int32_t vk) {
-    if (vk == virtual_keys.up) {
-        mousewheel(ui, 0, +image.h / 8);
-    } else if (vk == virtual_keys.down) {
-        mousewheel(ui, 0, -image.h / 8);
-    } else if (vk == virtual_keys.left) {
-        mousewheel(ui, +image.w / 8, 0);
-    } else if (vk == virtual_keys.right) {
-        mousewheel(ui, -image.w / 8, 0);
+static void keyboard(view_t* view, int32_t vk) {
+    if (vk == ui.key.up) {
+        mousewheel(view, 0, +image.h / 8);
+    } else if (vk == ui.key.down) {
+        mousewheel(view, 0, -image.h / 8);
+    } else if (vk == ui.key.left) {
+        mousewheel(view, +image.w / 8, 0);
+    } else if (vk == ui.key.right) {
+        mousewheel(view, -image.w / 8, 0);
     }
 }
 
-static void init_panel(view_t* panel, const char* text, color_t color,
+static void init_panel(view_t* panel, const char* text, ui_color_t color,
         void (*paint)(view_t*)) {
     strprintf(panel->text, "%s", text);
     panel->color = color;
@@ -443,7 +441,7 @@ static void mandelbrot(image_t* im) {
                 x = t;
                 iteration++;
             }
-            static color_t palette[16] = {
+            static ui_color_t palette[16] = {
                 rgb( 66,  30,  15),  rgb( 25,   7,  26),
                 rgb(  9,   1,  47),  rgb(  4,   4,  73),
                 rgb(  0,   7, 100),  rgb( 12,  44, 138),
@@ -453,7 +451,7 @@ static void mandelbrot(image_t* im) {
                 rgb(255, 170,   0),  rgb(204, 128,   0),
                 rgb(153,  87,   0),  rgb(106,  52,   3)
             };
-            color_t color = palette[iteration % countof(palette)];
+            ui_color_t color = palette[iteration % countof(palette)];
             uint8_t* px = &((uint8_t*)im->pixels)[r * im->w * 4 + c * 4];
             px[3] = 0xFF;
             px[0] = (color >> 16) & 0xFF;

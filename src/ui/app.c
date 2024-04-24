@@ -1,92 +1,5 @@
-#define WM_ANIMATE  (WM_APP + 0x7FFF)
-#define WM_OPENNING (WM_APP + 0x7FFE)
-#define WM_CLOSING  (WM_APP + 0x7FFD)
-#define WM_TAP      (WM_APP + 0x7FFC)
-#define WM_DTAP     (WM_APP + 0x7FFB) // double tap (aka click)
-#define WM_PRESS    (WM_APP + 0x7FFA)
 
-#define LONG_PRESS_MSEC (250)
-
-messages_t messages = {
-    .character             = WM_CHAR,
-    .key_pressed           = WM_KEYDOWN,
-    .key_released          = WM_KEYUP,
-    .left_button_pressed   = WM_LBUTTONDOWN,
-    .left_button_released  = WM_LBUTTONUP,
-    .right_button_pressed  = WM_RBUTTONDOWN,
-    .right_button_released = WM_RBUTTONUP,
-    .mouse_move            = WM_MOUSEMOVE,
-    .left_double_click     = WM_LBUTTONDBLCLK,
-    .right_double_click    = WM_RBUTTONDBLCLK,
-    .tap                   = WM_TAP,
-    .dtap                  = WM_DTAP,
-    .press                 = WM_PRESS
-};
-
-mouse_flags_t mouse_flags = {
-    .left_button = MK_LBUTTON,
-    .right_button = MK_RBUTTON,
-};
-
-virtual_keys_t virtual_keys = {
-    .up     = VK_UP,
-    .down   = VK_DOWN,
-    .left   = VK_LEFT,
-    .right  = VK_RIGHT,
-    .home   = VK_HOME,
-    .end    = VK_END,
-    .pageup = VK_PRIOR,
-    .pagedw = VK_NEXT,
-    .insert = VK_INSERT,
-    .del    = VK_DELETE,
-    .back   = VK_BACK,
-    .escape = VK_ESCAPE,
-    .enter  = VK_RETURN,
-    .minus  = VK_OEM_MINUS,
-    .plus   = VK_OEM_PLUS,
-    .f1     = VK_F1,
-    .f2     = VK_F2,
-    .f3     = VK_F3,
-    .f4     = VK_F4,
-    .f5     = VK_F5,
-    .f6     = VK_F6,
-    .f7     = VK_F7,
-    .f8     = VK_F8,
-    .f9     = VK_F9,
-    .f10    = VK_F10,
-    .f11    = VK_F11,
-    .f12    = VK_F12,
-    .f13    = VK_F13,
-    .f14    = VK_F14,
-    .f15    = VK_F15,
-    .f16    = VK_F16,
-    .f17    = VK_F17,
-    .f18    = VK_F18,
-    .f19    = VK_F19,
-    .f20    = VK_F20,
-    .f21    = VK_F21,
-    .f22    = VK_F22,
-    .f23    = VK_F23,
-    .f24    = VK_F24,
-};
-
-
-// https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
-
-window_visibility_t window_visibility = {
-    .hide      = SW_HIDE,
-    .normal    = SW_SHOWNORMAL,
-    .minimize  = SW_SHOWMINIMIZED,
-    .maximize  = SW_SHOWMAXIMIZED,
-    .normal_na = SW_SHOWNOACTIVATE,
-    .show      = SW_SHOW,
-    .min_next  = SW_MINIMIZE,
-    .min_na    = SW_SHOWMINNOACTIVE,
-    .show_na   = SW_SHOWNA,
-    .restore   = SW_RESTORE,
-    .defau1t   = SW_SHOWDEFAULT,
-    .force_min = SW_FORCEMINIMIZE
-};
+enum { ui_long_press_msec = 250 };
 
 typedef LPARAM lparam_t;
 typedef WPARAM wparam_t;
@@ -108,7 +21,7 @@ static struct {
     app_animate_function_t f;
     int32_t count;
     int32_t step;
-    tm_t timer;
+    ui_timer_t timer;
 } app_animate;
 
 // Animation timer is Windows minimum of 10ms, but in reality the timer
@@ -152,7 +65,7 @@ static void app_update_ncm(int32_t dpi) {
         sizeof(app_ncm), &app_ncm, 0, dpi));
 }
 
-static void app_update_monitor_dpi(HMONITOR monitor, dpi_t* dpi) {
+static void app_update_monitor_dpi(HMONITOR monitor, ui_dpi_t* dpi) {
     for (int32_t mtd = MDT_EFFECTIVE_DPI; mtd <= MDT_RAW_DPI; mtd++) {
         uint32_t dpi_x = 0;
         uint32_t dpi_y = 0;
@@ -252,28 +165,28 @@ static void app_init_fonts(int32_t dpi) {
     // lf.lfQuality is CLEARTYPE_QUALITY which looks bad on 4K monitors
     // Windows UI uses PROOF_QUALITY which is aliased w/o ClearType rainbows
     lf.lfQuality = PROOF_QUALITY;
-    app.fonts.regular = (font_t)CreateFontIndirectW(&lf);
+    app.fonts.regular = (ui_font_t)CreateFontIndirectW(&lf);
     not_null(app.fonts.regular);
     const double fh = app_ncm.lfMessageFont.lfHeight;
 //  traceln("lfHeight=%.1f", fh);
     assert(fh != 0);
     lf.lfWeight = FW_SEMIBOLD;
     lf.lfHeight = (int)(fh * 1.75);
-    app.fonts.H1 = (font_t)CreateFontIndirectW(&lf);
+    app.fonts.H1 = (ui_font_t)CreateFontIndirectW(&lf);
     lf.lfWeight = FW_SEMIBOLD;
     lf.lfHeight = (int)(fh * 1.4);
-    app.fonts.H2 = (font_t)CreateFontIndirectW(&lf);
+    app.fonts.H2 = (ui_font_t)CreateFontIndirectW(&lf);
     lf.lfWeight = FW_SEMIBOLD;
     lf.lfHeight = (int)(fh * 1.15);
-    app.fonts.H3 = (font_t)CreateFontIndirectW(&lf);
+    app.fonts.H3 = (ui_font_t)CreateFontIndirectW(&lf);
     lf = app_ncm.lfMessageFont;
     lf.lfPitchAndFamily = FIXED_PITCH;
     #define monospaced "Cascadia Code"
     wcscpy(lf.lfFaceName, L"Cascadia Code");
-    app.fonts.mono = (font_t)CreateFontIndirectW(&lf);
-    app.cursor_arrow = (cursor_t)LoadCursorA(null, IDC_ARROW);
-    app.cursor_wait  = (cursor_t)LoadCursorA(null, IDC_WAIT);
-    app.cursor_ibeam = (cursor_t)LoadCursorA(null, IDC_IBEAM);
+    app.fonts.mono = (ui_font_t)CreateFontIndirectW(&lf);
+    app.cursor_arrow = (ui_cursor_t)LoadCursorA(null, IDC_ARROW);
+    app.cursor_wait  = (ui_cursor_t)LoadCursorA(null, IDC_WAIT);
+    app.cursor_ibeam = (ui_cursor_t)LoadCursorA(null, IDC_IBEAM);
     app.cursor = app.cursor_arrow;
 }
 
@@ -325,7 +238,7 @@ static void app_enum_monitors(app_wiw_t* wiw) {
     wiw->space.h -= wiw->space.y;
 }
 
-static void app_save_window_pos(window_t wnd, const char* name, bool dump) {
+static void app_save_window_pos(ui_window_t wnd, const char* name, bool dump) {
     RECT wr = {0};
     fatal_if_false(GetWindowRect((HWND)wnd, &wr));
     ui_rect_t wrc = app_rect2ui(&wr);
@@ -374,7 +287,7 @@ static void app_save_window_pos(window_t wnd, const char* name, bool dump) {
 static void app_save_console_pos(void) {
     HWND cw = GetConsoleWindow();
     if (cw != null) {
-        app_save_window_pos((window_t)cw, "wic", false);
+        app_save_window_pos((ui_window_t)cw, "wic", false);
         HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
         CONSOLE_SCREEN_BUFFER_INFOEX info = { sizeof(CONSOLE_SCREEN_BUFFER_INFOEX) };
         int32_t r = GetConsoleScreenBufferInfoEx(console, &info) ? 0 : runtime.err();
@@ -502,35 +415,35 @@ static bool app_load_console_pos(ui_rect_t* rect, int32_t *visibility) {
     return loaded;
 }
 
-static void app_timer_kill(tm_t timer) {
+static void app_timer_kill(ui_timer_t timer) {
     fatal_if_false(KillTimer(window(), timer));
 }
 
-static tm_t app_timer_set(uintptr_t id, int32_t ms) {
+static ui_timer_t app_timer_set(uintptr_t id, int32_t ms) {
     not_null(window());
     assert(10 <= ms && ms < 0x7FFFFFFF);
-    tm_t tid = (tm_t)SetTimer(window(), id, (uint32_t)ms, null);
+    ui_timer_t tid = (ui_timer_t)SetTimer(window(), id, (uint32_t)ms, null);
     fatal_if(tid == 0);
     assert(tid == id);
     return tid;
 }
 
-static void set_parents(view_t* ui) {
-    for (view_t** c = ui->children; c != null && *c != null; c++) {
+static void set_parents(view_t* view) {
+    for (view_t** c = view->children; c != null && *c != null; c++) {
         if ((*c)->parent == null) {
-            (*c)->parent = ui;
+            (*c)->parent = view;
             set_parents(*c);
         } else {
-            assert((*c)->parent == ui, "no reparenting");
+            assert((*c)->parent == view, "no reparenting");
         }
     }
 }
 
-static void init_children(view_t* ui) {
-    for (view_t** c = ui->children; c != null && *c != null; c++) {
+static void init_children(view_t* view) {
+    for (view_t** c = view->children; c != null && *c != null; c++) {
         if ((*c)->init != null) { (*c)->init(*c); (*c)->init = null; }
         if ((*c)->font == null) { (*c)->font = &app.fonts.regular; }
-        if ((*c)->em.x == 0 || (*c)->em.y == 0) { (*c)->em = gdi.get_em(*ui->font); }
+        if ((*c)->em.x == 0 || (*c)->em.y == 0) { (*c)->em = gdi.get_em(*view->font); }
         view_localize(*c);
         init_children(*c);
     }
@@ -540,21 +453,21 @@ static void app_post_message(int32_t m, int64_t wp, int64_t lp) {
     fatal_if_false(PostMessageA(window(), m, wp, lp));
 }
 
-static void app_timer(view_t* ui, tm_t id) {
-    if (ui->timer != null) {
-        ui->timer(ui, id);
+static void app_timer(view_t* view, ui_timer_t id) {
+    if (view->timer != null) {
+        view->timer(view, id);
     }
-    if (id == app_timer_1s_id && ui->every_sec != null) {
-        ui->every_sec(ui);
+    if (id == app_timer_1s_id && view->every_sec != null) {
+        view->every_sec(view);
     }
-    if (id == app_timer_100ms_id && ui->every_100ms != null) {
-        ui->every_100ms(ui);
+    if (id == app_timer_100ms_id && view->every_100ms != null) {
+        view->every_100ms(view);
     }
-    view_t** c = ui->children;
+    view_t** c = view->children;
     while (c != null && *c != null) { app_timer(*c, id); c++; }
 }
 
-static void app_every_100ms(tm_t id) {
+static void app_every_100ms(ui_timer_t id) {
     if (id == app_timer_1s_id && app.every_sec != null) {
         app.every_sec();
     }
@@ -571,7 +484,7 @@ static void app_animate_timer(void) {
         (uintptr_t)app_animate.f);
 }
 
-static void app_wm_timer(tm_t id) {
+static void app_wm_timer(ui_timer_t id) {
     app_every_100ms(id);
     if (app_animate.timer == id) { app_animate_timer(); }
     app_timer(app.ui, id);
@@ -592,7 +505,7 @@ static void app_window_opening(void) {
     app_timer_1s_id = app.set_timer((uintptr_t)&app_timer_1s_id, 1000);
     app_timer_100ms_id = app.set_timer((uintptr_t)&app_timer_100ms_id, 100);
     app.set_cursor(app.cursor_arrow);
-    app.canvas = (canvas_t)GetDC(window());
+    app.canvas = (ui_canvas_t)GetDC(window());
     not_null(app.canvas);
     if (app.opened != null) { app.opened(); }
     app.ui->em = gdi.get_em(*app.ui->font);
@@ -603,8 +516,8 @@ static void app_window_opening(void) {
     fatal_if(ReleaseDC(window(), canvas()) == 0);
     app.canvas = null;
     app.layout(); // request layout
-    if (app.last_visibility == window_visibility.maximize) {
-        ShowWindow(window(), window_visibility.maximize);
+    if (app.last_visibility == ui.visibility.maximize) {
+        ShowWindow(window(), ui.visibility.maximize);
     }
 //  app_dump_dpi();
 //  if (forced_locale != 0) {
@@ -654,91 +567,91 @@ static void app_get_min_max_info(MINMAXINFO* mmi) {
 }
 
 #define app_method_int32(name)                                  \
-static void app_##name(view_t* ui, int32_t p) {                  \
-    if (ui->name != null && !view_hidden_or_disabled(ui)) {      \
-        ui->name(ui, p);                                        \
+static void app_##name(view_t* view, int32_t p) {               \
+    if (view->name != null && !view_hidden_or_disabled(view)) { \
+        view->name(view, p);                                    \
     }                                                           \
-    view_t** c = ui->children;                                   \
+    view_t** c = view->children;                                \
     while (c != null && *c != null) { app_##name(*c, p); c++; } \
 }
 
 app_method_int32(key_pressed)
 app_method_int32(key_released)
 
-static void app_character(view_t* ui, const char* utf8) {
-    if (!view_hidden_or_disabled(ui)) {
-        if (ui->character != null) { ui->character(ui, utf8); }
-        view_t** c = ui->children;
+static void app_character(view_t* view, const char* utf8) {
+    if (!view_hidden_or_disabled(view)) {
+        if (view->character != null) { view->character(view, utf8); }
+        view_t** c = view->children;
         while (c != null && *c != null) { app_character(*c, utf8); c++; }
     }
 }
 
-static void app_paint(view_t* ui) {
-    if (!ui->hidden && app.crc.w > 0 && app.crc.h > 0) {
-        if (ui->paint != null) { ui->paint(ui); }
-        view_t** c = ui->children;
+static void app_paint(view_t* view) {
+    if (!view->hidden && app.crc.w > 0 && app.crc.h > 0) {
+        if (view->paint != null) { view->paint(view); }
+        view_t** c = view->children;
         while (c != null && *c != null) { app_paint(*c); c++; }
     }
 }
 
-static bool app_set_focus(view_t* ui) {
+static bool app_set_focus(view_t* view) {
     bool set = false;
     assert(GetActiveWindow() == window());
-    view_t** c = ui->children;
+    view_t** c = view->children;
     while (c != null && *c != null && !set) { set = app_set_focus(*c); c++; }
-    if (ui->focusable && ui->set_focus != null &&
-       (app.focus == ui || app.focus == null)) {
-        set = ui->set_focus(ui);
+    if (view->focusable && view->set_focus != null &&
+       (app.focus == view || app.focus == null)) {
+        set = view->set_focus(view);
     }
     return set;
 }
 
-static void app_kill_focus(view_t* ui) {
-    view_t** c = ui->children;
+static void app_kill_focus(view_t* view) {
+    view_t** c = view->children;
     while (c != null && *c != null) { app_kill_focus(*c); c++; }
-    if (ui->set_focus != null && ui->focusable) {
-        ui->kill_focus(ui);
+    if (view->set_focus != null && view->focusable) {
+        view->kill_focus(view);
     }
 }
 
-static void app_mousewheel(view_t* ui, int32_t dx, int32_t dy) {
-    if (!view_hidden_or_disabled(ui)) {
-        if (ui->mousewheel != null) { ui->mousewheel(ui, dx, dy); }
-        view_t** c = ui->children;
+static void app_mousewheel(view_t* view, int32_t dx, int32_t dy) {
+    if (!view_hidden_or_disabled(view)) {
+        if (view->mousewheel != null) { view->mousewheel(view, dx, dy); }
+        view_t** c = view->children;
         while (c != null && *c != null) { app_mousewheel(*c, dx, dy); c++; }
     }
 }
 
-static void app_measure_children(view_t* ui) {
-    if (!ui->hidden && app.crc.w > 0 && app.crc.h > 0) {
-        view_t** c = ui->children;
+static void app_measure_children(view_t* view) {
+    if (!view->hidden && app.crc.w > 0 && app.crc.h > 0) {
+        view_t** c = view->children;
         while (c != null && *c != null) { app_measure_children(*c); c++; }
-        if (ui->measure != null) { ui->measure(ui); }
+        if (view->measure != null) { view->measure(view); }
     }
 }
 
-static void app_layout_children(view_t* ui) {
-    if (!ui->hidden && app.crc.w > 0 && app.crc.h > 0) {
-        if (ui->layout != null) { ui->layout(ui); }
-        view_t** c = ui->children;
+static void app_layout_children(view_t* view) {
+    if (!view->hidden && app.crc.w > 0 && app.crc.h > 0) {
+        if (view->layout != null) { view->layout(view); }
+        view_t** c = view->children;
         while (c != null && *c != null) { app_layout_children(*c); c++; }
     }
 }
 
-static void app_layout_ui(view_t* ui) {
-    app_measure_children(ui);
-    app_layout_children(ui);
+static void app_layout_ui(view_t* view) {
+    app_measure_children(view);
+    app_layout_children(view);
 }
 
-static bool app_message(view_t* ui, int32_t m, int64_t wp, int64_t lp,
+static bool app_message(view_t* view, int32_t m, int64_t wp, int64_t lp,
         int64_t* ret) {
     // message() callback is called even for hidden and disabled ui-elements
     // consider timers, and other useful messages
-    app_on_every_message(ui);
-    if (ui->message != null) {
-        if (ui->message(ui, m, wp, lp, ret)) { return true; }
+    app_on_every_message(view);
+    if (view->message != null) {
+        if (view->message(view, m, wp, lp, ret)) { return true; }
     }
-    view_t** c = ui->children;
+    view_t** c = view->children;
     while (c != null && *c != null) {
         if (app_message(*c, m, wp, lp, ret)) { return true; }
         c++;
@@ -746,14 +659,14 @@ static bool app_message(view_t* ui, int32_t m, int64_t wp, int64_t lp,
     return false;
 }
 
-static void app_killfocus(view_t* ui) {
+static void app_kill_hidden_focus(view_t* view) {
     // removes focus from hidden or disabled ui controls
-    if (app.focus == ui && (ui->disabled || ui->hidden)) {
+    if (app.focus == view && (view->disabled || view->hidden)) {
         app.focus = null;
     } else {
-        view_t** c = ui->children;
+        view_t** c = view->children;
         while (c != null && *c != null) {
-            app_killfocus(*c);
+            app_kill_hidden_focus(*c);
             c++;
         }
     }
@@ -762,26 +675,26 @@ static void app_killfocus(view_t* ui) {
 static void app_toast_mouse(int32_t m, int32_t f);
 static void app_toast_character(const char* utf8);
 
-static void app_wm_char(view_t* ui, const char* utf8) {
+static void app_wm_char(view_t* view, const char* utf8) {
     if (app.toasting.ui != null) {
         app_toast_character(utf8);
     } else {
-        app_character(ui, utf8);
+        app_character(view, utf8);
     }
 }
 
-static void app_hover_changed(view_t* ui) {
-    if (ui->hovering != null && !ui->hidden) {
-        if (!ui->hover) {
-            ui->hover_at = 0;
-            ui->hovering(ui, false); // cancel hover
+static void app_hover_changed(view_t* view) {
+    if (view->hovering != null && !view->hidden) {
+        if (!view->hover) {
+            view->hover_at = 0;
+            view->hovering(view, false); // cancel hover
         } else {
-            assert(ui->hover_delay >= 0);
-            if (ui->hover_delay == 0) {
-                ui->hover_at = -1;
-                ui->hovering(ui, true); // call immediately
-            } else if (ui->hover_delay != 0 && ui->hover_at >= 0) {
-                ui->hover_at = app.now + ui->hover_delay;
+            assert(view->hover_delay >= 0);
+            if (view->hover_delay == 0) {
+                view->hover_at = -1;
+                view->hovering(view, true); // call immediately
+            } else if (view->hover_delay != 0 && view->hover_at >= 0) {
+                view->hover_at = app.now + view->hover_delay;
             }
         }
     }
@@ -790,90 +703,90 @@ static void app_hover_changed(view_t* ui) {
 // app_on_every_message() is called on every message including timers
 // allowing ui elements to do scheduled actions like e.g. hovering()
 
-static void app_on_every_message(view_t* ui) {
-    if (ui->hovering != null && !ui->hidden) {
-        if (ui->hover_at > 0 && app.now > ui->hover_at) {
-            ui->hover_at = -1; // "already called"
-            ui->hovering(ui, true);
+static void app_on_every_message(view_t* view) {
+    if (view->hovering != null && !view->hidden) {
+        if (view->hover_at > 0 && app.now > view->hover_at) {
+            view->hover_at = -1; // "already called"
+            view->hovering(view, true);
         }
     }
 }
 
-static void app_ui_mouse(view_t* ui, int32_t m, int32_t f) {
-    if (!app.is_hidden(ui) &&
-       (m == WM_MOUSEHOVER || m == messages.mouse_move)) {
-        RECT rc = { ui->x, ui->y, ui->x + ui->w, ui->y + ui->h};
-        bool hover = ui->hover;
+static void app_ui_mouse(view_t* view, int32_t m, int32_t f) {
+    if (!app.is_hidden(view) &&
+       (m == WM_MOUSEHOVER || m == ui.message.mouse_move)) {
+        RECT rc = { view->x, view->y, view->x + view->w, view->y + view->h};
+        bool hover = view->hover;
         POINT pt = app_ui2point(&app.mouse);
-        ui->hover = PtInRect(&rc, pt);
-        InflateRect(&rc, ui->w / 4, ui->h / 4);
+        view->hover = PtInRect(&rc, pt);
+        InflateRect(&rc, view->w / 4, view->h / 4);
         ui_rect_t r = app_rect2ui(&rc);
-        if (hover != ui->hover) { app.invalidate(&r); }
-        if (hover != ui->hover && ui->hovering != null) {
-            app_hover_changed(ui);
+        if (hover != view->hover) { app.invalidate(&r); }
+        if (hover != view->hover && view->hovering != null) {
+            app_hover_changed(view);
         }
     }
-    if (!view_hidden_or_disabled(ui)) {
-        if (ui->mouse != null) { ui->mouse(ui, m, f); }
-        for (view_t** c = ui->children; c != null && *c != null; c++) {
+    if (!view_hidden_or_disabled(view)) {
+        if (view->mouse != null) { view->mouse(view, m, f); }
+        for (view_t** c = view->children; c != null && *c != null; c++) {
             app_ui_mouse(*c, m, f);
         }
     }
 }
 
-static bool app_context_menu(view_t* ui) {
-    if (!view_hidden_or_disabled(ui)) {
-        for (view_t** c = ui->children; c != null && *c != null; c++) {
+static bool app_context_menu(view_t* view) {
+    if (!view_hidden_or_disabled(view)) {
+        for (view_t** c = view->children; c != null && *c != null; c++) {
             if (app_context_menu(*c)) { return true; }
         }
-        RECT rc = { ui->x, ui->y, ui->x + ui->w, ui->y + ui->h};
+        RECT rc = { view->x, view->y, view->x + view->w, view->y + view->h};
         POINT pt = app_ui2point(&app.mouse);
         if (PtInRect(&rc, pt)) {
-            if (!ui->hidden && !ui->disabled && ui->context_menu != null) {
-                ui->context_menu(ui);
+            if (!view->hidden && !view->disabled && view->context_menu != null) {
+                view->context_menu(view);
             }
         }
     }
     return false;
 }
 
-static bool app_inside(view_t* ui) {
-    const int32_t x = app.mouse.x - ui->x;
-    const int32_t y = app.mouse.y - ui->y;
-    return 0 <= x && x < ui->w && 0 <= y && y < ui->h;
+static bool app_inside(view_t* view) {
+    const int32_t x = app.mouse.x - view->x;
+    const int32_t y = app.mouse.y - view->y;
+    return 0 <= x && x < view->w && 0 <= y && y < view->h;
 }
 
-static bool app_tap(view_t* ui, int32_t ix) { // 0: left 1: middle 2: right
+static bool app_tap(view_t* view, int32_t ix) { // 0: left 1: middle 2: right
     bool done = false; // consumed
-    if (!view_hidden_or_disabled(ui) && app_inside(ui)) {
-        for (view_t** c = ui->children; c != null && *c != null && !done; c++) {
+    if (!view_hidden_or_disabled(view) && app_inside(view)) {
+        for (view_t** c = view->children; c != null && *c != null && !done; c++) {
             done = app_tap(*c, ix);
         }
-        if (ui->tap != null && !done) { done = ui->tap(ui, ix); }
+        if (view->tap != null && !done) { done = view->tap(view, ix); }
     }
     return done;
 }
 
-static bool app_press(view_t* ui, int32_t ix) { // 0: left 1: middle 2: right
+static bool app_press(view_t* view, int32_t ix) { // 0: left 1: middle 2: right
     bool done = false; // consumed
-    if (!view_hidden_or_disabled(ui) && app_inside(ui)) {
-        for (view_t** c = ui->children; c != null && *c != null && !done; c++) {
+    if (!view_hidden_or_disabled(view) && app_inside(view)) {
+        for (view_t** c = view->children; c != null && *c != null && !done; c++) {
             done = app_press(*c, ix);
         }
-        if (ui->press != null && !done) { done = ui->press(ui, ix); }
+        if (view->press != null && !done) { done = view->press(view, ix); }
     }
     return done;
 }
 
-static void app_mouse(view_t* ui, int32_t m, int32_t f) {
+static void app_mouse(view_t* view, int32_t m, int32_t f) {
     if (app.toasting.ui != null && app.toasting.ui->mouse != null) {
         app_ui_mouse(app.toasting.ui, m, f);
     } else if (app.toasting.ui != null && app.toasting.ui->mouse == null) {
         app_toast_mouse(m, f);
         bool tooltip = app.toasting.x >= 0 && app.toasting.y >= 0;
-        if (tooltip) { app_ui_mouse(ui, m, f); }
+        if (tooltip) { app_ui_mouse(view, m, f); }
     } else {
-        app_ui_mouse(ui, m, f);
+        app_ui_mouse(view, m, f);
     }
 }
 
@@ -903,7 +816,7 @@ static void app_toast_paint(void) {
         gdi.image_init(&image, 1, 1, 3, pixels);
     }
     if (app.toasting.ui != null) {
-        font_t f = app.toasting.ui->font != null ? *app.toasting.ui->font : app.fonts.regular;
+        ui_font_t f = app.toasting.ui->font != null ? *app.toasting.ui->font : app.fonts.regular;
         const ui_point_t em = gdi.get_em(f);
         app.toasting.ui->em = em;
         // allow unparented and unmeasured toasts:
@@ -964,8 +877,8 @@ static void app_toast_cancel(void) {
 }
 
 static void app_toast_mouse(int32_t m, int32_t flags) {
-    bool pressed = m == messages.left_button_pressed ||
-                   m == messages.right_button_pressed;
+    bool pressed = m == ui.message.left_button_pressed ||
+                   m == ui.message.right_button_pressed;
     if (app.toasting.ui != null && pressed) {
         const ui_point_t em = app.toasting.ui->em;
         int32_t x = app.toasting.ui->x + app.toasting.ui->w;
@@ -1038,8 +951,8 @@ static void app_layout_root(void) {
 }
 
 static void app_paint_on_canvas(HDC hdc) {
-    canvas_t canvas = app.canvas;
-    app.canvas = (canvas_t)hdc;
+    ui_canvas_t canvas = app.canvas;
+    app.canvas = (ui_canvas_t)hdc;
     gdi.push(0, 0);
     double time = clock.seconds();
     gdi.x = 0;
@@ -1049,13 +962,13 @@ static void app_paint_on_canvas(HDC hdc) {
         app_layout_dirty = false;
         app_layout_root();
     }
-    font_t font = gdi.set_font(app.fonts.regular);
-    color_t c = gdi.set_text_color(colors.text);
+    ui_font_t font = gdi.set_font(app.fonts.regular);
+    ui_color_t c = gdi.set_text_color(colors.text);
     int32_t bm = SetBkMode(canvas(), TRANSPARENT);
     int32_t stretch_mode = SetStretchBltMode(canvas(), HALFTONE);
     ui_point_t pt = {0};
     fatal_if_false(SetBrushOrgEx(canvas(), 0, 0, (POINT*)&pt));
-    brush_t br = gdi.set_brush(gdi.brush_hollow);
+    ui_brush_t br = gdi.set_brush(gdi.brush_hollow);
     app_paint(app.ui);
     if (app.toasting.ui != null) { app_toast_paint(); }
     fatal_if_false(SetBrushOrgEx(canvas(), pt.x, pt.y, null));
@@ -1158,8 +1071,8 @@ static void app_click_detector(uint32_t msg, WPARAM wp, LPARAM lp) {
     static ui_point_t click_at[3];
     static double     clicked[3]; // click time
     static bool       pressed[3];
-    static tm_t       timer_d[3]; // double tap
-    static tm_t       timer_p[3]; // long press
+    static ui_timer_t       timer_d[3]; // double tap
+    static ui_timer_t       timer_p[3]; // long press
     bool up = false;
     int32_t ix = -1;
     uint32_t m = 0;
@@ -1189,8 +1102,8 @@ static void app_click_detector(uint32_t msg, WPARAM wp, LPARAM lp) {
         }
     }
     if (ix != -1) {
-        const uint32_t DTAP_MSEC = GetDoubleClickTime();
-        const double double_click_dt = DTAP_MSEC / 1000.0;
+        const uint32_t dtap_msec = GetDoubleClickTime();
+        const double double_click_dt = dtap_msec / 1000.0;
         const int double_click_x = GetSystemMetrics(SM_CXDOUBLECLK) / 2;
         const int double_click_y = GetSystemMetrics(SM_CYDOUBLECLK) / 2;
         ui_point_t pt = { GET_X_LPARAM(lp), GET_Y_LPARAM(lp) };
@@ -1205,8 +1118,8 @@ static void app_click_detector(uint32_t msg, WPARAM wp, LPARAM lp) {
                 clicked[ix]  = app.now;
                 click_at[ix] = pt;
                 pressed[ix]  = true;
-                set_timer(timer_p[ix], LONG_PRESS_MSEC); // 0.25s
-                set_timer(timer_d[ix], DTAP_MSEC); // 0.5s
+                set_timer(timer_p[ix], ui_long_press_msec); // 0.25s
+                set_timer(timer_d[ix], dtap_msec); // 0.5s
             }
         } else if (up) {
 //          traceln("pressed[%d]: %d %.3f", ix, pressed[ix], app.now - clicked[ix]);
@@ -1228,23 +1141,23 @@ static void app_click_detector(uint32_t msg, WPARAM wp, LPARAM lp) {
 static LRESULT CALLBACK window_proc(HWND window, UINT msg, WPARAM wp, LPARAM lp) {
     app.now = clock.seconds();
     if (app.window == null) {
-        app.window = (window_t)window;
+        app.window = (ui_window_t)window;
     } else {
         assert(window() == window);
     }
     int64_t ret = 0;
-    app_killfocus(app.ui);
+    app_kill_hidden_focus(app.ui);
     app_click_detector(msg, wp, lp);
     if (app_message(app.ui, msg, wp, lp, &ret)) {
         return (LRESULT)ret;
     }
+    if ((int32_t)msg == ui.message.opening) { app_window_opening(); return 0; }
+    if ((int32_t)msg == ui.message.closing) { app_window_closing(); return 0; }
     switch (msg) {
         case WM_GETMINMAXINFO: app_get_min_max_info((MINMAXINFO*)lp); break;
         case WM_SETTINGCHANGE: app_setting_change(wp, lp); break;
         case WM_CLOSE        : app.focus = null; // before WM_CLOSING
                                app_post_message(WM_CLOSING, 0, 0); return 0;
-        case WM_OPENNING     : app_window_opening(); return 0;
-        case WM_CLOSING      : app_window_closing(); return 0;
         case WM_DESTROY      : PostQuitMessage(app.exit_code); break;
         case WM_SYSKEYDOWN: // for ALT (aka VK_MENU)
         case WM_KEYDOWN      : app_alt_ctrl_shift(true, (int32_t)wp);
@@ -1254,7 +1167,7 @@ static LRESULT CALLBACK window_proc(HWND window, UINT msg, WPARAM wp, LPARAM lp)
         case WM_KEYUP        : app_alt_ctrl_shift(false, (int32_t)wp);
                                app_key_released(app.ui, (int32_t)wp);
                                break;
-        case WM_TIMER        : app_wm_timer((tm_t)wp);
+        case WM_TIMER        : app_wm_timer((ui_timer_t)wp);
                                break;
         case WM_ERASEBKGND   : return true; // no DefWindowProc()
         case WM_SETCURSOR    : SetCursor((HCURSOR)app.cursor); break;
@@ -1344,8 +1257,8 @@ static LRESULT CALLBACK window_proc(HWND window, UINT msg, WPARAM wp, LPARAM lp)
         }
         case WM_SYSCOMMAND:
             if (wp == SC_MINIMIZE && app.hide_on_minimize) {
-                app.show_window(window_visibility.min_na);
-                app.show_window(window_visibility.hide);
+                app.show_window(ui.visibility.min_na);
+                app.show_window(ui.visibility.hide);
             }
             // If the selection is in menu handle the key event
             if (wp == SC_KEYMENU && lp != 0x20) {
@@ -1354,7 +1267,7 @@ static LRESULT CALLBACK window_proc(HWND window, UINT msg, WPARAM wp, LPARAM lp)
             break;
         case WM_ACTIVATE:
             if (!IsWindowVisible(window()) && LOWORD(wp) != WA_INACTIVE) {
-                app.show_window(window_visibility.restore);
+                app.show_window(ui.visibility.restore);
                 SwitchToThisWindow(window(), true);
             }
             break;
@@ -1432,7 +1345,7 @@ static void app_create_window(const ui_rect_t r) {
             DWMWA_NCRENDERING_POLICY, &ncrp, sizeof(ncrp));
     }
     // always start with window hidden and let application show it
-    app.show_window(window_visibility.hide);
+    app.show_window(ui.visibility.hide);
     if (app.no_min || app.no_max) {
         uint32_t exclude = WS_SIZEBOX;
         if (app.no_min) { exclude = WS_MINIMIZEBOX; }
@@ -1452,7 +1365,7 @@ static void app_create_window(const ui_rect_t r) {
                      SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE };
         SetWindowPos(window(), NULL, 0, 0, 0, 0, swp);
     }
-    if (app.visibility != window_visibility.hide) {
+    if (app.visibility != ui.visibility.hide) {
         app.ui->w = app.wrc.w;
         app.ui->h = app.wrc.h;
         AnimateWindow(window(), 250, AW_ACTIVATE);
@@ -1462,7 +1375,7 @@ static void app_create_window(const ui_rect_t r) {
 //      app.ui->h = app.crc.h;
     }
     // even if it is hidden:
-    app_post_message(WM_OPENNING, 0, 0);
+    app_post_message(ui.message.opening, 0, 0);
 //  SetWindowTheme(window(), L"DarkMode_Explorer", null); ???
 }
 
@@ -1542,7 +1455,7 @@ static void app_dispose(void) {
     fatal_if_false(CloseHandle(app_event_invalidate));
 }
 
-static void app_cursor_set(cursor_t c) {
+static void app_cursor_set(ui_cursor_t c) {
     // https://docs.microsoft.com/en-us/windows/win32/menurc/using-cursors
     app.cursor = c;
     SetClassLongPtr(window(), GCLP_HCURSOR, (LONG_PTR)c);
@@ -1563,18 +1476,19 @@ static void app_quit(int32_t exit_code) {
     app.close(); // close and destroy app only window
 }
 
-static void app_show_tooltip_or_toast(view_t* ui, int32_t x, int32_t y, double timeout) {
-    if (ui != null) {
+static void app_show_tooltip_or_toast(view_t* view, int32_t x, int32_t y,
+        double timeout) {
+    if (view != null) {
         app.toasting.x = x;
         app.toasting.y = y;
-        if (ui->tag == uic_tag_messagebox) {
-            ((messagebox_t*)ui)->option = -1;
+        if (view->tag == uic_tag_messagebox) {
+            ((messagebox_t*)view)->option = -1;
         }
         // allow unparented ui for toast and tooltip
-        if (ui->init != null) { ui->init(ui); ui->init = null; }
-        ui->localize(ui);
+        if (view->init != null) { view->init(view); view->init = null; }
+        view->localize(view);
         app_animate_start(app_toast_dim, toast_steps);
-        app.toasting.ui = ui;
+        app.toasting.ui = view;
         app.toasting.ui->font = &app.fonts.H1;
         app.toasting.time = timeout > 0 ? app.now + timeout : 0;
     } else {
@@ -1582,14 +1496,16 @@ static void app_show_tooltip_or_toast(view_t* ui, int32_t x, int32_t y, double t
     }
 }
 
-static void app_show_toast(view_t* ui, double timeout) {
-    app_show_tooltip_or_toast(ui, -1, -1, timeout);
+static void app_show_toast(view_t* view, double timeout) {
+    app_show_tooltip_or_toast(view, -1, -1, timeout);
 }
 
-static void app_show_tooltip(view_t* ui, int32_t x, int32_t y, double timeout) {
-    if (ui != null) {
-        app_show_tooltip_or_toast(ui, x, y, timeout);
-    } else if (app.toasting.ui != null && app.toasting.x >= 0 && app.toasting.y >= 0) {
+static void app_show_tooltip(view_t* view, int32_t x, int32_t y,
+        double timeout) {
+    if (view != null) {
+        app_show_tooltip_or_toast(view, x, y, timeout);
+    } else if (app.toasting.ui != null && app.toasting.x >= 0 &&
+               app.toasting.y >= 0) {
         app_toast_cancel(); // only cancel tooltips not toasts
     }
 }
@@ -1859,25 +1775,25 @@ static void app_request_layout(void) {
 }
 
 static void app_show_window(int32_t show) {
-    assert(window_visibility.hide <= show &&
-           show <= window_visibility.force_min);
+    assert(ui.visibility.hide <= show &&
+           show <= ui.visibility.force_min);
     // ShowWindow() does not have documented error reporting
     bool was_visible = ShowWindow(window(), show);
     (void)was_visible;
     const bool hiding =
-        show == window_visibility.hide ||
-        show == window_visibility.minimize ||
-        show == window_visibility.show_na ||
-        show == window_visibility.min_na;
+        show == ui.visibility.hide ||
+        show == ui.visibility.minimize ||
+        show == ui.visibility.show_na ||
+        show == ui.visibility.min_na;
     if (!hiding) {
         app.bring_to_foreground(); // this does not make it ActiveWindow
         enum { swp = SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOSIZE |
                      SWP_NOREPOSITION | SWP_NOMOVE };
         SetWindowPos(window(), null, 0, 0, 0, 0, swp);
         app.request_focus();
-    } else if (show == window_visibility.hide ||
-               show == window_visibility.minimize ||
-               show == window_visibility.min_na) {
+    } else if (show == ui.visibility.hide ||
+               show == ui.visibility.minimize ||
+               show == ui.visibility.min_na) {
         app_toast_cancel();
     }
 }
@@ -1928,8 +1844,8 @@ static const char* app_open_filename(const char* folder,
     return text;
 }
 
-static int32_t clipboard_copy_text(const char* utf8) {
-    int r = 0;
+static errno_t clipboard_copy_text(const char* utf8) {
+    errno_t r = 0;
     int32_t chars = str.utf16_chars(utf8);
     int32_t bytes = (chars + 1) * 2;
     wchar_t* utf16 = (wchar_t*)malloc(bytes);
@@ -1975,7 +1891,7 @@ static int32_t clipboard_copy_text(const char* utf8) {
     return r;
 }
 
-static int clipboard_text(char* utf8, int32_t* bytes) {
+static errno_t clipboard_text(char* utf8, int32_t* bytes) {
     not_null(bytes);
     int r = OpenClipboard(GetDesktopWindow()) ? 0 : GetLastError();
     if (r != 0) { traceln("OpenClipboard() failed %s", str.error(r)); }
@@ -2010,7 +1926,7 @@ static int clipboard_text(char* utf8, int32_t* bytes) {
     return r;
 }
 
-static int clipboard_copy_bitmap(image_t* im) {
+static errno_t clipboard_copy_bitmap(image_t* im) {
     HDC canvas = GetDC(null);
     not_null(canvas);
     HDC src = CreateCompatibleDC(canvas); not_null(src);
@@ -2026,7 +1942,7 @@ static int clipboard_copy_bitmap(image_t* im) {
     fatal_if_false(SetBrushOrgEx(dst, 0, 0, &pt));
     fatal_if_false(StretchBlt(dst, 0, 0, im->w, im->h, src, 0, 0,
         im->w, im->h, SRCCOPY));
-    int r = OpenClipboard(GetDesktopWindow()) ? 0 : GetLastError();
+    errno_t r = OpenClipboard(GetDesktopWindow()) ? 0 : GetLastError();
     if (r != 0) { traceln("OpenClipboard() failed %s", str.error(r)); }
     if (r == 0) {
         r = EmptyClipboard() ? 0 : GetLastError();
@@ -2086,20 +2002,20 @@ clipboard_t clipboard = {
 
 static view_t app_ui;
 
-static bool app_is_hidden(const view_t* ui) {
-    bool hidden = ui->hidden;
-    while (!hidden && ui->parent != null) {
-        ui = ui->parent;
-        hidden = ui->hidden;
+static bool app_is_hidden(const view_t* view) {
+    bool hidden = view->hidden;
+    while (!hidden && view->parent != null) {
+        view = view->parent;
+        hidden = view->hidden;
     }
     return hidden;
 }
 
-static bool app_is_disabled(const view_t* ui) {
-    bool disabled = ui->disabled;
-    while (!disabled && ui->parent != null) {
-        ui = ui->parent;
-        disabled = ui->disabled;
+static bool app_is_disabled(const view_t* view) {
+    bool disabled = view->disabled;
+    while (!disabled && view->parent != null) {
+        view = view->parent;
+        disabled = view->disabled;
     }
     return disabled;
 }
@@ -2198,7 +2114,7 @@ static int app_win_main(void) {
     not_null(app.init);
     __app_windows_init__();
     __gdi_init__();
-    app.last_visibility = window_visibility.defau1t;
+    app.last_visibility = ui.visibility.defau1t;
     app_init();
     int r = 0;
 //  app_dump_dpi();

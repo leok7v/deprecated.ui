@@ -3,17 +3,17 @@
 
 begin_c
 
-/* TODO: make color_t uint64_t RGBA remove pens and brushes
+/* TODO: make ui_color_t uint64_t RGBA remove pens and brushes
          support upto 16-16-16-15(A)bit per pixel color
          components with 'transparent/hollow' bit
 */
 
-#define color_mask        ((color_t)0xC000000000000000ULL)
+#define color_mask        ((ui_color_t)0xC000000000000000ULL)
 
-#define color_mask        ((color_t)0xC000000000000000ULL)
-#define color_undefined   ((color_t)0x8000000000000000ULL)
-#define color_transparent ((color_t)0x4000000000000000ULL)
-#define color_hdr         ((color_t)0xC000000000000000ULL)
+#define color_mask        ((ui_color_t)0xC000000000000000ULL)
+#define color_undefined   ((ui_color_t)0x8000000000000000ULL)
+#define color_transparent ((ui_color_t)0x4000000000000000ULL)
+#define color_hdr         ((ui_color_t)0xC000000000000000ULL)
 
 #define color_is_8bit(c)         (((c) & color_mask) == 0)
 #define color_is_hdr(c)          (((c) & color_mask) == color_hdr)
@@ -29,9 +29,9 @@ begin_c
 #define color_hdr_g(c)    (((c) >> 16) & 0xFFFF)
 #define color_hdr_b(c)    (((c) >> 32) & 0xFFFF)
 
-#define rgb(r,g,b) ((color_t)(((uint8_t)(r) | ((uint16_t)((uint8_t)(g))<<8)) | \
+#define rgb(r,g,b) ((ui_color_t)(((uint8_t)(r) | ((uint16_t)((uint8_t)(g))<<8)) | \
     (((uint32_t)(uint8_t)(b))<<16)))
-#define rgba(r, g, b, a) (color_t)((rgb(r, g, b)) | (((uint8_t)a) << 24))
+#define rgba(r, g, b, a) (ui_color_t)((rgb(r, g, b)) | (((uint8_t)a) << 24))
 
 typedef struct colors_s {
     const int32_t none; // aka CLR_INVALID in wingdi

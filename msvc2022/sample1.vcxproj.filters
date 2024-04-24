@@ -18,9 +18,6 @@
     <ClInclude Include="..\inc\ui\win32.h">
       <Filter>inc\ui</Filter>
     </ClInclude>
-    <ClInclude Include="..\inc\ui\types.h">
-      <Filter>inc\ui</Filter>
-    </ClInclude>
     <ClInclude Include="..\inc\ui\app.h">
       <Filter>inc\ui</Filter>
     </ClInclude>
@@ -114,6 +111,9 @@
       <Filter>src\ui</Filter>
     </ClCompile>
     <ClCompile Include="..\src\ui\layout.c">
+      <Filter>src\ui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\ui\core.c">
       <Filter>src\ui</Filter>
     </ClCompile>
   </ItemGroup>

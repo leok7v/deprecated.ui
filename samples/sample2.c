@@ -8,7 +8,7 @@ const char* title = "Sample2";
 
 enum { N = 1800 };
 
-static tm_t timer10ms;
+static ui_timer_t timer10ms;
 static thread_t thread;
 static bool quit;
 
@@ -47,7 +47,7 @@ static void stats(volatile time_stats_t* t) {
     t->spread = max(fabs(t->max_dt), fabs(t->min_dt));
 }
 
-static void graph(view_t* ui, volatile time_stats_t* t, color_t c, int y) {
+static void graph(view_t* view, volatile time_stats_t* t, ui_color_t c, int y) {
     const int h2 = app.crc.h / 2;
     const int h4 = h2 / 2;
     const int h8 = h4 / 2;
@@ -68,8 +68,8 @@ static void graph(view_t* ui, volatile time_stats_t* t, color_t c, int y) {
         }
         gdi.poly(points, n - 1);
 
-        gdi.x = ui->em.x;
-        gdi.y = y - h8 - ui->em.y;
+        gdi.x = view->em.x;
+        gdi.y = y - h8 - view->em.y;
         gdi.println("min %.3f max %.3f avg %.3f ms  "
             "%.1f sps",
             t->min_dt * 1000, t->max_dt * 1000, t->avg, 1 / t->avg);
@@ -89,31 +89,31 @@ static void timer_thread(void* p) {
     }
 }
 
-static void paint(view_t* ui) {
+static void paint(view_t* view) {
     stats(&ts[0]);
     stats(&ts[1]);
     gdi.set_brush(gdi.brush_color);
     gdi.set_brush_color(colors.dkgray1);
-    gdi.fill(0, 0, ui->w, ui->h);
-    gdi.y = ui->em.y;
-    gdi.x = ui->w - gdi.measure_text(app.fonts.mono,
-        "avg paint time %.1f ms", app.paint_avg * 1000).x - ui->em.x;
+    gdi.fill(0, 0, view->w, view->h);
+    gdi.y = view->em.y;
+    gdi.x = view->w - gdi.measure_text(app.fonts.mono,
+        "avg paint time %.1f ms", app.paint_avg * 1000).x - view->em.x;
     gdi.print("avg paint time %.1f ms", app.paint_avg * 1000);
-    gdi.x = ui->em.x;
+    gdi.x = view->em.x;
     gdi.print("10ms window timer jitter ");
     gdi.print("(\"sps\" stands for samples per second)");
     const int h2 = app.crc.h / 2;
     const int h4 = h2 / 2;
-    graph(ui, &ts[0], colors.tone_red, h4);
+    graph(view, &ts[0], colors.tone_red, h4);
     gdi.y = h2;
     gdi.print("10ms r/t thread sleep jitter");
-    graph(ui, &ts[1], colors.tone_green, h2 + h4);
+    graph(view, &ts[1], colors.tone_green, h2 + h4);
     gdi.y = h2 - h4;
 
 }
 
-static void timer(view_t* ui, tm_t id) {
-    assert(ui == app.ui); (void)ui;
+static void timer(view_t* unused(view), ui_timer_t id) {
+    assert(view == app.ui);
     // there are at least 3 timers notifications coming here:
     // 1 seconds, 100ms and 10ms:
     if (id == timer10ms) {
@@ -159,11 +159,11 @@ static void closed(void) {
 
 static void do_not_start_minimized(void) {
     // This sample does not start minimized but some applications may.
-    if (app.last_visibility != window_visibility.minimize) {
+    if (app.last_visibility != ui.visibility.minimize) {
         app.visibility = app.last_visibility;
     } else {
-        app.visibility = window_visibility.defau1t;
-        app.last_visibility = window_visibility.defau1t;
+        app.visibility = ui.visibility.defau1t;
+        app.last_visibility = ui.visibility.defau1t;
     }
 }
 

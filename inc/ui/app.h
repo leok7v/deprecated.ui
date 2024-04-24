@@ -3,46 +3,7 @@
 
 begin_c
 
-// SUBSYSTEM:WINDOWS single window application
-
-typedef struct window_visibility_s {
-    const int32_t hide;
-    const int32_t normal;   // should be use for first .show()
-    const int32_t minimize; // activate and minimize
-    const int32_t maximize; // activate and maximize
-    const int32_t normal_na;// same as .normal but no activate
-    const int32_t show;     // shows and activates in current size and position
-    const int32_t min_next; // minimize and activate next window in Z order
-    const int32_t min_na;   // minimize but do not activate
-    const int32_t show_na;  // same as .show but no activate
-    const int32_t restore;  // from min/max to normal window size/pos
-    const int32_t defau1t;  // use Windows STARTUPINFO value
-    const int32_t force_min;// minimize even if dispatch thread not responding
-} window_visibility_t;
-
-extern window_visibility_t window_visibility;
-
-typedef struct fonts_s {
-    // font handles re-created on scale change
-    font_t regular; // proportional UI font
-    font_t mono; // monospaced  UI font
-    font_t H1; // bold header font
-    font_t H2;
-    font_t H3;
-} fonts_t;
-
-enum {
-    known_folder_home      = 0, // c:\Users\<username>
-    known_folder_desktop   = 1,
-    known_folder_documents = 2,
-    known_folder_downloads = 3,
-    known_folder_music     = 4,
-    known_folder_pictures  = 5,
-    known_folder_videos    = 6,
-    known_folder_shared    = 7, // c:\Users\Public
-    known_folder_bin       = 8, // c:\ProgramFiles
-    known_folder_data      = 9  // c:\ProgramData
-};
+// link.exe /SUBSYSTEM:WINDOWS single window application
 
 // every_sec() and every_100ms() also called on all UICs
 
@@ -86,8 +47,8 @@ typedef struct app_s {
     int32_t exit_code; // application exit code
     int32_t tid; // main thread id
     // drawing context:
-    dpi_t dpi;
-    window_t window;
+    ui_dpi_t dpi;
+    ui_window_t window;
     ui_rect_t wrc;  // window rectangle including non-client area
     ui_rect_t crc;  // client rectangle
     ui_rect_t mrc;  // monitor rectangle
@@ -98,17 +59,17 @@ typedef struct app_s {
     double now;     // ssb "seconds since boot" updated on each message
     view_t* ui;      // show_window() changes ui.hidden
     view_t* focus;   // does not affect message routing - free for all
-    fonts_t fonts;
-    cursor_t cursor; // current cursor
-    cursor_t cursor_arrow;
-    cursor_t cursor_wait;
-    cursor_t cursor_ibeam;
+    ui_fonts_t fonts;
+    ui_cursor_t cursor; // current cursor
+    ui_cursor_t cursor_arrow;
+    ui_cursor_t cursor_wait;
+    ui_cursor_t cursor_ibeam;
     // keyboard state now:
     bool alt;
     bool ctrl;
     bool shift;
     ui_point_t mouse; // mouse/touchpad pointer
-    canvas_t canvas;  // set by WM_PAINT message
+    ui_canvas_t canvas;  // set by WM_PAINT message
     struct { // toast state
         view_t* ui;
         int32_t step;
@@ -151,12 +112,12 @@ typedef struct app_s {
     void (*full_screen)(bool on);
     void (*redraw)(void); // very fast (5 microseconds) InvalidateRect(null)
     void (*draw)(void);   // UpdateWindow()
-    void (*set_cursor)(cursor_t c);
+    void (*set_cursor)(ui_cursor_t c);
     void (*close)(void); // attempts to close (can_close() permitting)
     // forced quit() even if can_close() returns false
     void (*quit)(int32_t ec);  // app.exit_code = ec; PostQuitMessage(ec);
-    tm_t (*set_timer)(uintptr_t id, int32_t milliseconds); // see notes
-    void (*kill_timer)(tm_t id);
+    ui_timer_t (*set_timer)(uintptr_t id, int32_t milliseconds); // see notes
+    void (*kill_timer)(ui_timer_t id);
     void (*post)(int32_t message, int64_t wp, int64_t lp);
     void (*show_window)(int32_t show); // see show_window enum
     void (*show_toast)(view_t* toast, double seconds); // toast(null) to cancel
@@ -194,83 +155,5 @@ typedef struct app_s {
 } app_t;
 
 extern app_t app;
-
-typedef struct clipboard_s {
-    int (*copy_text)(const char* s); // returns error or 0
-    int (*copy_bitmap)(image_t* im); // returns error or 0
-    int (*text)(char* text, int32_t* bytes);
-} clipboard_t;
-
-extern clipboard_t clipboard;
-
-typedef struct messages_s {
-    const int32_t character; // translated from key pressed/released to utf8
-    const int32_t key_pressed;
-    const int32_t key_released;
-    const int32_t left_button_pressed;
-    const int32_t left_button_released;
-    const int32_t right_button_pressed;
-    const int32_t right_button_released;
-    const int32_t mouse_move;
-    const int32_t left_double_click;
-    const int32_t right_double_click;
-    // wp: 0,1,2 (left, middle, right) button index, lp: client x,y
-    const int32_t tap;
-    const int32_t dtap;
-    const int32_t press;
-} messages_t;
-
-extern messages_t messages;
-
-typedef struct mouse_flags_s { // which buttons are pressed
-    const int32_t left_button;
-    const int32_t right_button;
-} mouse_flags_t;
-
-extern mouse_flags_t mouse_flags;
-
-typedef struct virtual_keys_s {
-    const int32_t up;
-    const int32_t down;
-    const int32_t left;
-    const int32_t right;
-    const int32_t home;
-    const int32_t end;
-    const int32_t pageup;
-    const int32_t pagedw;
-    const int32_t insert;
-    const int32_t del;
-    const int32_t back;
-    const int32_t escape;
-    const int32_t enter;
-    const int32_t plus;
-    const int32_t minus;
-    const int32_t f1;
-    const int32_t f2;
-    const int32_t f3;
-    const int32_t f4;
-    const int32_t f5;
-    const int32_t f6;
-    const int32_t f7;
-    const int32_t f8;
-    const int32_t f9;
-    const int32_t f10;
-    const int32_t f11;
-    const int32_t f12;
-    const int32_t f13;
-    const int32_t f14;
-    const int32_t f15;
-    const int32_t f16;
-    const int32_t f17;
-    const int32_t f18;
-    const int32_t f19;
-    const int32_t f20;
-    const int32_t f21;
-    const int32_t f22;
-    const int32_t f23;
-    const int32_t f24;
-} virtual_keys_t;
-
-extern virtual_keys_t virtual_keys;
 
 end_c

@@ -1,70 +1,70 @@
 typedef struct gdi_xyc_s {
     int32_t x;
     int32_t y;
-    color_t c;
+    ui_color_t c;
 } gdi_xyc_t;
 
 static int32_t gdi_top;
 static gdi_xyc_t gdi_stack[256];
 
 static void __gdi_init__(void) {
-    gdi.brush_hollow = (brush_t)GetStockBrush(HOLLOW_BRUSH);
-    gdi.brush_color  = (brush_t)GetStockBrush(DC_BRUSH);
-    gdi.pen_hollow = (pen_t)GetStockPen(NULL_PEN);
+    gdi.brush_hollow = (ui_brush_t)GetStockBrush(HOLLOW_BRUSH);
+    gdi.brush_color  = (ui_brush_t)GetStockBrush(DC_BRUSH);
+    gdi.pen_hollow = (ui_pen_t)GetStockPen(NULL_PEN);
 }
 
-static inline COLORREF gdi_color_ref(color_t c) {
+static inline COLORREF gdi_color_ref(ui_color_t c) {
     assert(color_is_8bit(c));
     return (COLORREF)(c & 0xFFFFFFFF);
 }
 
-static color_t gdi_set_text_color(color_t c) {
+static ui_color_t gdi_set_text_color(ui_color_t c) {
     return SetTextColor(canvas(), gdi_color_ref(c));
 }
 
-static pen_t gdi_set_pen(pen_t p) {
+static ui_pen_t gdi_set_pen(ui_pen_t p) {
     not_null(p);
-    return (pen_t)SelectPen(canvas(), (HPEN)p);
+    return (ui_pen_t)SelectPen(canvas(), (HPEN)p);
 }
 
-static pen_t gdi_set_colored_pen(color_t c) {
-    pen_t p = (pen_t)SelectPen(canvas(), GetStockPen(DC_PEN));
+static ui_pen_t gdi_set_colored_pen(ui_color_t c) {
+    ui_pen_t p = (ui_pen_t)SelectPen(canvas(), GetStockPen(DC_PEN));
     SetDCPenColor(canvas(), gdi_color_ref(c));
     return p;
 }
 
-static pen_t gdi_create_pen(color_t c, int32_t width) {
+static ui_pen_t gdi_create_pen(ui_color_t c, int32_t width) {
     assert(width >= 1);
-    pen_t pen = (pen_t)CreatePen(PS_SOLID, width, gdi_color_ref(c));
+    ui_pen_t pen = (ui_pen_t)CreatePen(PS_SOLID, width, gdi_color_ref(c));
     not_null(pen);
     return pen;
 }
 
-static void gdi_delete_pen(pen_t p) {
+static void gdi_delete_pen(ui_pen_t p) {
     fatal_if_false(DeletePen(p));
 }
 
-static brush_t gdi_create_brush(color_t c) {
-    return (brush_t)CreateSolidBrush(gdi_color_ref(c));
+static ui_brush_t gdi_create_brush(ui_color_t c) {
+    return (ui_brush_t)CreateSolidBrush(gdi_color_ref(c));
 }
 
-static void gdi_delete_brush(brush_t b) {
+static void gdi_delete_brush(ui_brush_t b) {
     DeleteBrush((HBRUSH)b);
 }
 
-static brush_t gdi_set_brush(brush_t b) {
+static ui_brush_t gdi_set_brush(ui_brush_t b) {
     not_null(b);
-    return (brush_t)SelectBrush(canvas(), b);
+    return (ui_brush_t)SelectBrush(canvas(), b);
 }
 
-static color_t gdi_set_brush_color(color_t c) {
+static ui_color_t gdi_set_brush_color(ui_color_t c) {
     return SetDCBrushColor(canvas(), gdi_color_ref(c));
 }
 
 static void gdi_set_clip(int32_t x, int32_t y, int32_t w, int32_t h) {
     if (gdi.clip != null) { DeleteRgn(gdi.clip); gdi.clip = null; }
     if (w > 0 && h > 0) {
-        gdi.clip = (region_t)CreateRectRgn(x, y, x + w, y + h);
+        gdi.clip = (ui_region_t)CreateRectRgn(x, y, x + w, y + h);
         not_null(gdi.clip);
     }
     fatal_if(SelectClipRgn(canvas(), (HRGN)gdi.clip) == ERROR);
@@ -90,7 +90,7 @@ static void gdi_pop(void) {
     fatal_if_false(RestoreDC(canvas(), -1));
 }
 
-static void gdi_pixel(int32_t x, int32_t y, color_t c) {
+static void gdi_pixel(int32_t x, int32_t y, ui_color_t c) {
     not_null(app.canvas);
     fatal_if_false(SetPixel(canvas(), x, y, gdi_color_ref(c)));
 }
@@ -113,7 +113,7 @@ static void gdi_line(int32_t x, int32_t y) {
 }
 
 static void gdi_frame(int32_t x, int32_t y, int32_t w, int32_t h) {
-    brush_t b = gdi.set_brush(gdi.brush_hollow);
+    ui_brush_t b = gdi.set_brush(gdi.brush_hollow);
     gdi.rect(x, y, w, h);
     gdi.set_brush(b);
 }
@@ -124,24 +124,24 @@ static void gdi_rect(int32_t x, int32_t y, int32_t w, int32_t h) {
 
 static void gdi_fill(int32_t x, int32_t y, int32_t w, int32_t h) {
     RECT rc = { x, y, x + w, y + h };
-    brush_t b = (brush_t)GetCurrentObject(canvas(), OBJ_BRUSH);
+    ui_brush_t b = (ui_brush_t)GetCurrentObject(canvas(), OBJ_BRUSH);
     fatal_if_false(FillRect(canvas(), &rc, (HBRUSH)b));
 }
 
 static void gdi_frame_with(int32_t x, int32_t y, int32_t w, int32_t h,
-        color_t c) {
-    brush_t b = gdi.set_brush(gdi.brush_hollow);
-    pen_t p = gdi.set_colored_pen(c);
+        ui_color_t c) {
+    ui_brush_t b = gdi.set_brush(gdi.brush_hollow);
+    ui_pen_t p = gdi.set_colored_pen(c);
     gdi.rect(x, y, w, h);
     gdi.set_pen(p);
     gdi.set_brush(b);
 }
 
 static void gdi_rect_with(int32_t x, int32_t y, int32_t w, int32_t h,
-        color_t border, color_t fill) {
-    brush_t b = gdi.set_brush(gdi.brush_color);
-    color_t c = gdi.set_brush_color(fill);
-    pen_t p = gdi.set_colored_pen(border);
+        ui_color_t border, ui_color_t fill) {
+    ui_brush_t b = gdi.set_brush(gdi.brush_color);
+    ui_color_t c = gdi.set_brush_color(fill);
+    ui_pen_t p = gdi.set_colored_pen(border);
     gdi.rect(x, y, w, h);
     gdi.set_brush_color(c);
     gdi.set_pen(p);
@@ -149,8 +149,8 @@ static void gdi_rect_with(int32_t x, int32_t y, int32_t w, int32_t h,
 }
 
 static void gdi_fill_with(int32_t x, int32_t y, int32_t w, int32_t h,
-        color_t c) {
-    brush_t b = gdi.set_brush(gdi.brush_color);
+        ui_color_t c) {
+    ui_brush_t b = gdi.set_brush(gdi.brush_color);
     c = gdi.set_brush_color(c);
     gdi.fill(x, y, w, h);
     gdi.set_brush_color(c);
@@ -172,7 +172,7 @@ static void gdi_rounded(int32_t x, int32_t y, int32_t w, int32_t h,
 }
 
 static void gdi_gradient(int32_t x, int32_t y, int32_t w, int32_t h,
-        color_t rgba_from, color_t rgba_to, bool vertical) {
+        ui_color_t rgba_from, ui_color_t rgba_to, bool vertical) {
     TRIVERTEX vertex[2];
     vertex[0].x = x;
     vertex[0].y = y;
@@ -306,7 +306,7 @@ static void gdi_create_dib_section(image_t* image, int32_t w, int32_t h,
     HDC c = CreateCompatibleDC(null); // GetWindowDC(window());
     BITMAPINFO local = { {sizeof(BITMAPINFOHEADER)} };
     BITMAPINFO* bi = bpp == 1 ? gdi_greyscale_bitmap_info() : &local;
-    image->bitmap = (bitmap_t)CreateDIBSection(c, gdi_init_bitmap_info(w, h, bpp, bi),
+    image->bitmap = (ui_bitmap_t)CreateDIBSection(c, gdi_init_bitmap_info(w, h, bpp, bi),
                                                DIB_RGB_COLORS, &image->pixels, null, 0x0);
     fatal_if(image->bitmap == null || image->pixels == null);
 //  fatal_if_false(ReleaseDC(window(), c));
@@ -511,7 +511,7 @@ static_assertion(gdi_font_quality_antialiased == ANTIALIASED_QUALITY);
 static_assertion(gdi_font_quality_cleartype == CLEARTYPE_QUALITY);
 static_assertion(gdi_font_quality_cleartype_natural == CLEARTYPE_NATURAL_QUALITY);
 
-static font_t gdi_font(font_t f, int32_t height, int32_t quality) {
+static ui_font_t gdi_font(ui_font_t f, int32_t height, int32_t quality) {
     assert(f != null && height > 0);
     LOGFONTA lf = {0};
     int32_t n = GetObjectA(f, sizeof(lf), &lf);
@@ -522,10 +522,10 @@ static font_t gdi_font(font_t f, int32_t height, int32_t quality) {
     } else {
         fatal_if(quality != -1, "use -1 for do not care quality");
     }
-    return (font_t)CreateFontIndirectA(&lf);
+    return (ui_font_t)CreateFontIndirectA(&lf);
 }
 
-static int32_t gdi_font_height(font_t f) {
+static int32_t gdi_font_height(ui_font_t f) {
     assert(f != null);
     LOGFONTA lf = {0};
     int32_t n = GetObjectA(f, sizeof(lf), &lf);
@@ -534,13 +534,13 @@ static int32_t gdi_font_height(font_t f) {
     return abs(lf.lfHeight);
 }
 
-static void gdi_delete_font(font_t f) {
+static void gdi_delete_font(ui_font_t f) {
     fatal_if_false(DeleteFont(f));
 }
 
-static font_t gdi_set_font(font_t f) {
+static ui_font_t gdi_set_font(ui_font_t f) {
     not_null(f);
-    return (font_t)SelectFont(canvas(), (HFONT)f);
+    return (ui_font_t)SelectFont(canvas(), (HFONT)f);
 }
 
 #define gdi_with_hdc(code) do {                              \
@@ -567,7 +567,7 @@ static font_t gdi_set_font(font_t f) {
 } while (0);
 
 
-static int32_t gdi_baseline(font_t f) {
+static int32_t gdi_baseline(ui_font_t f) {
     TEXTMETRICA tm;
     gdi_hdc_with_font(f, {
         fatal_if_false(GetTextMetricsA(hdc, &tm));
@@ -575,7 +575,7 @@ static int32_t gdi_baseline(font_t f) {
     return tm.tmAscent;
 }
 
-static int32_t gdi_descent(font_t f) {
+static int32_t gdi_descent(ui_font_t f) {
     TEXTMETRICA tm;
     gdi_hdc_with_font(f, {
         fatal_if_false(GetTextMetricsA(hdc, &tm));
@@ -583,7 +583,7 @@ static int32_t gdi_descent(font_t f) {
     return tm.tmDescent;
 }
 
-static ui_point_t gdi_get_em(font_t f) {
+static ui_point_t gdi_get_em(ui_font_t f) {
     SIZE cell = {0};
     gdi_hdc_with_font(f, {
         fatal_if_false(GetTextExtentPoint32A(hdc, "M", 1, &cell));
@@ -592,7 +592,7 @@ static ui_point_t gdi_get_em(font_t f) {
     return c;
 }
 
-static bool gdi_is_mono(font_t f) {
+static bool gdi_is_mono(ui_font_t f) {
     SIZE em = {0}; // "M"
     SIZE vl = {0}; // "|" Vertical Line https://www.compart.com/en/unicode/U+007C
     SIZE e3 = {0}; // "\xE2\xB8\xBB" Three-Em Dash https://www.compart.com/en/unicode/U+2E3B
@@ -611,7 +611,7 @@ static double gdi_line_spacing(double height_multiplier) {
     return hm;
 }
 
-static int32_t gdi_draw_utf16(font_t font, const char* s, int32_t n,
+static int32_t gdi_draw_utf16(ui_font_t font, const char* s, int32_t n,
         RECT* r, uint32_t format) {
     // if font == null, draws on HDC with selected font
     int32_t height = 0; // return value is the height of the text in logical units
@@ -628,7 +628,7 @@ static int32_t gdi_draw_utf16(font_t font, const char* s, int32_t n,
 }
 
 typedef struct gdi_dtp_s { // draw text params
-    font_t font;
+    ui_font_t font;
     const char* format; // format string
     va_list vl;
     RECT rc;
@@ -683,7 +683,7 @@ static ui_point_t gdi_text_measure(gdi_dtp_t* p) {
     return cell;
 }
 
-static ui_point_t gdi_measure_singleline(font_t f, const char* format, ...) {
+static ui_point_t gdi_measure_singleline(ui_font_t f, const char* format, ...) {
     va_list vl;
     va_start(vl, format);
     gdi_dtp_t p = { f, format, vl, {0, 0, 0, 0}, sl_measure };
@@ -692,7 +692,7 @@ static ui_point_t gdi_measure_singleline(font_t f, const char* format, ...) {
     return cell;
 }
 
-static ui_point_t gdi_measure_multiline(font_t f, int32_t w, const char* format, ...) {
+static ui_point_t gdi_measure_multiline(ui_font_t f, int32_t w, const char* format, ...) {
     va_list vl;
     va_start(vl, format);
     uint32_t flags = w <= 0 ? ml_measure : ml_measure_break;
@@ -741,7 +741,7 @@ static ui_point_t gdi_multiline(int32_t w, const char* f, ...) {
 
 static void gdi_vprint(const char* format, va_list vl) {
     not_null(app.fonts.mono);
-    font_t f = gdi.set_font(app.fonts.mono);
+    ui_font_t f = gdi.set_font(app.fonts.mono);
     gdi.vtext(format, vl);
     gdi.set_font(f);
 }
@@ -755,7 +755,7 @@ static void gdi_print(const char* format, ...) {
 
 static void gdi_vprintln(const char* format, va_list vl) {
     not_null(app.fonts.mono);
-    font_t f = gdi.set_font(app.fonts.mono);
+    ui_font_t f = gdi.set_font(app.fonts.mono);
     gdi.vtextln(format, vl);
     gdi.set_font(f);
 }
